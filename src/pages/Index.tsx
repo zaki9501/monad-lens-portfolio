@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,6 +10,8 @@ import PortfolioOverview from "@/components/PortfolioOverview";
 import DeFiAnalytics from "@/components/DeFiAnalytics";
 import NFTCollection from "@/components/NFTCollection";
 import DAppExplorer from "@/components/DAppExplorer";
+import TransactionHistory from "@/components/TransactionHistory";
+import BadgeCollection from "@/components/BadgeCollection";
 import SearchBar from "@/components/SearchBar";
 
 const Index = () => {
@@ -140,7 +141,7 @@ const Index = () => {
 
             {/* Main Dashboard */}
             <Tabs defaultValue="portfolio" className="space-y-6">
-              <TabsList className="grid w-full grid-cols-4 bg-slate-800/50">
+              <TabsList className="grid w-full grid-cols-6 bg-slate-800/50">
                 <TabsTrigger value="portfolio" className="text-white data-[state=active]:bg-purple-600">
                   Portfolio
                 </TabsTrigger>
@@ -152,6 +153,12 @@ const Index = () => {
                 </TabsTrigger>
                 <TabsTrigger value="dapps" className="text-white data-[state=active]:bg-purple-600">
                   dApps
+                </TabsTrigger>
+                <TabsTrigger value="transactions" className="text-white data-[state=active]:bg-purple-600">
+                  Transactions
+                </TabsTrigger>
+                <TabsTrigger value="badges" className="text-white data-[state=active]:bg-purple-600">
+                  Badges
                 </TabsTrigger>
               </TabsList>
 
@@ -257,6 +264,14 @@ const Index = () => {
 
               <TabsContent value="dapps">
                 <DAppExplorer />
+              </TabsContent>
+
+              <TabsContent value="transactions">
+                <TransactionHistory walletAddress={viewingAddress} />
+              </TabsContent>
+
+              <TabsContent value="badges">
+                <BadgeCollection walletAddress={viewingAddress} />
               </TabsContent>
             </Tabs>
           </div>
