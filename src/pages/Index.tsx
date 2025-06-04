@@ -11,16 +11,19 @@ import PortfolioOverview from "@/components/PortfolioOverview";
 import DeFiAnalytics from "@/components/DeFiAnalytics";
 import NFTCollection from "@/components/NFTCollection";
 import DAppExplorer from "@/components/DAppExplorer";
+import SearchBar from "@/components/SearchBar";
 
 const Index = () => {
   const [isConnected, setIsConnected] = useState(false);
   const [walletAddress, setWalletAddress] = useState("");
+  const [viewingAddress, setViewingAddress] = useState("");
   const { toast } = useToast();
 
   const connectWallet = () => {
     // Mock wallet connection
     const mockAddress = "0x742d35Cc6634C0532925a3b8D48C405BeF8b30Ab";
     setWalletAddress(mockAddress);
+    setViewingAddress(mockAddress);
     setIsConnected(true);
     toast({
       title: "Wallet Connected",
@@ -30,6 +33,7 @@ const Index = () => {
 
   const disconnectWallet = () => {
     setWalletAddress("");
+    setViewingAddress("");
     setIsConnected(false);
     toast({
       title: "Wallet Disconnected",
@@ -44,6 +48,12 @@ const Index = () => {
       description: "Wallet address copied to clipboard",
     });
   };
+
+  const handleWalletSearch = (address: string) => {
+    setViewingAddress(address);
+  };
+
+  const isViewingOwnWallet = viewingAddress === walletAddress;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
@@ -104,8 +114,29 @@ const Index = () => {
           <WalletConnection onConnect={connectWallet} />
         ) : (
           <div className="space-y-8">
+            {/* Search Bar */}
+            <div className="flex justify-center">
+              <SearchBar onWalletSelect={handleWalletSearch} />
+            </div>
+
+            {/* Portfolio Header */}
+            {!isViewingOwnWallet && (
+              <div className="text-center">
+                <h2 className="text-2xl font-bold text-white mb-2">
+                  Viewing Portfolio: {viewingAddress.slice(0, 6)}...{viewingAddress.slice(-4)}
+                </h2>
+                <Button
+                  onClick={() => setViewingAddress(walletAddress)}
+                  variant="outline"
+                  className="border-purple-500 text-purple-300 hover:bg-purple-500/10"
+                >
+                  Return to My Portfolio
+                </Button>
+              </div>
+            )}
+
             {/* Portfolio Overview */}
-            <PortfolioOverview walletAddress={walletAddress} />
+            <PortfolioOverview walletAddress={viewingAddress} />
 
             {/* Main Dashboard */}
             <Tabs defaultValue="portfolio" className="space-y-6">
