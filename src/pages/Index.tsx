@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -21,11 +22,13 @@ const Index = () => {
   const { toast } = useToast();
 
   const connectWallet = () => {
+    console.log("Connecting wallet...");
     // Mock wallet connection
     const mockAddress = "0x742d35Cc6634C0532925a3b8D48C405BeF8b30Ab";
     setWalletAddress(mockAddress);
     setViewingAddress(mockAddress);
     setIsConnected(true);
+    console.log("Wallet connected, isConnected:", true);
     toast({
       title: "Wallet Connected",
       description: "Successfully connected to Monad Testnet",
@@ -33,9 +36,11 @@ const Index = () => {
   };
 
   const disconnectWallet = () => {
+    console.log("Disconnecting wallet...");
     setWalletAddress("");
     setViewingAddress("");
     setIsConnected(false);
+    console.log("Wallet disconnected, isConnected:", false);
     toast({
       title: "Wallet Disconnected",
       description: "Wallet has been disconnected",
@@ -55,6 +60,8 @@ const Index = () => {
   };
 
   const isViewingOwnWallet = viewingAddress === walletAddress;
+
+  console.log("Current state - isConnected:", isConnected, "walletAddress:", walletAddress);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
@@ -112,9 +119,14 @@ const Index = () => {
       {/* Main Content */}
       <main className="container mx-auto px-4 py-8">
         {!isConnected ? (
-          <WalletConnection onConnect={connectWallet} />
+          <div>
+            <p className="text-white mb-4">Wallet not connected - showing connection page</p>
+            <WalletConnection onConnect={connectWallet} />
+          </div>
         ) : (
           <div className="space-y-8">
+            <p className="text-white mb-4">Wallet connected - showing main dashboard</p>
+            
             {/* Search Bar */}
             <div className="flex justify-center">
               <SearchBar onWalletSelect={handleWalletSearch} />
