@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Circle, Hexagon, Square, Brain, Zap, Calendar, ArrowRight } from 'lucide-react';
 
@@ -330,13 +329,15 @@ const TransactionTimeline = ({ data, isDarkMode, isLoreMode }: TransactionTimeli
         </div>
       </div>
 
-      <style jsx>{`
-        @keyframes dash {
-          to {
-            stroke-dashoffset: -10;
+      <style>
+        {`
+          @keyframes dash {
+            to {
+              stroke-dashoffset: -10;
+            }
           }
-        }
-      `}</style>
+        `}
+      </style>
     </div>
   );
 };
