@@ -4,11 +4,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Search, Brain, Zap, Activity, ArrowRight, Eye } from "lucide-react";
+import { Search, Brain, Zap, Activity, ArrowRight, Eye, Radio } from "lucide-react";
 import WalletAvatar from "@/components/WalletAvatar";
 import TransactionTimeline from "@/components/TransactionTimeline";
 import TransactionFlowDiagram from "@/components/TransactionFlowDiagram";
 import TokenMovementGraph from "@/components/TokenMovementGraph";
+import LiveTransactionLogger from "@/components/LiveTransactionLogger";
 import ScanningAnimation from "@/components/ScanningAnimation";
 import AnalysisResults from "@/components/AnalysisResults";
 
@@ -76,7 +77,8 @@ const TxVisualizer = () => {
   const visualizationModes = [
     { id: 'timeline', label: 'Timeline Chart', icon: Activity },
     { id: 'flow', label: 'Flow Diagram', icon: ArrowRight },
-    { id: 'tokens', label: 'Token Movement', icon: Zap }
+    { id: 'tokens', label: 'Token Movement', icon: Zap },
+    { id: 'live', label: 'Live Monitor', icon: Radio }
   ];
 
   return (
@@ -258,6 +260,12 @@ const TxVisualizer = () => {
                 {visualizationMode === 'tokens' && (
                   <TokenMovementGraph 
                     data={transactionData} 
+                    isDarkMode={isDarkMode}
+                    isLoreMode={isLoreMode}
+                  />
+                )}
+                {visualizationMode === 'live' && (
+                  <LiveTransactionLogger 
                     isDarkMode={isDarkMode}
                     isLoreMode={isLoreMode}
                   />
