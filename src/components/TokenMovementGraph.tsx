@@ -1,6 +1,7 @@
 
-import React from 'react';
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
+import React, { useState, useMemo, useEffect } from 'react';
+import { Wallet, Brain, Zap, Eye, TrendingUp } from 'lucide-react';
+import { LineChart, Line, ResponsiveContainer, XAxis, YAxis, Tooltip } from 'recharts';
 
 interface TokenMovementGraphProps {
   data: any;
@@ -8,96 +9,427 @@ interface TokenMovementGraphProps {
   isLoreMode: boolean;
 }
 
-const TokenMovementGraph = ({ data, isDarkMode, isLoreMode }: TokenMovementGraphProps) => {
-  // Mock token data
-  const tokenData = [
-    { name: isLoreMode ? 'Mind Energy (MON)' : 'MON', value: 1250, color: '#8b5cf6' },
-    { name: isLoreMode ? 'Dream Tokens (DAK)' : 'DAK', value: 500, color: '#06b6d4' },
-    { name: isLoreMode ? 'Soul Currency (YAKI)' : 'YAKI', value: 2000, color: '#10b981' },
-    { name: isLoreMode ? 'Thought Crystals (wMON)' : 'wMON', value: 750, color: '#f59e0b' },
-  ];
+interface OrbitingToken {
+  id: string;
+  name: string;
+  symbol: string;
+  type: 'native' | 'erc20' | 'nft';
+  frequency: number;
+  value: number;
+  angle: number;
+  orbitRadius: number;
+  size: number;
+  color: string;
+  balanceHistory: { timestamp: string; balance: number }[];
+}
 
-  const movementData = [
-    { month: 'Jan', inflow: 300, outflow: 200 },
-    { month: 'Feb', inflow: 450, outflow: 280 },
-    { month: 'Mar', inflow: 200, outflow: 350 },
-    { month: 'Apr', inflow: 600, outflow: 150 },
-    { month: 'May', inflow: 800, outflow: 400 },
-    { month: 'Jun', inflow: 500, outflow: 300 },
-  ];
+const TokenMovementGraph = ({ data, isDarkMode, isLoreMode }: TokenMovementGraphProps) => {
+  const [selectedToken, setSelectedToken] = useState<OrbitingToken | null>(null);
+  const [animationTime, setAnimationTime] = useState(0);
+
+  // Mock orbiting tokens data
+  const orbitingTokens = useMemo<OrbitingToken[]>(() => [
+    {
+      id: 'mon',
+      name: isLoreMode ? 'Mind Energy' : 'Monad',
+      symbol: 'MON',
+      type: 'native',
+      frequency: 120,
+      value: 15000,
+      angle: 0,
+      orbitRadius: 80,
+      size: 16,
+      color: '#fbbf24', // gold
+      balanceHistory: [
+        { timestamp: 'Jan', balance: 1000 },
+        { timestamp: 'Feb', balance: 1200 },
+        { timestamp: 'Mar', balance: 900 },
+        { timestamp: 'Apr', balance: 1500 },
+        { timestamp: 'May', balance: 1800 },
+        { timestamp: 'Jun', balance: 1250 }
+      ]
+    },
+    {
+      id: 'usdc',
+      name: isLoreMode ? 'Stable Thoughts' : 'USD Coin',
+      symbol: 'USDC',
+      type: 'erc20',
+      frequency: 85,
+      value: 8500,
+      angle: 45,
+      orbitRadius: 110,
+      size: 12,
+      color: '#3b82f6', // blue
+      balanceHistory: [
+        { timestamp: 'Jan', balance: 500 },
+        { timestamp: 'Feb', balance: 750 },
+        { timestamp: 'Mar', balance: 650 },
+        { timestamp: 'Apr', balance: 900 },
+        { timestamp: 'May', balance: 850 },
+        { timestamp: 'Jun', balance: 800 }
+      ]
+    },
+    {
+      id: 'nft-collection',
+      name: isLoreMode ? 'Dream Artifacts' : 'Monanimal NFTs',
+      symbol: 'MNML',
+      type: 'nft',
+      frequency: 25,
+      value: 3200,
+      angle: 120,
+      orbitRadius: 140,
+      size: 10,
+      color: '#ec4899', // pink
+      balanceHistory: [
+        { timestamp: 'Jan', balance: 2 },
+        { timestamp: 'Feb', balance: 3 },
+        { timestamp: 'Mar', balance: 3 },
+        { timestamp: 'Apr', balance: 5 },
+        { timestamp: 'May', balance: 4 },
+        { timestamp: 'Jun', balance: 5 }
+      ]
+    },
+    {
+      id: 'wmon',
+      name: isLoreMode ? 'Wrapped Essence' : 'Wrapped MON',
+      symbol: 'wMON',
+      type: 'erc20',
+      frequency: 65,
+      value: 5500,
+      angle: 180,
+      orbitRadius: 95,
+      size: 11,
+      color: '#3b82f6', // blue
+      balanceHistory: [
+        { timestamp: 'Jan', balance: 200 },
+        { timestamp: 'Feb', balance: 350 },
+        { timestamp: 'Mar', balance: 300 },
+        { timestamp: 'Apr', balance: 550 },
+        { timestamp: 'May', balance: 600 },
+        { timestamp: 'Jun', balance: 475 }
+      ]
+    },
+    {
+      id: 'degen',
+      name: isLoreMode ? 'Chaos Tokens' : 'Degen',
+      symbol: 'DEGEN',
+      type: 'erc20',
+      frequency: 40,
+      value: 1200,
+      angle: 270,
+      orbitRadius: 125,
+      size: 8,
+      color: '#3b82f6', // blue
+      balanceHistory: [
+        { timestamp: 'Jan', balance: 1000 },
+        { timestamp: 'Feb', balance: 800 },
+        { timestamp: 'Mar', balance: 1200 },
+        { timestamp: 'Apr', balance: 900 },
+        { timestamp: 'May', balance: 1100 },
+        { timestamp: 'Jun', balance: 950 }
+      ]
+    }
+  ], [isLoreMode]);
+
+  // Animation loop
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setAnimationTime(prev => prev + 0.02);
+    }, 50);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  const getTokenPosition = (token: OrbitingToken) => {
+    const speed = 1 / (token.frequency / 10); // Higher frequency = slower orbit for visibility
+    const currentAngle = (token.angle + animationTime * speed) * (Math.PI / 180);
+    
+    return {
+      x: 200 + token.orbitRadius * Math.cos(currentAngle),
+      y: 200 + token.orbitRadius * Math.sin(currentAngle)
+    };
+  };
+
+  const getTokenIcon = (type: string) => {
+    switch (type) {
+      case 'native': return '⚡';
+      case 'erc20': return '🔵';
+      case 'nft': return '🎨';
+      default: return '●';
+    }
+  };
 
   return (
-    <div className="h-96">
+    <div className="h-96 relative">
       <h3 className={`text-xl font-bold mb-6 text-center ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-        {isLoreMode ? 'Energy Distribution & Flow' : 'Token Holdings & Movement'}
+        {isLoreMode ? 'Mind Balance Orbit' : 'Token Balance Orbit'}
       </h3>
-      
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 h-full">
-        {/* Token Distribution Pie Chart */}
-        <div>
-          <h4 className={`text-lg font-semibold mb-4 text-center ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-            {isLoreMode ? 'Energy Distribution' : 'Token Distribution'}
-          </h4>
-          <ResponsiveContainer width="100%" height={250}>
-            <PieChart>
-              <Pie
-                data={tokenData}
-                cx="50%"
-                cy="50%"
-                outerRadius={80}
-                fill="#8884d8"
-                dataKey="value"
-                label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+
+      <div className="flex h-full">
+        {/* Orbit Visualization */}
+        <div className="flex-1 relative">
+          <svg 
+            className="w-full h-full" 
+            viewBox="0 0 400 400" 
+            style={{ 
+              background: isDarkMode 
+                ? 'radial-gradient(circle at center, rgba(30, 41, 59, 0.8) 0%, rgba(15, 23, 42, 0.4) 70%)' 
+                : 'radial-gradient(circle at center, rgba(248, 250, 252, 0.8) 0%, rgba(226, 232, 240, 0.4) 70%)'
+            }}
+          >
+            {/* Background Stars/Dots */}
+            {Array.from({ length: 20 }).map((_, i) => (
+              <circle
+                key={i}
+                cx={50 + (i * 17) % 300}
+                cy={50 + (i * 23) % 300}
+                r="1"
+                fill={isDarkMode ? '#64748b' : '#cbd5e1'}
+                opacity="0.3"
               >
-                {tokenData.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={entry.color} />
-                ))}
-              </Pie>
-              <Tooltip 
-                contentStyle={{
-                  backgroundColor: isDarkMode ? '#1f2937' : '#ffffff',
-                  border: `1px solid ${isDarkMode ? '#374151' : '#e5e7eb'}`,
-                  borderRadius: '8px',
-                  color: isDarkMode ? '#ffffff' : '#000000'
-                }}
+                <animate
+                  attributeName="opacity"
+                  values="0.1;0.5;0.1"
+                  dur={`${2 + i * 0.1}s`}
+                  repeatCount="indefinite"
+                />
+              </circle>
+            ))}
+
+            {/* Orbit Rings */}
+            {orbitingTokens.map((token) => (
+              <circle
+                key={`orbit-${token.id}`}
+                cx="200"
+                cy="200"
+                r={token.orbitRadius}
+                fill="none"
+                stroke={isDarkMode ? '#374151' : '#e5e7eb'}
+                strokeWidth="1"
+                strokeDasharray="4 4"
+                opacity="0.3"
               />
-            </PieChart>
-          </ResponsiveContainer>
+            ))}
+
+            {/* Central Wallet */}
+            <g>
+              <circle
+                cx="200"
+                cy="200"
+                r="30"
+                fill={`url(#centralGradient)`}
+                className="drop-shadow-lg"
+              />
+              <circle
+                cx="200"
+                cy="200"
+                r="35"
+                fill="none"
+                stroke={isDarkMode ? '#8b5cf6' : '#7c3aed'}
+                strokeWidth="2"
+                opacity="0.5"
+              >
+                <animate
+                  attributeName="r"
+                  values="35;40;35"
+                  dur="3s"
+                  repeatCount="indefinite"
+                />
+                <animate
+                  attributeName="opacity"
+                  values="0.5;0.8;0.5"
+                  dur="3s"
+                  repeatCount="indefinite"
+                />
+              </circle>
+              
+              {/* Central Icon */}
+              <foreignObject x="185" y="185" width="30" height="30">
+                <div className="w-full h-full flex items-center justify-center text-white text-lg">
+                  {isLoreMode ? <Brain className="w-6 h-6" /> : <Wallet className="w-6 h-6" />}
+                </div>
+              </foreignObject>
+            </g>
+
+            {/* Orbiting Tokens */}
+            {orbitingTokens.map((token) => {
+              const position = getTokenPosition(token);
+              return (
+                <g key={token.id}>
+                  {/* Token Orbit Trail */}
+                  <circle
+                    cx={position.x}
+                    cy={position.y}
+                    r={token.size + 3}
+                    fill={token.color}
+                    opacity="0.1"
+                  />
+                  
+                  {/* Token */}
+                  <circle
+                    cx={position.x}
+                    cy={position.y}
+                    r={token.size}
+                    fill={token.color}
+                    className="cursor-pointer transition-all duration-200 hover:brightness-110"
+                    onClick={() => setSelectedToken(token)}
+                    style={{
+                      filter: selectedToken?.id === token.id ? 'drop-shadow(0 0 10px currentColor)' : 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))'
+                    }}
+                  >
+                    <animate
+                      attributeName="r"
+                      values={`${token.size};${token.size + 2};${token.size}`}
+                      dur="2s"
+                      repeatCount="indefinite"
+                    />
+                  </circle>
+
+                  {/* Token Label */}
+                  <foreignObject
+                    x={position.x - 20}
+                    y={position.y + token.size + 5}
+                    width="40"
+                    height="20"
+                  >
+                    <div className={`text-xs text-center font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+                      {token.symbol}
+                    </div>
+                  </foreignObject>
+                </g>
+              );
+            })}
+
+            {/* Gradients */}
+            <defs>
+              <radialGradient id="centralGradient" cx="50%" cy="50%">
+                <stop offset="0%" stopColor={isDarkMode ? '#8b5cf6' : '#7c3aed'} />
+                <stop offset="100%" stopColor={isDarkMode ? '#6366f1' : '#6366f1'} />
+              </radialGradient>
+            </defs>
+          </svg>
         </div>
 
-        {/* Token Movement Bar Chart */}
-        <div>
-          <h4 className={`text-lg font-semibold mb-4 text-center ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-            {isLoreMode ? 'Energy Flow Pattern' : 'Monthly Movement'}
-          </h4>
-          <ResponsiveContainer width="100%" height={250}>
-            <BarChart data={movementData}>
-              <CartesianGrid strokeDasharray="3 3" stroke={isDarkMode ? '#374151' : '#e5e7eb'} />
-              <XAxis 
-                dataKey="month" 
-                stroke={isDarkMode ? '#9ca3af' : '#6b7280'}
-              />
-              <YAxis stroke={isDarkMode ? '#9ca3af' : '#6b7280'} />
-              <Tooltip 
-                contentStyle={{
-                  backgroundColor: isDarkMode ? '#1f2937' : '#ffffff',
-                  border: `1px solid ${isDarkMode ? '#374151' : '#e5e7eb'}`,
-                  borderRadius: '8px',
-                  color: isDarkMode ? '#ffffff' : '#000000'
-                }}
-              />
-              <Bar 
-                dataKey="inflow" 
-                fill="#22c55e" 
-                name={isLoreMode ? "Energy Absorbed" : "Inflow"}
-              />
-              <Bar 
-                dataKey="outflow" 
-                fill="#ef4444" 
-                name={isLoreMode ? "Energy Projected" : "Outflow"}
-              />
-            </BarChart>
-          </ResponsiveContainer>
+        {/* Token Details Panel */}
+        <div className={`w-80 ml-6 p-4 rounded-lg ${
+          isDarkMode ? 'bg-slate-800/50 border border-slate-700' : 'bg-white/80 border border-gray-200'
+        }`}>
+          {selectedToken ? (
+            <div className="space-y-4">
+              <div className="flex items-center space-x-3">
+                <div 
+                  className="w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-bold"
+                  style={{ backgroundColor: selectedToken.color }}
+                >
+                  {getTokenIcon(selectedToken.type)}
+                </div>
+                <div>
+                  <h4 className={`font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                    {selectedToken.name}
+                  </h4>
+                  <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                    {selectedToken.symbol} • {selectedToken.frequency} interactions
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className={`p-3 rounded-lg ${isDarkMode ? 'bg-slate-700/50' : 'bg-gray-50'}`}>
+                  <p className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                    Total Value
+                  </p>
+                  <p className={`text-lg font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                    ${selectedToken.value.toLocaleString()}
+                  </p>
+                </div>
+                <div className={`p-3 rounded-lg ${isDarkMode ? 'bg-slate-700/50' : 'bg-gray-50'}`}>
+                  <p className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                    Frequency
+                  </p>
+                  <p className={`text-lg font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                    {selectedToken.frequency}
+                  </p>
+                </div>
+              </div>
+
+              <div>
+                <h5 className={`font-medium mb-3 flex items-center ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                  <TrendingUp className="w-4 h-4 mr-2" />
+                  {isLoreMode ? 'Energy Flow Over Time' : 'Balance History'}
+                </h5>
+                <div className="h-32">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={selectedToken.balanceHistory}>
+                      <XAxis 
+                        dataKey="timestamp" 
+                        stroke={isDarkMode ? '#9ca3af' : '#6b7280'}
+                        fontSize={10}
+                      />
+                      <YAxis 
+                        stroke={isDarkMode ? '#9ca3af' : '#6b7280'}
+                        fontSize={10}
+                      />
+                      <Tooltip 
+                        contentStyle={{
+                          backgroundColor: isDarkMode ? '#1f2937' : '#ffffff',
+                          border: `1px solid ${isDarkMode ? '#374151' : '#e5e7eb'}`,
+                          borderRadius: '8px',
+                          fontSize: '12px'
+                        }}
+                      />
+                      <Line
+                        type="monotone"
+                        dataKey="balance"
+                        stroke={selectedToken.color}
+                        strokeWidth={2}
+                        dot={{ fill: selectedToken.color, strokeWidth: 2, r: 3 }}
+                        activeDot={{ r: 4, stroke: selectedToken.color, strokeWidth: 2 }}
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="text-center space-y-4">
+              <div className={`p-6 rounded-lg ${isDarkMode ? 'bg-slate-700/30' : 'bg-gray-50'}`}>
+                <Eye className={`w-8 h-8 mx-auto mb-2 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`} />
+                <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                  {isLoreMode 
+                    ? 'Click on any orbiting essence to explore its energy patterns' 
+                    : 'Click on any orbiting token to view its balance history'
+                  }
+                </p>
+              </div>
+              
+              {/* Legend */}
+              <div className="space-y-2">
+                <h5 className={`font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                  {isLoreMode ? 'Energy Types' : 'Token Types'}
+                </h5>
+                <div className="space-y-1 text-xs">
+                  <div className="flex items-center space-x-2">
+                    <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
+                    <span className={isDarkMode ? 'text-gray-300' : 'text-gray-600'}>
+                      {isLoreMode ? 'Core Energy (Native)' : 'Native Tokens'}
+                    </span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <div className="w-3 h-3 rounded-full bg-blue-500"></div>
+                    <span className={isDarkMode ? 'text-gray-300' : 'text-gray-600'}>
+                      {isLoreMode ? 'Structured Thoughts (ERC20)' : 'ERC20 Tokens'}
+                    </span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <div className="w-3 h-3 rounded-full bg-pink-500"></div>
+                    <span className={isDarkMode ? 'text-gray-300' : 'text-gray-600'}>
+                      {isLoreMode ? 'Unique Artifacts (NFTs)' : 'NFT Collections'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
