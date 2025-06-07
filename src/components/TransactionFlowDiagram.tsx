@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import { Filter, Wallet, Brain, Zap, ArrowRight, Circle, ChevronDown } from 'lucide-react';
 import { Button } from "@/components/ui/button";
@@ -9,92 +8,122 @@ interface TransactionFlowDiagramProps {
   isLoreMode: boolean;
 }
 
+interface Flow {
+  id: string;
+  type: 'sent' | 'received' | 'contract' | 'native';
+  counterparty: string;
+  counterpartyName: string;
+  amount: number;
+  token: string;
+  frequency: number;
+  totalValue: number;
+  category: 'tokens' | 'native' | 'contracts';
+  flows: { amount: number; timestamp: number }[];
+}
+
 const TransactionFlowDiagram = ({ data, isDarkMode, isLoreMode }: TransactionFlowDiagramProps) => {
   const [hoveredFlow, setHoveredFlow] = useState<string | null>(null);
   const [filterType, setFilterType] = useState<'all' | 'tokens' | 'native' | 'contracts'>('all');
+  const [selectedFlow, setSelectedFlow] = useState<Flow | null>(null);
 
-  // Enhanced flow data with counterparties
-  const flowData = useMemo(() => [
-    {
-      id: 'flow-1',
-      type: 'received',
-      counterparty: '0xabc...def',
-      counterpartyName: 'DeFi Protocol',
-      amount: '500',
-      token: 'MON',
-      frequency: 12,
-      totalValue: 6000,
-      category: 'tokens',
-      flows: [
-        { amount: 200, timestamp: '2h ago' },
-        { amount: 300, timestamp: '5h ago' }
-      ]
-    },
-    {
-      id: 'flow-2',
-      type: 'sent',
-      counterparty: '0x123...456',
-      counterpartyName: 'Trading Bot',
-      amount: '150',
-      token: 'MON',
-      frequency: 8,
-      totalValue: 1200,
-      category: 'native',
-      flows: [
-        { amount: 150, timestamp: '1d ago' }
-      ]
-    },
-    {
-      id: 'flow-3',
-      type: 'contract',
-      counterparty: '0x789...abc',
-      counterpartyName: 'Uniswap V3',
-      method: 'swap',
-      frequency: 25,
-      totalValue: 15000,
-      category: 'contracts',
-      flows: [
-        { amount: 500, timestamp: '6h ago' },
-        { amount: 200, timestamp: '12h ago' },
-        { amount: 300, timestamp: '1d ago' }
-      ]
-    },
-    {
-      id: 'flow-4',
-      type: 'received',
-      counterparty: '0xdef...789',
-      counterpartyName: 'NFT Marketplace',
-      amount: '2.5',
-      token: 'ETH',
-      frequency: 3,
-      totalValue: 750,
-      category: 'tokens',
-      flows: [
-        { amount: 2.5, timestamp: '3d ago' }
-      ]
-    }
-  ], []);
+  const walletAddress = data?.walletAddress?.toLowerCase() || '';
 
-  const filteredFlows = useMemo(() => {
+  const flowData: Flow[] = useMemo(() => {
+    if (!data?.result?.data) return [];
+    const activities = data.result.data;
+    const flowsMap: Record<string, Flow> = {};
+    activities.forEach(tx => {
+      // Sent
+      if (tx.from && tx.from.toLowerCase() === walletAddress) {
+        const key = `sent-${tx.to}-${tx.addTokens?.[0]?.symbol || 'MON'}`;
+        if (!flowsMap[key]) {
+          flowsMap[key] = {
+            id: key,
+            type: 'sent',
+            counterparty: tx.to,
+            counterpartyName: '',
+            amount: 0,
+            token: tx.addTokens?.[0]?.symbol || 'MON',
+            frequency: 0,
+            totalValue: 0,
+            category: tx.addTokens?.length ? 'tokens' : 'native',
+            flows: []
+          };
+        }
+        (tx.subTokens || []).forEach(t => {
+          flowsMap[key].amount += Number(t.amount || 0);
+          flowsMap[key].token = t.symbol;
+          flowsMap[key].totalValue += Number(t.amount || 0);
+          flowsMap[key].flows.push({ amount: t.amount, timestamp: tx.timestamp });
+        });
+        flowsMap[key].frequency++;
+      }
+      // Received
+      if (tx.to && tx.to.toLowerCase() === walletAddress) {
+        const key = `received-${tx.from}-${tx.addTokens?.[0]?.symbol || 'MON'}`;
+        if (!flowsMap[key]) {
+          flowsMap[key] = {
+            id: key,
+            type: 'received',
+            counterparty: tx.from,
+            counterpartyName: '',
+            amount: 0,
+            token: tx.addTokens?.[0]?.symbol || 'MON',
+            frequency: 0,
+            totalValue: 0,
+            category: tx.addTokens?.length ? 'tokens' : 'native',
+            flows: []
+          };
+        }
+        (tx.addTokens || []).forEach(t => {
+          flowsMap[key].amount += Number(t.amount || 0);
+          flowsMap[key].token = t.symbol;
+          flowsMap[key].totalValue += Number(t.amount || 0);
+          flowsMap[key].flows.push({ amount: t.amount, timestamp: tx.timestamp });
+        });
+        flowsMap[key].frequency++;
+      }
+      // Contract interactions
+      if (tx.isContract) {
+        const key = `contract-${tx.to}`;
+        if (!flowsMap[key]) {
+          flowsMap[key] = {
+            id: key,
+            type: 'contract',
+            counterparty: tx.to,
+            counterpartyName: '',
+            amount: 0,
+            token: '',
+            frequency: 0,
+            totalValue: 0,
+            category: 'contracts',
+            flows: []
+          };
+        }
+        flowsMap[key].frequency++;
+        flowsMap[key].flows.push({ amount: 0, timestamp: tx.timestamp });
+      }
+    });
+    return Object.values(flowsMap);
+  }, [data, walletAddress]);
+
+  const filteredFlows: Flow[] = useMemo(() => {
     if (filterType === 'all') return flowData;
     return flowData.filter(flow => flow.category === filterType);
   }, [flowData, filterType]);
 
   const getFlowWidth = (frequency: number) => {
-    const maxFreq = Math.max(...flowData.map(f => f.frequency));
+    const maxFreq = Math.max(...flowData.map(f => f.frequency), 1);
     return Math.max(4, (frequency / maxFreq) * 20);
   };
 
   const getFlowColor = (type: string) => {
     switch (type) {
-      case 'sent': 
-        return isDarkMode ? 'from-red-400 to-red-600' : 'from-red-300 to-red-500';
-      case 'received': 
-        return isDarkMode ? 'from-green-400 to-green-600' : 'from-green-300 to-green-500';
-      case 'contract': 
-        return isDarkMode ? 'from-purple-400 to-purple-600' : 'from-purple-300 to-purple-500';
-      default: 
-        return isDarkMode ? 'from-blue-400 to-blue-600' : 'from-blue-300 to-blue-500';
+      case 'sent': return '#ef4444';      // red
+      case 'received': return '#10b981';  // green
+      case 'contract': return '#8b5cf6';  // purple
+      case 'native': return '#3b82f6';    // blue
+      default: return '#64748b';          // gray
     }
   };
 
@@ -114,6 +143,8 @@ const TransactionFlowDiagram = ({ data, isDarkMode, isLoreMode }: TransactionFlo
     { id: 'native', label: 'Native Transfers', icon: Wallet },
     { id: 'contracts', label: 'Contract Calls', icon: Brain }
   ];
+
+  const isNative = (token) => token?.contractAddress === '0x0000000000000000000000000000000000000000';
 
   return (
     <div className="h-96 relative overflow-hidden">
@@ -184,9 +215,9 @@ const TransactionFlowDiagram = ({ data, isDarkMode, isLoreMode }: TransactionFlo
               <defs>
                 {filteredFlows.map((flow, index) => (
                   <linearGradient key={flow.id} id={`gradient-${flow.id}`} x1="0%" y1="0%" x2="100%" y2="0%">
-                    <stop offset="0%" stopColor={flow.type === 'sent' ? '#ef4444' : flow.type === 'received' ? '#10b981' : '#8b5cf6'} stopOpacity="0.8" />
-                    <stop offset="50%" stopColor={flow.type === 'sent' ? '#dc2626' : flow.type === 'received' ? '#059669' : '#7c3aed'} stopOpacity="0.9" />
-                    <stop offset="100%" stopColor={flow.type === 'sent' ? '#b91c1c' : flow.type === 'received' ? '#047857' : '#6d28d9'} stopOpacity="0.8" />
+                    <stop offset="0%" stopColor={getFlowColor(flow.type)} stopOpacity="0.8" />
+                    <stop offset="50%" stopColor={getFlowColor(flow.type)} stopOpacity="0.9" />
+                    <stop offset="100%" stopColor={getFlowColor(flow.type)} stopOpacity="0.8" />
                   </linearGradient>
                 ))}
               </defs>

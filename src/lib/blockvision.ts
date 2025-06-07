@@ -34,4 +34,16 @@ export async function getAccountTransactions(address: string, limit = 20) {
 
 export async function getAccountInternalTransactions(address: string, filter = "all", limit = 20) {
   return fetchBlockvision("account/internal/transactions", { address, filter, limit });
+}
+
+export async function fetchAccountActivities(address: string, apiKey: string, limit = 20) {
+  const url = `https://api.blockvision.org/v2/monad/account/activities?address=${address}&limit=${limit}`;
+  const res = await fetch(url, {
+    headers: {
+      'accept': 'application/json',
+      'x-api-key': apiKey,
+    },
+  });
+  if (!res.ok) throw new Error('Failed to fetch activities');
+  return res.json();
 } 

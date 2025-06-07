@@ -1,7 +1,8 @@
-
 import React, { useState, useMemo, useEffect } from 'react';
 import { Wallet, Brain, Zap, Eye, TrendingUp } from 'lucide-react';
 import { LineChart, Line, ResponsiveContainer, XAxis, YAxis, Tooltip } from 'recharts';
+import { ethers } from "ethers";
+import { Multicall } from "ethereum-multicall";
 
 interface TokenMovementGraphProps {
   data: any;
@@ -21,129 +22,106 @@ interface OrbitingToken {
   size: number;
   color: string;
   balanceHistory: { timestamp: string; balance: number }[];
+  liveBalance?: number;
 }
 
 const TokenMovementGraph = ({ data, isDarkMode, isLoreMode }: TokenMovementGraphProps) => {
   const [selectedToken, setSelectedToken] = useState<OrbitingToken | null>(null);
   const [animationTime, setAnimationTime] = useState(0);
+  const [orbitingTokens, setOrbitingTokens] = useState<OrbitingToken[]>([]);
 
-  // Mock orbiting tokens data
-  const orbitingTokens = useMemo<OrbitingToken[]>(() => [
-    {
-      id: 'mon',
-      name: isLoreMode ? 'Mind Energy' : 'Monad',
-      symbol: 'MON',
-      type: 'native',
-      frequency: 120,
-      value: 15000,
-      angle: 0,
-      orbitRadius: 80,
-      size: 16,
-      color: '#fbbf24', // gold
-      balanceHistory: [
-        { timestamp: 'Jan', balance: 1000 },
-        { timestamp: 'Feb', balance: 1200 },
-        { timestamp: 'Mar', balance: 900 },
-        { timestamp: 'Apr', balance: 1500 },
-        { timestamp: 'May', balance: 1800 },
-        { timestamp: 'Jun', balance: 1250 }
-      ]
-    },
-    {
-      id: 'usdc',
-      name: isLoreMode ? 'Stable Thoughts' : 'USD Coin',
-      symbol: 'USDC',
-      type: 'erc20',
-      frequency: 85,
-      value: 8500,
-      angle: 45,
-      orbitRadius: 110,
-      size: 12,
-      color: '#3b82f6', // blue
-      balanceHistory: [
-        { timestamp: 'Jan', balance: 500 },
-        { timestamp: 'Feb', balance: 750 },
-        { timestamp: 'Mar', balance: 650 },
-        { timestamp: 'Apr', balance: 900 },
-        { timestamp: 'May', balance: 850 },
-        { timestamp: 'Jun', balance: 800 }
-      ]
-    },
-    {
-      id: 'nft-collection',
-      name: isLoreMode ? 'Dream Artifacts' : 'Monanimal NFTs',
-      symbol: 'MNML',
-      type: 'nft',
-      frequency: 25,
-      value: 3200,
-      angle: 120,
-      orbitRadius: 140,
-      size: 10,
-      color: '#ec4899', // pink
-      balanceHistory: [
-        { timestamp: 'Jan', balance: 2 },
-        { timestamp: 'Feb', balance: 3 },
-        { timestamp: 'Mar', balance: 3 },
-        { timestamp: 'Apr', balance: 5 },
-        { timestamp: 'May', balance: 4 },
-        { timestamp: 'Jun', balance: 5 }
-      ]
-    },
-    {
-      id: 'wmon',
-      name: isLoreMode ? 'Wrapped Essence' : 'Wrapped MON',
-      symbol: 'wMON',
-      type: 'erc20',
-      frequency: 65,
-      value: 5500,
-      angle: 180,
-      orbitRadius: 95,
-      size: 11,
-      color: '#3b82f6', // blue
-      balanceHistory: [
-        { timestamp: 'Jan', balance: 200 },
-        { timestamp: 'Feb', balance: 350 },
-        { timestamp: 'Mar', balance: 300 },
-        { timestamp: 'Apr', balance: 550 },
-        { timestamp: 'May', balance: 600 },
-        { timestamp: 'Jun', balance: 475 }
-      ]
-    },
-    {
-      id: 'degen',
-      name: isLoreMode ? 'Chaos Tokens' : 'Degen',
-      symbol: 'DEGEN',
-      type: 'erc20',
-      frequency: 40,
-      value: 1200,
-      angle: 270,
-      orbitRadius: 125,
-      size: 8,
-      color: '#3b82f6', // blue
-      balanceHistory: [
-        { timestamp: 'Jan', balance: 1000 },
-        { timestamp: 'Feb', balance: 800 },
-        { timestamp: 'Mar', balance: 1200 },
-        { timestamp: 'Apr', balance: 900 },
-        { timestamp: 'May', balance: 1100 },
-        { timestamp: 'Jun', balance: 950 }
-      ]
-    }
-  ], [isLoreMode]);
+  // Aggregate real token movement from data
+  useEffect(() => {
+    const walletAddress = data?.walletAddress?.toLowerCase() || '';
+    const activities = Array.isArray(data?.result?.data) ? data.result.data : [];
+    const tokenMap: Record<string, OrbitingToken> = {};
+    activities.forEach(tx => {
+      (tx.addTokens || []).forEach(t => {
+        const key = t.contractAddress;
+        if (!tokenMap[key]) {
+          tokenMap[key] = {
+            id: key,
+            name: t.symbol,
+            symbol: t.symbol,
+            type: t.contractAddress === '0x0000000000000000000000000000000000000000' ? 'native' : 'erc20',
+            frequency: 0,
+            value: 0,
+            angle: Math.random() * 360,
+            orbitRadius: 80 + Math.random() * 80,
+            size: 12,
+            color: t.contractAddress === '0x0000000000000000000000000000000000000000' ? '#fbbf24' : '#3b82f6',
+            balanceHistory: []
+          };
+        }
+        tokenMap[key].frequency++;
+        tokenMap[key].value += Number(t.amount || 0);
+      });
+    });
+    setOrbitingTokens(Object.values(tokenMap));
+  }, [data]);
+
+  // Fetch live balances using Multicall3
+  useEffect(() => {
+    const fetchBalances = async () => {
+      if (!orbitingTokens.length || !data?.walletAddress) return;
+      const provider = new ethers.providers.JsonRpcProvider("YOUR_MONAD_RPC_URL");
+      const multicall = new Multicall({
+        ethersProvider: provider,
+        tryAggregate: true,
+        multicallCustomContractAddress: "0xcA11bde05977b3631167028862bE2a173976CA11"
+      });
+      const erc20Abi = [
+        "function balanceOf(address) view returns (uint256)",
+        "function decimals() view returns (uint8)"
+      ];
+      const callContexts = orbitingTokens
+        .filter(t => t.type === "erc20")
+        .map(token => ({
+          reference: token.symbol,
+          contractAddress: token.id,
+          abi: erc20Abi,
+          calls: [
+            { reference: "balanceOf", methodName: "balanceOf", methodParameters: [data.walletAddress] },
+            { reference: "decimals", methodName: "decimals", methodParameters: [] }
+          ]
+        }));
+      let results = { results: {} };
+      if (callContexts.length) {
+        results = await multicall.call(callContexts);
+      }
+      // Native balance
+      let nativeBalance = 0;
+      try {
+        nativeBalance = Number(ethers.utils.formatEther(await provider.getBalance(data.walletAddress)));
+      } catch {}
+      setOrbitingTokens(tokens => tokens.map(token => {
+        if (token.type === 'native') {
+          return { ...token, liveBalance: nativeBalance };
+        }
+        const res = results.results[token.symbol];
+        if (res) {
+          const bal = res.callsReturnContext.find(c => c.reference === "balanceOf")?.returnValues?.[0] || 0;
+          const dec = res.callsReturnContext.find(c => c.reference === "decimals")?.returnValues?.[0] || 18;
+          return { ...token, liveBalance: Number(bal) / 10 ** Number(dec) };
+        }
+        return token;
+      }));
+    };
+    fetchBalances();
+    // eslint-disable-next-line
+  }, [orbitingTokens.length, data?.walletAddress]);
 
   // Animation loop
   useEffect(() => {
     const interval = setInterval(() => {
       setAnimationTime(prev => prev + 0.02);
     }, 50);
-
     return () => clearInterval(interval);
   }, []);
 
   const getTokenPosition = (token: OrbitingToken) => {
-    const speed = 1 / (token.frequency / 10); // Higher frequency = slower orbit for visibility
+    const speed = 1 / (token.frequency / 10);
     const currentAngle = (token.angle + animationTime * speed) * (Math.PI / 180);
-    
     return {
       x: 200 + token.orbitRadius * Math.cos(currentAngle),
       y: 200 + token.orbitRadius * Math.sin(currentAngle)

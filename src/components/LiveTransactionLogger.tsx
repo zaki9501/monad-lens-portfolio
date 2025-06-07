@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -9,9 +8,10 @@ import { Activity, Zap, ArrowUp, ArrowDown, Brain, Code, Radio, TrendingUp } fro
 interface LiveTransactionLoggerProps {
   isDarkMode: boolean;
   isLoreMode: boolean;
+  walletAddress: string;
 }
 
-const LiveTransactionLogger: React.FC<LiveTransactionLoggerProps> = ({ isDarkMode, isLoreMode }) => {
+const LiveTransactionLogger: React.FC<LiveTransactionLoggerProps> = ({ isDarkMode, isLoreMode, walletAddress }) => {
   const [pulseData, setPulseData] = useState<number[]>([]);
   const [transactions, setTransactions] = useState<any[]>([]);
   const [isActive, setIsActive] = useState(false);
@@ -27,53 +27,36 @@ const LiveTransactionLogger: React.FC<LiveTransactionLoggerProps> = ({ isDarkMod
 
   // Generate mock real-time transactions
   useEffect(() => {
-    const generateTransaction = () => {
-      const txTypes = isLoreMode 
-        ? ['Mind Sync', 'Thought Transfer', 'Neural Bridge', 'Consciousness Flow', 'Memory Upload']
-        : ['Transfer', 'Swap', 'Stake', 'Approve', 'Bridge'];
-      
-      const directions = ['incoming', 'outgoing'];
-      const direction = directions[Math.floor(Math.random() * directions.length)];
-      
-      return {
-        id: Date.now() + Math.random(),
-        type: txTypes[Math.floor(Math.random() * txTypes.length)],
-        direction,
-        amount: (Math.random() * 1000).toFixed(2),
-        token: isLoreMode ? 'MIND' : 'MON',
-        timestamp: new Date(),
-        hash: `0x${Math.random().toString(16).substr(2, 8)}...`,
-        pulseIntensity: Math.random() * 100 + 20
-      };
-    };
+    if (!walletAddress) return;
+    let interval: NodeJS.Timeout;
+    let lastSeenTx = null;
 
-    const interval = setInterval(() => {
-      if (Math.random() > 0.7) { // 30% chance of new transaction
-        const newTx = generateTransaction();
-        setTransactions(prev => [newTx, ...prev.slice(0, 9)]); // Keep last 10
-        
-        // Add pulse data
-        setPulseData(prev => [...prev.slice(-199), newTx.pulseIntensity]);
-        
-        // Trigger heartbeat
+    const fetchLatestTxs = async () => {
+      const apiKey = import.meta.env.VITE_BLOCKVISION_API_KEY;
+      const url = `https://api.blockvision.org/v2/monad/account/activities?address=${walletAddress}&limit=10`;
+      const res = await fetch(url, {
+        headers: {
+          'accept': 'application/json',
+          'x-api-key': apiKey,
+        },
+      });
+      if (!res.ok) return;
+      const data = await res.json();
+      const txs = data?.result?.data || [];
+      if (txs.length && txs[0].hash !== lastSeenTx) {
+        setTransactions(txs);
+        setPulseData(prev => [...prev.slice(-199), Math.random() * 100 + 20]);
         setHeartbeatActive(true);
         setTimeout(() => setHeartbeatActive(false), 500);
-        
-        // Update activity for current hour
-        const currentHour = new Date().getHours();
-        setActivityHeatmap(prev => {
-          const updated = [...prev];
-          updated[currentHour] = Math.min(updated[currentHour] + 1, 20);
-          return updated;
-        });
-      } else {
-        // Add baseline pulse data
-        setPulseData(prev => [...prev.slice(-199), Math.random() * 10 + 5]);
+        lastSeenTx = txs[0].hash;
       }
-    }, 1000);
+    };
+
+    interval = setInterval(fetchLatestTxs, 3000); // Poll every 3 seconds
+    fetchLatestTxs();
 
     return () => clearInterval(interval);
-  }, [isLoreMode]);
+  }, [walletAddress]);
 
   // Draw EKG-style pulse line
   useEffect(() => {

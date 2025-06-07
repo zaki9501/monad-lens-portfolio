@@ -1,5 +1,4 @@
-
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,6 +12,32 @@ import LiveTransactionLogger from "@/components/LiveTransactionLogger";
 import ScanningAnimation from "@/components/ScanningAnimation";
 import AnalysisResults from "@/components/AnalysisResults";
 
+const fetchAccountActivities = async (address, apiKey, limit = 50) => {
+  const url = `https://api.blockvision.org/v2/monad/account/activities?address=${address}&limit=${limit}`;
+  const res = await fetch(url, {
+    headers: {
+      'accept': 'application/json',
+      'x-api-key': apiKey,
+    },
+  });
+  if (!res.ok) throw new Error('Failed to fetch activities');
+  return res.json();
+};
+
+const fetchTotalTransactions = async (address, apiKey) => {
+  const url = `https://api.blockvision.org/v2/monad/account/transactions?address=${address}&limit=1&ascendingOrder=false`;
+  const res = await fetch(url, {
+    headers: {
+      'accept': 'application/json',
+      'x-api-key': apiKey,
+    },
+  });
+  if (!res.ok) return null;
+  const data = await res.json();
+  // BlockVision returns total in data.result.total
+  return data?.result?.total || null;
+};
+
 const TxVisualizer = () => {
   const [walletAddress, setWalletAddress] = useState('');
   const [isScanning, setIsScanning] = useState(false);
@@ -22,57 +47,53 @@ const TxVisualizer = () => {
   const [visualizationMode, setVisualizationMode] = useState('timeline');
   const [isDarkMode, setIsDarkMode] = useState(true);
   const [isLoreMode, setIsLoreMode] = useState(false);
+  const [totalTxCount, setTotalTxCount] = useState(null);
 
   const handleGenerateVisualization = async () => {
     if (!walletAddress) return;
-    
     setIsScanning(true);
     setScanProgress(0);
-    
-    // Simulate blockchain scanning from block 0 to latest
-    for (let i = 0; i <= 100; i += 2) {
-      await new Promise(resolve => setTimeout(resolve, 50));
-      setScanProgress(i);
+
+    try {
+      // Simulate scan progress
+      for (let i = 0; i <= 100; i += 10) {
+        await new Promise(resolve => setTimeout(resolve, 20));
+        setScanProgress(i);
+      }
+      const apiKey = import.meta.env.VITE_BLOCKVISION_API_KEY;
+      const data = await fetchAccountActivities(walletAddress, apiKey, 50);
+      // Optionally, you can process/transform data here to fit your UI
+      setTransactionData(data); // Passes the real data to TransactionTimeline
+      setAnalysisData(null); // Remove mock analysis for now
+
+      const activities = data?.result?.data || [];
+
+      const totalTransactions = activities.length;
+      const sentTxs = activities.filter(tx => tx.from?.toLowerCase() === walletAddress.toLowerCase()).length;
+      const receivedTxs = activities.filter(
+        tx => Array.isArray(tx.addTokens) && tx.addTokens.some(token => token.to?.toLowerCase() === walletAddress.toLowerCase())
+      ).length;
+      const totalGasSpent = activities
+        .filter(tx => tx.transactionFee)
+        .reduce((sum, tx) => sum + Number(tx.transactionFee), 0);
+    } catch (e) {
+      // Optionally handle error
+      setTransactionData(null);
+      setAnalysisData(null);
+    } finally {
+      setIsScanning(false);
     }
-    
-    // Mock analysis data
-    const mockAnalysisData = {
-      totalBlocks: 10375395,
-      totalTransactions: 67,
-      elapsedTime: 0.22,
-      blocksPerSecond: 47871576,
-      transactionsPerSecond: 309
-    };
-    
-    // Mock transaction data - in real implementation, this would come from blockchain
-    const mockData = {
-      totalTransactions: 47,
-      sentTxs: 23,
-      receivedTxs: 19,
-      contractInteractions: 5,
-      totalGasSpent: "0.025",
-      dateRange: { from: "2024-01-15", to: "2024-06-07" },
-      transactions: [
-        {
-          hash: "0x1234567890abcdef",
-          type: "send",
-          from: walletAddress,
-          to: "0xabcdef1234567890",
-          amount: "150.0",
-          token: "MON",
-          timestamp: new Date("2024-06-06T10:30:00"),
-          gasUsed: "21000",
-          blockNumber: 1234567,
-          methodName: "transfer"
-        },
-        // More mock transactions...
-      ]
-    };
-    
-    setAnalysisData(mockAnalysisData);
-    setTransactionData(mockData);
-    setIsScanning(false);
   };
+
+  useEffect(() => {
+    const getTotalTxCount = async () => {
+      if (!walletAddress) return;
+      const apiKey = import.meta.env.VITE_BLOCKVISION_API_KEY;
+      const total = await fetchTotalTransactions(walletAddress, apiKey);
+      setTotalTxCount(total);
+    };
+    getTotalTxCount();
+  }, [walletAddress]);
 
   const visualizationModes = [
     { id: 'timeline', label: 'Timeline Chart', icon: Activity },
@@ -80,6 +101,17 @@ const TxVisualizer = () => {
     { id: 'tokens', label: 'Token Movement', icon: Zap },
     { id: 'live', label: 'Live Monitor', icon: Radio }
   ];
+
+  // Calculate stats from transactionData
+  const activities = transactionData?.result?.data || [];
+  const sentTxs = activities.filter(tx => tx.from?.toLowerCase() === walletAddress.toLowerCase()).length;
+  const receivedTxs = activities.filter(
+    tx => Array.isArray(tx.addTokens) && tx.addTokens.some(token => token.to?.toLowerCase() === walletAddress.toLowerCase())
+  ).length;
+  const totalGasSpent = activities
+    .filter(tx => tx.transactionFee)
+    .reduce((sum, tx) => sum + Number(tx.transactionFee), 0);
+  const totalTransactions = totalTxCount !== null ? totalTxCount : activities.length;
 
   return (
     <div className={`min-h-screen transition-all duration-500 ${
@@ -197,10 +229,10 @@ const TxVisualizer = () => {
             {/* Stats Overview */}
             <div className="grid gap-6 md:grid-cols-4">
               {[
-                { label: 'Total TXs', value: transactionData.totalTransactions, icon: Activity },
-                { label: 'Sent', value: transactionData.sentTxs, icon: ArrowRight },
-                { label: 'Received', value: transactionData.receivedTxs, icon: ArrowRight },
-                { label: 'Gas Spent', value: `${transactionData.totalGasSpent} MON`, icon: Zap }
+                { label: 'Total TXs', value: totalTransactions, icon: Activity },
+                { label: 'Sent', value: sentTxs, icon: ArrowRight },
+                { label: 'Received', value: receivedTxs, icon: ArrowRight },
+                { label: 'Gas Spent', value: `${totalGasSpent} MON`, icon: Zap }
               ].map((stat, index) => (
                 <Card key={index} className={`${
                   isDarkMode ? 'bg-slate-800/50 border-slate-700' : 'bg-white/80 border-gray-200'
@@ -268,6 +300,7 @@ const TxVisualizer = () => {
                   <LiveTransactionLogger 
                     isDarkMode={isDarkMode}
                     isLoreMode={isLoreMode}
+                    walletAddress={walletAddress}
                   />
                 )}
               </CardContent>
