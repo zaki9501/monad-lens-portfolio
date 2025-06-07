@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,54 +13,64 @@ import DAppExplorer from "@/components/DAppExplorer";
 import TransactionHistory from "@/components/TransactionHistory";
 import BadgeCollection from "@/components/BadgeCollection";
 import SearchBar from "@/components/SearchBar";
+import { usePrivy } from "@privy-io/react-auth";
+import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
 
-const Index = () => {
-  const [isConnected, setIsConnected] = useState(false);
-  const [walletAddress, setWalletAddress] = useState("");
-  const [viewingAddress, setViewingAddress] = useState("");
+const CopyAddressButton = ({ address }: { address: string }) => {
+  const [copied, setCopied] = useState(false);
   const { toast } = useToast();
 
-  const connectWallet = () => {
-    console.log("Connecting wallet...");
-    // Mock wallet connection
-    const mockAddress = "0x742d35Cc6634C0532925a3b8D48C405BeF8b30Ab";
-    setWalletAddress(mockAddress);
-    setViewingAddress(mockAddress);
-    setIsConnected(true);
-    console.log("Wallet connected, isConnected:", true);
-    toast({
-      title: "Wallet Connected",
-      description: "Successfully connected to Monad Testnet",
-    });
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(address);
+      setCopied(true);
+      toast({
+        title: "Address Copied",
+        description: "Wallet address copied to clipboard",
+      });
+      setTimeout(() => setCopied(false), 1500);
+    } catch (e) {
+      toast({
+        title: "Copy failed",
+        description: "Could not copy address to clipboard",
+      });
+    }
   };
 
-  const disconnectWallet = () => {
-    console.log("Disconnecting wallet...");
-    setWalletAddress("");
-    setViewingAddress("");
-    setIsConnected(false);
-    console.log("Wallet disconnected, isConnected:", false);
-    toast({
-      title: "Wallet Disconnected",
-      description: "Wallet has been disconnected",
-    });
-  };
+  return (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleCopy}
+            className="h-6 w-6 p-0 text-gray-400 hover:text-white"
+          >
+            {copied ? <CheckCircle className="w-3 h-3 text-green-400" /> : <Copy className="w-3 h-3" />}
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>
+          {copied ? "Copied!" : "Copy to clipboard"}
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+};
 
-  const copyAddress = () => {
-    navigator.clipboard.writeText(walletAddress);
-    toast({
-      title: "Address Copied",
-      description: "Wallet address copied to clipboard",
-    });
-  };
+const Index = () => {
+  const { login, logout, authenticated, user, ready } = usePrivy();
+  const { toast } = useToast();
 
-  const handleWalletSearch = (address: string) => {
-    setViewingAddress(address);
-  };
+  // For viewing other wallets, keep this state
+  const [viewingAddress, setViewingAddress] = useState<string>("");
+  const isViewingOwnWallet = viewingAddress === user?.wallet?.address;
 
-  const isViewingOwnWallet = viewingAddress === walletAddress;
-
-  console.log("Current state - isConnected:", isConnected, "walletAddress:", walletAddress);
+  useEffect(() => {
+    if (authenticated && user?.wallet?.address) {
+      setViewingAddress(user.wallet.address);
+    }
+  }, [authenticated, user]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
@@ -78,26 +87,18 @@ const Index = () => {
                 Testnet
               </Badge>
             </div>
-            
-            {isConnected ? (
+            {authenticated && user?.wallet?.address ? (
               <div className="flex items-center space-x-3">
                 <div className="flex items-center space-x-2 bg-slate-800/50 rounded-lg px-3 py-2">
                   <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
                   <span className="text-sm text-gray-300">
-                    {walletAddress.slice(0, 6)}...{walletAddress.slice(-4)}
+                    {user.wallet.address.slice(0, 6)}...{user.wallet.address.slice(-4)}
                   </span>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={copyAddress}
-                    className="h-6 w-6 p-0 text-gray-400 hover:text-white"
-                  >
-                    <Copy className="w-3 h-3" />
-                  </Button>
+                  <CopyAddressButton address={user.wallet.address} />
                 </div>
                 <Button
                   variant="outline"
-                  onClick={disconnectWallet}
+                  onClick={logout}
                   className="border-red-500 text-red-400 hover:bg-red-500/10"
                 >
                   Disconnect
@@ -105,7 +106,7 @@ const Index = () => {
               </div>
             ) : (
               <Button
-                onClick={connectWallet}
+                onClick={login}
                 className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
               >
                 <Wallet className="w-4 h-4 mr-2" />
@@ -118,10 +119,10 @@ const Index = () => {
 
       {/* Main Content */}
       <main className="container mx-auto px-4 py-8">
-        {!isConnected ? (
+        {!authenticated || !user?.wallet?.address ? (
           <div>
             <p className="text-white mb-4">Wallet not connected - showing connection page</p>
-            <WalletConnection onConnect={connectWallet} />
+            <WalletConnection />
           </div>
         ) : (
           <div className="space-y-8">
@@ -129,24 +130,24 @@ const Index = () => {
             
             {/* Search Bar */}
             <div className="flex justify-center">
-              <SearchBar onWalletSelect={handleWalletSearch} />
+              <SearchBar onWalletSelect={setViewingAddress} />
             </div>
 
             {/* Portfolio Header */}
-            {!isViewingOwnWallet && (
+            {!isViewingOwnWallet && viewingAddress ? (
               <div className="text-center">
                 <h2 className="text-2xl font-bold text-white mb-2">
                   Viewing Portfolio: {viewingAddress.slice(0, 6)}...{viewingAddress.slice(-4)}
                 </h2>
                 <Button
-                  onClick={() => setViewingAddress(walletAddress)}
+                  onClick={() => setViewingAddress(user.wallet.address)}
                   variant="outline"
                   className="border-purple-500 text-purple-300 hover:bg-purple-500/10"
                 >
                   Return to My Portfolio
                 </Button>
               </div>
-            )}
+            ) : null}
 
             {/* Portfolio Overview */}
             <PortfolioOverview walletAddress={viewingAddress} />

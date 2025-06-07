@@ -1,13 +1,11 @@
-
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Wallet, Shield, Zap } from "lucide-react";
+import { usePrivy } from "@privy-io/react-auth";
 
-interface WalletConnectionProps {
-  onConnect: () => void;
-}
+const WalletConnection = () => {
+  const { login, ready, authenticated, user } = usePrivy();
 
-const WalletConnection = ({ onConnect }: WalletConnectionProps) => {
   return (
     <div className="max-w-4xl mx-auto">
       <div className="text-center mb-12">
@@ -66,7 +64,7 @@ const WalletConnection = ({ onConnect }: WalletConnectionProps) => {
         </CardHeader>
         <CardContent className="space-y-4">
           <Button
-            onClick={onConnect}
+            onClick={login}
             className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white py-6 text-lg"
           >
             <Wallet className="w-5 h-5 mr-2" />
