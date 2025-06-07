@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { Wallet, TrendingUp, Activity, ExternalLink, Copy, CheckCircle, BarChart3 } from "lucide-react";
+import { Wallet, TrendingUp, Activity, ExternalLink, Copy, CheckCircle, BarChart3, Target } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import WalletConnection from "@/components/WalletConnection";
 import PortfolioOverview from "@/components/PortfolioOverview";
@@ -96,6 +96,15 @@ const Index = () => {
                 >
                   <BarChart3 className="w-4 h-4 mr-2" />
                   TX Visualizer
+                </Button>
+              </Link>
+              <Link to="/dapp-analyzer">
+                <Button
+                  variant="outline"
+                  className="border-green-500 text-green-400 hover:bg-green-500/10"
+                >
+                  <Target className="w-4 h-4 mr-2" />
+                  dApp Analyzer
                 </Button>
               </Link>
               {authenticated && user?.wallet?.address ? (
