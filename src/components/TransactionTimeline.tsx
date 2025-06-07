@@ -170,7 +170,7 @@ const TransactionTimeline = ({ data, isDarkMode, isLoreMode }: TransactionTimeli
             stroke={isDarkMode ? '#64748b' : '#94a3b8'} 
             strokeDasharray="5 5" 
             strokeOpacity={0.5}
-            label={{ value: "Avg Activity", position: "topRight" }}
+            label={{ value: "Avg Activity", position: "topLeft" }}
           />
         </ComposedChart>
       </ResponsiveContainer>
