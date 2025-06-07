@@ -10,12 +10,14 @@ import TransactionTimeline from "@/components/TransactionTimeline";
 import TransactionFlowDiagram from "@/components/TransactionFlowDiagram";
 import TokenMovementGraph from "@/components/TokenMovementGraph";
 import ScanningAnimation from "@/components/ScanningAnimation";
+import AnalysisResults from "@/components/AnalysisResults";
 
 const TxVisualizer = () => {
   const [walletAddress, setWalletAddress] = useState('');
   const [isScanning, setIsScanning] = useState(false);
   const [scanProgress, setScanProgress] = useState(0);
   const [transactionData, setTransactionData] = useState(null);
+  const [analysisData, setAnalysisData] = useState(null);
   const [visualizationMode, setVisualizationMode] = useState('timeline');
   const [isDarkMode, setIsDarkMode] = useState(true);
   const [isLoreMode, setIsLoreMode] = useState(false);
@@ -31,6 +33,15 @@ const TxVisualizer = () => {
       await new Promise(resolve => setTimeout(resolve, 50));
       setScanProgress(i);
     }
+    
+    // Mock analysis data
+    const mockAnalysisData = {
+      totalBlocks: 10375395,
+      totalTransactions: 67,
+      elapsedTime: 0.22,
+      blocksPerSecond: 47871576,
+      transactionsPerSecond: 309
+    };
     
     // Mock transaction data - in real implementation, this would come from blockchain
     const mockData = {
@@ -57,6 +68,7 @@ const TxVisualizer = () => {
       ]
     };
     
+    setAnalysisData(mockAnalysisData);
     setTransactionData(mockData);
     setIsScanning(false);
   };
@@ -165,6 +177,15 @@ const TxVisualizer = () => {
             progress={scanProgress} 
             isDarkMode={isDarkMode}
             isLoreMode={isLoreMode}
+          />
+        )}
+
+        {/* Analysis Results */}
+        {analysisData && !isScanning && (
+          <AnalysisResults 
+            isDarkMode={isDarkMode}
+            isLoreMode={isLoreMode}
+            analysisData={analysisData}
           />
         )}
 
