@@ -1,9 +1,10 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
-import { Shield, TrendingUp, Activity, Users, Calendar, Zap, Target, Star, AlertTriangle, CheckCircle, Palette } from "lucide-react";
+import { Shield, TrendingUp, Activity, Users, Calendar, Zap, Target, Star, AlertTriangle, CheckCircle, Palette, Info } from "lucide-react";
 import { getAccountTransactions, getAccountActivities } from "@/lib/blockvision";
 import ReputationArtGenerator from "./ReputationArtGenerator";
 
@@ -43,6 +44,7 @@ const WalletScoreCard = ({ walletAddress, isDarkMode = true, isLoreMode = false 
   const [scoreGrade, setScoreGrade] = useState<string>('');
   const [error, setError] = useState<string>('');
   const [showArtGenerator, setShowArtGenerator] = useState(false);
+  const [isEmpty, setIsEmpty] = useState(false);
 
   useEffect(() => {
     if (!walletAddress) return;
@@ -77,10 +79,24 @@ const WalletScoreCard = ({ walletAddress, isDarkMode = true, isLoreMode = false 
   const analyzeWallet = async () => {
     setLoading(true);
     setError('');
+    setIsEmpty(false);
     try {
       console.log('Starting comprehensive wallet analysis for:', walletAddress);
       
       const { transactions, activities, totalFromTxApi } = await fetchAllTransactions(walletAddress, 1000);
+
+      // Check if wallet is completely empty
+      const hasAnyActivity = transactions.length > 0 || activities.length > 0 || totalFromTxApi > 0;
+      
+      if (!hasAnyActivity) {
+        console.log('Wallet has no activity on Monad chain');
+        setIsEmpty(true);
+        setMetrics(null);
+        setScoreBreakdown(null);
+        setOverallScore(0);
+        setScoreGrade('N/A');
+        return;
+      }
 
       // Calculate metrics with the fetched data
       const calculatedMetrics = calculateMetrics(transactions, activities, totalFromTxApi);
@@ -317,10 +333,16 @@ const WalletScoreCard = ({ walletAddress, isDarkMode = true, isLoreMode = false 
     if (score >= 40) return 'B';
     if (score >= 30) return 'C+';
     if (score >= 20) return 'C';
-    return 'D';
+    if (score >= 10) return 'D';
+    return 'N/A';
   };
 
   const getSybilRisk = (score: number): { level: string; color: string; icon: React.ReactNode } => {
+    if (score === 0) return { 
+      level: 'Unknown', 
+      color: 'text-gray-400', 
+      icon: <Info className="w-4 h-4" />
+    };
     if (score >= 70) return { 
       level: 'Very Low', 
       color: 'text-green-400', 
@@ -359,7 +381,7 @@ const WalletScoreCard = ({ walletAddress, isDarkMode = true, isLoreMode = false 
               <Target className="w-6 h-6 text-purple-400" />
               <span>{isLoreMode ? 'Mind Authenticity Score' : 'Wallet Reputation Score'}</span>
             </div>
-            {!loading && !error && metrics && (
+            {!loading && !error && !isEmpty && metrics && (
               <Button
                 variant="outline"
                 size="sm"
@@ -395,6 +417,27 @@ const WalletScoreCard = ({ walletAddress, isDarkMode = true, isLoreMode = false 
                 Retry Analysis
               </button>
             </div>
+          ) : isEmpty ? (
+            <div className="text-center py-8">
+              <Info className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+              <div className={`space-y-3 ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+                <h3 className="text-xl font-semibold">
+                  {isLoreMode ? 'Mind Not Found' : 'No Activity Detected'}
+                </h3>
+                <p className="max-w-md mx-auto">
+                  {isLoreMode 
+                    ? 'This consciousness has not yet materialized on the Monad blockchain. The mind remains dormant, waiting for its first digital awakening.'
+                    : 'This wallet has no transaction history on the Monad testnet. Start interacting with the blockchain to build your reputation score!'
+                  }
+                </p>
+                <div className={`text-6xl font-bold text-gray-400 mt-4`}>
+                  --
+                </div>
+                <p className="text-sm">
+                  {isLoreMode ? 'Dormant State' : 'No Score Available'}
+                </p>
+              </div>
+            </div>
           ) : (
             <div className="space-y-6">
               {/* Overall Score Display */}
@@ -403,14 +446,16 @@ const WalletScoreCard = ({ walletAddress, isDarkMode = true, isLoreMode = false 
                   <div className={`text-6xl font-bold ${
                     overallScore >= 70 ? 'text-green-400' :
                     overallScore >= 50 ? 'text-blue-400' :
-                    overallScore >= 30 ? 'text-yellow-400' : 'text-red-400'
+                    overallScore >= 30 ? 'text-yellow-400' : 
+                    overallScore >= 10 ? 'text-red-400' : 'text-gray-400'
                   }`}>
                     {overallScore}
                   </div>
                   <div className={`text-2xl font-bold absolute -top-2 -right-8 ${
                     overallScore >= 70 ? 'text-green-400' :
                     overallScore >= 50 ? 'text-blue-400' :
-                    overallScore >= 30 ? 'text-yellow-400' : 'text-red-400'
+                    overallScore >= 30 ? 'text-yellow-400' : 
+                    overallScore >= 10 ? 'text-red-400' : 'text-gray-400'
                   }`}>
                     {scoreGrade}
                   </div>
@@ -561,8 +606,8 @@ const WalletScoreCard = ({ walletAddress, isDarkMode = true, isLoreMode = false 
         </CardContent>
       </Card>
 
-      {/* Art Generator */}
-      {showArtGenerator && !loading && !error && metrics && scoreBreakdown && (
+      {/* Art Generator - Only show for wallets with activity */}
+      {showArtGenerator && !loading && !error && !isEmpty && metrics && scoreBreakdown && (
         <ReputationArtGenerator
           walletAddress={walletAddress}
           overallScore={overallScore}
