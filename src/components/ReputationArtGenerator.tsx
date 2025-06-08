@@ -209,7 +209,7 @@ const ReputationArtGenerator = ({
         </CardHeader>
         <CardContent>
           <div className="flex flex-col items-center space-y-4">
-            {/* Generated Cosmic Pulse Art */}
+            {/* Generated Cosmic Pulse Art - NFT Compatible */}
             <div className={`relative rounded-xl p-6 shadow-2xl ${
               isDarkMode ? 'bg-slate-900/80' : 'bg-gray-50/80'
             }`}>
@@ -219,10 +219,10 @@ const ReputationArtGenerator = ({
                 height="400"
                 viewBox="0 0 400 400"
                 className="border-2 border-purple-400/30 rounded-lg shadow-inner"
-                style={{ background: artData.background }}
+                xmlns="http://www.w3.org/2000/svg"
               >
                 <defs>
-                  {/* Core glow gradient */}
+                  {/* NFT-Compatible Gradients */}
                   <radialGradient id="coreGlow" cx="50%" cy="50%" r="50%">
                     <stop offset="0%" stopColor={artData.coreColor} stopOpacity="1" />
                     <stop offset="30%" stopColor="#8B5CF6" stopOpacity="0.8" />
@@ -230,6 +230,12 @@ const ReputationArtGenerator = ({
                     <stop offset="100%" stopColor="#C084FC" stopOpacity="0.1" />
                   </radialGradient>
                   
+                  <radialGradient id="backgroundGrad" cx="50%" cy="50%" r="50%">
+                    <stop offset="0%" stopColor="#1e1b4b" stopOpacity="1" />
+                    <stop offset="40%" stopColor="#0f0f23" stopOpacity="1" />
+                    <stop offset="100%" stopColor="#000000" stopOpacity="1" />
+                  </radialGradient>
+
                   {/* Ring gradients */}
                   {artData.ringColors.map((color, i) => (
                     <radialGradient key={`ring-grad-${i}`} id={`ringGradient${i}`} cx="50%" cy="50%" r="50%">
@@ -239,16 +245,8 @@ const ReputationArtGenerator = ({
                     </radialGradient>
                   ))}
 
-                  {/* Glow effects */}
-                  <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
-                    <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
-                    <feMerge> 
-                      <feMergeNode in="coloredBlur"/>
-                      <feMergeNode in="SourceGraphic"/>
-                    </feMerge>
-                  </filter>
-
-                  <filter id="starGlow" x="-100%" y="-100%" width="300%" height="300%">
+                  {/* Simplified Glow Effects for NFT Compatibility */}
+                  <filter id="softGlow" x="-50%" y="-50%" width="200%" height="200%">
                     <feGaussianBlur stdDeviation="2" result="coloredBlur"/>
                     <feMerge> 
                       <feMergeNode in="coloredBlur"/>
@@ -256,23 +254,22 @@ const ReputationArtGenerator = ({
                     </feMerge>
                   </filter>
 
-                  <filter id="nodeGlow" x="-200%" y="-200%" width="500%" height="500%">
-                    <feGaussianBlur stdDeviation="4" result="coloredBlur"/>
+                  <filter id="starGlow" x="-100%" y="-100%" width="300%" height="300%">
+                    <feGaussianBlur stdDeviation="1" result="coloredBlur"/>
                     <feMerge> 
                       <feMergeNode in="coloredBlur"/>
                       <feMergeNode in="SourceGraphic"/>
                     </feMerge>
                   </filter>
-
-                  {/* Animation definitions */}
-                  <animate id="pulseAnimation" attributeName="r" dur="2s" repeatCount="indefinite" />
-                  <animate id="twinkleAnimation" attributeName="opacity" dur="1.5s" repeatCount="indefinite" />
                 </defs>
+
+                {/* Background */}
+                <rect width="400" height="400" fill="url(#backgroundGrad)" />
 
                 {/* Background cosmic field */}
                 <rect width="400" height="400" fill="url(#coreGlow)" opacity="0.1" />
 
-                {/* Connection lines between DApp nodes */}
+                {/* Connection lines between DApp nodes with SVG animations */}
                 {artData.connections.map((conn, i) => (
                   <line
                     key={`conn-${i}`}
@@ -287,14 +284,20 @@ const ReputationArtGenerator = ({
                   >
                     <animate
                       attributeName="stroke-dashoffset"
-                      values="0;6"
-                      dur="1s"
+                      values="0;6;0"
+                      dur="2s"
+                      repeatCount="indefinite"
+                    />
+                    <animate
+                      attributeName="opacity"
+                      values={`${conn.opacity};${conn.opacity * 0.5};${conn.opacity}`}
+                      dur="3s"
                       repeatCount="indefinite"
                     />
                   </line>
                 ))}
 
-                {/* Cosmic pulse rings */}
+                {/* Cosmic pulse rings with NFT-compatible animations */}
                 {artData.pulseRings.map((ring, i) => (
                   <g key={`ring-${i}`}>
                     <circle
@@ -305,18 +308,25 @@ const ReputationArtGenerator = ({
                       stroke={artData.ringColors[ring.colorIndex]}
                       strokeWidth={ring.strokeWidth}
                       opacity={ring.opacity}
-                      filter="url(#glow)"
+                      filter="url(#softGlow)"
                     >
                       <animate
                         attributeName="r"
-                        values={`${ring.radius};${ring.radius + 10};${ring.radius}`}
+                        values={`${ring.radius};${ring.radius + 8};${ring.radius}`}
                         dur="2s"
                         repeatCount="indefinite"
                         begin={`${ring.animationDelay}s`}
                       />
                       <animate
                         attributeName="opacity"
-                        values={`${ring.opacity};${ring.opacity * ring.pulseIntensity};${ring.opacity}`}
+                        values={`${ring.opacity};${Math.min(ring.opacity * ring.pulseIntensity, 1)};${ring.opacity}`}
+                        dur="2s"
+                        repeatCount="indefinite"
+                        begin={`${ring.animationDelay}s`}
+                      />
+                      <animate
+                        attributeName="stroke-width"
+                        values={`${ring.strokeWidth};${ring.strokeWidth + 1};${ring.strokeWidth}`}
                         dur="2s"
                         repeatCount="indefinite"
                         begin={`${ring.animationDelay}s`}
@@ -325,23 +335,45 @@ const ReputationArtGenerator = ({
                   </g>
                 ))}
 
-                {/* Central core */}
+                {/* Central core with NFT-compatible pulse */}
                 <circle
                   cx="200"
                   cy="200"
                   r="15"
                   fill="url(#coreGlow)"
-                  filter="url(#glow)"
+                  filter="url(#softGlow)"
                 >
                   <animate
                     attributeName="r"
-                    values="15;20;15"
+                    values="15;18;15"
+                    dur="1.5s"
+                    repeatCount="indefinite"
+                  />
+                  <animate
+                    attributeName="opacity"
+                    values="1;0.7;1"
                     dur="1.5s"
                     repeatCount="indefinite"
                   />
                 </circle>
 
-                {/* Star particles (transaction frequency) */}
+                {/* Inner core for extra depth */}
+                <circle
+                  cx="200"
+                  cy="200"
+                  r="8"
+                  fill={artData.coreColor}
+                  opacity="0.9"
+                >
+                  <animate
+                    attributeName="opacity"
+                    values="0.9;0.6;0.9"
+                    dur="1s"
+                    repeatCount="indefinite"
+                  />
+                </circle>
+
+                {/* Star particles with NFT-compatible twinkling */}
                 {artData.starParticles.map((star, i) => (
                   <circle
                     key={`star-${i}`}
@@ -355,34 +387,74 @@ const ReputationArtGenerator = ({
                     <animate
                       attributeName="opacity"
                       values={`${star.brightness};${star.brightness * 0.3};${star.brightness}`}
-                      dur="2s"
+                      dur="2.5s"
+                      repeatCount="indefinite"
+                      begin={`${star.twinkleDelay}s`}
+                    />
+                    <animate
+                      attributeName="r"
+                      values={`${star.size};${star.size * 0.7};${star.size}`}
+                      dur="2.5s"
                       repeatCount="indefinite"
                       begin={`${star.twinkleDelay}s`}
                     />
                   </circle>
                 ))}
 
-                {/* DApp interaction nodes */}
+                {/* DApp interaction nodes with enhanced animations */}
                 {artData.dappNodes.map((node, i) => (
-                  <circle
-                    key={`node-${i}`}
-                    cx={node.x}
-                    cy={node.y}
-                    r={node.size}
-                    fill="#E879F9"
-                    filter="url(#nodeGlow)"
-                  >
-                    <animate
-                      attributeName="r"
-                      values={`${node.size};${node.size + 2};${node.size}`}
-                      dur="3s"
-                      repeatCount="indefinite"
-                      begin={`${i * 0.5}s`}
-                    />
-                  </circle>
+                  <g key={`node-${i}`}>
+                    {/* Node glow effect */}
+                    <circle
+                      cx={node.x}
+                      cy={node.y}
+                      r={node.size + 2}
+                      fill="#E879F9"
+                      opacity="0.3"
+                      filter="url(#softGlow)"
+                    >
+                      <animate
+                        attributeName="r"
+                        values={`${node.size + 2};${node.size + 4};${node.size + 2}`}
+                        dur="3s"
+                        repeatCount="indefinite"
+                        begin={`${i * 0.5}s`}
+                      />
+                      <animate
+                        attributeName="opacity"
+                        values="0.3;0.1;0.3"
+                        dur="3s"
+                        repeatCount="indefinite"
+                        begin={`${i * 0.5}s`}
+                      />
+                    </circle>
+                    {/* Main node */}
+                    <circle
+                      cx={node.x}
+                      cy={node.y}
+                      r={node.size}
+                      fill="#E879F9"
+                      opacity="0.8"
+                    >
+                      <animate
+                        attributeName="r"
+                        values={`${node.size};${node.size + 1.5};${node.size}`}
+                        dur="3s"
+                        repeatCount="indefinite"
+                        begin={`${i * 0.5}s`}
+                      />
+                      <animate
+                        attributeName="opacity"
+                        values="0.8;1;0.8"
+                        dur="3s"
+                        repeatCount="indefinite"
+                        begin={`${i * 0.5}s`}
+                      />
+                    </circle>
+                  </g>
                 ))}
 
-                {/* High score particle effects */}
+                {/* High score particle effects with NFT-compatible animations */}
                 {artData.particleEffects.map((particle, i) => (
                   <circle
                     key={`particle-${i}`}
@@ -395,15 +467,22 @@ const ReputationArtGenerator = ({
                   >
                     <animate
                       attributeName="opacity"
-                      values={`${particle.opacity};0;${particle.opacity}`}
-                      dur="2.5s"
+                      values={`${particle.opacity};0.1;${particle.opacity}`}
+                      dur="3s"
+                      repeatCount="indefinite"
+                      begin={`${particle.animationDelay}s`}
+                    />
+                    <animate
+                      attributeName="r"
+                      values={`${particle.size};${particle.size * 1.5};${particle.size}`}
+                      dur="3s"
                       repeatCount="indefinite"
                       begin={`${particle.animationDelay}s`}
                     />
                   </circle>
                 ))}
 
-                {/* Score display in center */}
+                {/* Score display in center with subtle animation */}
                 <text
                   x="200"
                   y="200"
@@ -412,13 +491,19 @@ const ReputationArtGenerator = ({
                   fontSize="24"
                   fontWeight="bold"
                   fill="white"
-                  filter="url(#glow)"
                   opacity="0.9"
+                  fontFamily="monospace"
                 >
                   {overallScore}
+                  <animate
+                    attributeName="opacity"
+                    values="0.9;0.7;0.9"
+                    dur="2s"
+                    repeatCount="indefinite"
+                  />
                 </text>
 
-                {/* Signature */}
+                {/* Signature with fade animation */}
                 <text
                   x="200"
                   y="380"
@@ -429,7 +514,26 @@ const ReputationArtGenerator = ({
                   fontFamily="monospace"
                 >
                   {walletAddress.slice(0, 8)}...{walletAddress.slice(-4)}
+                  <animate
+                    attributeName="opacity"
+                    values="0.7;0.4;0.7"
+                    dur="4s"
+                    repeatCount="indefinite"
+                  />
                 </text>
+
+                {/* Metadata for NFT compatibility */}
+                <metadata>
+                  <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+                           xmlns:dc="http://purl.org/dc/elements/1.1/">
+                    <rdf:Description rdf:about="">
+                      <dc:title>{isLoreMode ? 'Cosmic Mind Pulse' : 'Cosmic Pulse Pattern'}</dc:title>
+                      <dc:creator>Reputation Art Generator</dc:creator>
+                      <dc:description>NFT-compatible animated reputation art with score {overallScore}</dc:description>
+                      <dc:format>image/svg+xml</dc:format>
+                    </rdf:Description>
+                  </rdf:RDF>
+                </metadata>
               </svg>
             </div>
 
@@ -450,13 +554,9 @@ const ReputationArtGenerator = ({
                 <div>{artData.dappNodes.length} connections</div>
               </div>
               <div className="text-center p-3 rounded-lg bg-gradient-to-r from-yellow-500/10 to-orange-500/10">
-                <div className="font-semibold">Intensity</div>
-                <div className={`font-bold ${
-                  artData.scoreCategory === 'high' ? 'text-yellow-400' :
-                  artData.scoreCategory === 'medium' ? 'text-purple-400' : 'text-blue-400'
-                }`}>
-                  {artData.scoreCategory === 'high' ? 'Cosmic' :
-                   artData.scoreCategory === 'medium' ? 'Stellar' : 'Nebula'}
+                <div className="font-semibold">NFT Ready</div>
+                <div className="font-bold text-green-400">
+                  Compatible
                 </div>
               </div>
             </div>
@@ -469,7 +569,7 @@ const ReputationArtGenerator = ({
                 className="bg-gradient-to-r from-gray-600 to-gray-700 hover:from-gray-700 hover:to-gray-800 text-white border-gray-500"
               >
                 <Download className="w-4 h-4 mr-2" />
-                Download Cosmic Art
+                Download NFT-Ready Art
               </Button>
               
               <EagerMintDialog
@@ -487,15 +587,18 @@ const ReputationArtGenerator = ({
             } p-4 rounded-lg bg-gradient-to-r from-purple-500/5 to-blue-500/5`}>
               <p className="font-medium mb-2">
                 {isLoreMode 
-                  ? '🌌 Cosmic Mind Pulse 🌌'
-                  : '⭐ Cosmic Pulse Pattern ⭐'
+                  ? '🌌 NFT-Ready Cosmic Mind Pulse 🌌'
+                  : '⭐ NFT-Compatible Cosmic Pulse ⭐'
                 }
               </p>
               <p>
                 {isLoreMode 
-                  ? 'Your digital consciousness radiates through the cosmic void, with each pulse ring representing the depth of your blockchain journey. Star particles dance around your core essence, while glowing nodes mark your interactions across the digital universe.'
-                  : 'A radial, pulsating pattern resembling a starfield blockchain network. The central core glows in deep purple, with concentric rings radiating outward. Ring density and particle effects directly reflect your wallet activity and reputation score.'
+                  ? 'Your digital consciousness radiates through the cosmic void as an animated NFT. Each pulse ring represents your blockchain journey, with star particles and glowing nodes marking your interactions across the digital universe.'
+                  : 'An NFT-compatible animated pattern with self-contained SVG animations. The pulsating rings, twinkling stars, and glowing nodes will animate in most NFT viewers and marketplaces.'
                 }
+              </p>
+              <p className="mt-2 text-xs opacity-75">
+                ✓ Uses standard SVG animations ✓ Compatible with OpenSea, Foundation, etc. ✓ Self-contained metadata
               </p>
             </div>
           </div>
