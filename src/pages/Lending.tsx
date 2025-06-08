@@ -2,11 +2,11 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Wallet, TrendingUp, Shield, Zap, Users, DollarSign, ArrowUpRight, Copy, Star, Check, Twitter } from "lucide-react";
+import { Wallet, TrendingUp, Shield, Zap, Users, DollarSign, ArrowUpRight, Copy, Star, Check, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Link, useNavigate } from "react-router-dom";
 import SearchBar from "@/components/SearchBar";
-import { X } from "lucide-react";
+import { X as LucideX } from "lucide-react";
 
 const Lending = () => {
   const [isConnected, setIsConnected] = useState(false);
@@ -234,7 +234,7 @@ const Lending = () => {
               className="flex items-center space-x-2 text-purple-400 hover:text-purple-300 transition-colors group"
             >
               <span className="text-xl font-bold">Piki</span>
-              <Twitter className="w-5 h-5 group-hover:scale-110 transition-transform" />
+              <X className="w-5 h-5 group-hover:scale-110 transition-transform" />
             </a>
           </div>
         </div>

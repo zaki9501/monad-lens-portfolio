@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { Wallet, TrendingUp, Activity, ExternalLink, Copy, CheckCircle, BarChart3, Target, Coins, Twitter } from "lucide-react";
+import { Wallet, TrendingUp, Activity, ExternalLink, Copy, CheckCircle, BarChart3, Target, Coins, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import WalletConnection from "@/components/WalletConnection";
 import PortfolioOverview from "@/components/PortfolioOverview";
@@ -19,7 +19,6 @@ import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/comp
 import { Link } from "react-router-dom";
 import { getAccountTokens } from "@/lib/blockvision";
 import { ethers } from "ethers";
-import { X } from "lucide-react";
 
 const CopyAddressButton = ({ address }: { address: string }) => {
   const [copied, setCopied] = useState(false);
@@ -369,7 +368,7 @@ const Index = () => {
               className="flex items-center space-x-2 text-purple-400 hover:text-purple-300 transition-colors group"
             >
               <span className="text-xl font-bold">Piki</span>
-              <Twitter className="w-5 h-5 group-hover:scale-110 transition-transform" />
+              <X className="w-5 h-5 group-hover:scale-110 transition-transform" />
             </a>
           </div>
         </div>
