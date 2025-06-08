@@ -1,16 +1,17 @@
-
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Wallet, TrendingUp, Shield, Zap, Users, DollarSign, ArrowUpRight, Copy, Star, Check } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import SearchBar from "@/components/SearchBar";
 
 const Lending = () => {
   const [isConnected, setIsConnected] = useState(false);
   const [walletAddress, setWalletAddress] = useState("");
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   const connectWallet = () => {
     const mockAddress = "0x742d35Cc6634C0532925a3b8D48C405BeF8b30Ab";
@@ -37,6 +38,11 @@ const Lending = () => {
       title: "Address Copied",
       description: "Wallet address copied to clipboard",
     });
+  };
+
+  const handleWalletSelect = (address: string) => {
+    // Navigate to home page with the selected wallet
+    navigate('/', { state: { selectedWallet: address } });
   };
 
   return (
@@ -103,19 +109,9 @@ const Lending = () => {
             Discover insights, track activities, and understand blockchain interactions like never before.
           </p>
           
-          <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-            <Link to="/">
-              <Button size="lg" className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-lg px-8 py-4">
-                <Star className="w-5 h-5 mr-2" />
-                Start Exploring
-              </Button>
-            </Link>
-            <Link to="/tx-visualizer">
-              <Button size="lg" variant="outline" className="border-purple-500 text-purple-300 hover:bg-purple-500/10 text-lg px-8 py-4">
-                <TrendingUp className="w-5 h-5 mr-2" />
-                View Transactions
-              </Button>
-            </Link>
+          {/* Search Bar */}
+          <div className="flex justify-center mb-12">
+            <SearchBar onWalletSelect={handleWalletSelect} />
           </div>
         </div>
 
