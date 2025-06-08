@@ -20,6 +20,12 @@ const TransactionHistory = ({ walletAddress }: TransactionHistoryProps) => {
   const [filter, setFilter] = useState<'all' | 'send' | 'receive' | 'contract'>('all');
   const [currentLimit, setCurrentLimit] = useState(20);
   const [hasMore, setHasMore] = useState(true);
+  const [totalStats, setTotalStats] = useState({
+    totalTransactions: 0,
+    totalContractCalls: 0,
+    totalGasSpent: "0",
+    successRate: 0
+  });
 
   const fetchTransactions = async (limit = 20, append = false) => {
     if (!walletAddress) return;
@@ -42,6 +48,25 @@ const TransactionHistory = ({ walletAddress }: TransactionHistoryProps) => {
       }
       
       setHasMore(txList.length === limit);
+
+      // Calculate total stats from all loaded transactions
+      let totalGas = 0;
+      let successCount = 0;
+      let contractCount = 0;
+      
+      txList.forEach((tx: any) => {
+        if (tx.gasUsed) totalGas += Number(tx.gasUsed);
+        if (tx.status === 1 || tx.status === "success") successCount++;
+        if (getTransactionType(tx) === 'contract') contractCount++;
+      });
+      
+      setTotalStats({
+        totalTransactions: txList.length,
+        totalContractCalls: contractCount,
+        totalGasSpent: totalGas > 0 ? formatEther(totalGas.toString()) : "0",
+        successRate: txList.length > 0 ? Math.round((successCount / txList.length) * 100) : 0
+      });
+      
     } catch (err) {
       setError("Failed to load transactions");
     } finally {
@@ -117,17 +142,14 @@ const TransactionHistory = ({ walletAddress }: TransactionHistoryProps) => {
     };
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "success": 
-      case 1: 
-        return "bg-green-500/20 text-green-400 border-green-500/30";
-      case "failed": 
-      case 0: 
-        return "bg-red-500/20 text-red-400 border-red-500/30";
-      default: 
-        return "bg-yellow-500/20 text-yellow-400 border-yellow-500/30";
+  const getStatusColor = (status: string | number) => {
+    if (status === "success" || status === 1) {
+      return "bg-green-500/20 text-green-400 border-green-500/30";
     }
+    if (status === "failed" || status === 0) {
+      return "bg-red-500/20 text-red-400 border-red-500/30";
+    }
+    return "bg-yellow-500/20 text-yellow-400 border-yellow-500/30";
   };
 
   const shortAddr = (addr: string) => addr ? `${addr.slice(0, 6)}...${addr.slice(-4)}` : "";
@@ -142,7 +164,7 @@ const TransactionHistory = ({ walletAddress }: TransactionHistoryProps) => {
     return `${Math.floor(diff / 86400)}d ago`;
   };
 
-  // Filter transactions
+  // Filter transactions for display
   const filteredTxs = useMemo(() => {
     if (filter === 'all') return txs;
     return txs.filter(tx => {
@@ -153,27 +175,6 @@ const TransactionHistory = ({ walletAddress }: TransactionHistoryProps) => {
       return type === filter;
     });
   }, [txs, filter]);
-
-  // Transaction stats
-  const stats = useMemo(() => {
-    let total = txs.length;
-    let gasSpent = 0;
-    let success = 0;
-    let contractInteractions = 0;
-    
-    txs.forEach(tx => {
-      if (tx.gasUsed) gasSpent += Number(tx.gasUsed);
-      if ((tx.status === 1 || tx.status === "success")) success++;
-      if (getTransactionType(tx) === 'contract') contractInteractions++;
-    });
-    
-    return {
-      total,
-      gasSpent: gasSpent > 0 ? formatEther(gasSpent.toString()) : "0",
-      successRate: total > 0 ? Math.round((success / total) * 100) : 0,
-      contractInteractions
-    };
-  }, [txs]);
 
   return (
     <div className="space-y-6">
@@ -210,14 +211,14 @@ const TransactionHistory = ({ walletAddress }: TransactionHistoryProps) => {
         </div>
       </div>
 
-      {/* Enhanced Stats Cards */}
+      {/* Enhanced Stats Cards - showing total wallet stats */}
       <div className="grid gap-4 md:grid-cols-4">
         <Card className="bg-gradient-to-r from-blue-600/20 to-purple-600/20 border-blue-500/30">
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-blue-300 text-sm font-medium">Total Transactions</p>
-                <p className="text-white text-2xl font-bold">{stats.total}</p>
+                <p className="text-white text-2xl font-bold">{totalStats.totalTransactions}</p>
               </div>
               <Activity className="w-8 h-8 text-blue-400" />
             </div>
@@ -229,7 +230,7 @@ const TransactionHistory = ({ walletAddress }: TransactionHistoryProps) => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-purple-300 text-sm font-medium">Contract Calls</p>
-                <p className="text-white text-2xl font-bold">{stats.contractInteractions}</p>
+                <p className="text-white text-2xl font-bold">{totalStats.totalContractCalls}</p>
               </div>
               <FileText className="w-8 h-8 text-purple-400" />
             </div>
@@ -241,7 +242,7 @@ const TransactionHistory = ({ walletAddress }: TransactionHistoryProps) => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-red-300 text-sm font-medium">Gas Spent</p>
-                <p className="text-white text-xl font-bold">{parseFloat(stats.gasSpent).toFixed(4)} MON</p>
+                <p className="text-white text-xl font-bold">{parseFloat(totalStats.totalGasSpent).toFixed(4)} MON</p>
               </div>
               <Zap className="w-8 h-8 text-red-400" />
             </div>
@@ -253,7 +254,7 @@ const TransactionHistory = ({ walletAddress }: TransactionHistoryProps) => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-green-300 text-sm font-medium">Success Rate</p>
-                <p className="text-white text-2xl font-bold">{stats.successRate}%</p>
+                <p className="text-white text-2xl font-bold">{totalStats.successRate}%</p>
               </div>
               <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center">
                 <Activity className="w-4 h-4 text-white" />
