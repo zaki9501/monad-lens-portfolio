@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -47,28 +46,41 @@ const WalletScoreCard = ({ walletAddress, isDarkMode = true, isLoreMode = false 
     analyzeWallet();
   }, [walletAddress]);
 
+  const fetchAllTransactions = async (address: string, maxLimit = 1000) => {
+    console.log('Fetching all transactions for comprehensive analysis...');
+    
+    // Fetch larger batches to get more complete data
+    const [txData, activityData] = await Promise.all([
+      getAccountTransactions(address, maxLimit),
+      getAccountActivities(address, maxLimit)
+    ]);
+
+    console.log('Raw transaction data:', txData);
+    console.log('Raw activity data:', activityData);
+
+    const transactions = txData?.result?.data || [];
+    const activities = activityData?.result?.data || [];
+    
+    // Get total count from API response if available
+    const totalFromTxApi = txData?.result?.total || transactions.length;
+    const totalFromActivityApi = activityData?.result?.total || activities.length;
+    
+    console.log(`API reported totals - Transactions: ${totalFromTxApi}, Activities: ${totalFromActivityApi}`);
+    console.log(`Fetched - Transactions: ${transactions.length}, Activities: ${activities.length}`);
+
+    return { transactions, activities, totalFromTxApi, totalFromActivityApi };
+  };
+
   const analyzeWallet = async () => {
     setLoading(true);
     setError('');
     try {
-      console.log('Starting wallet analysis for:', walletAddress);
+      console.log('Starting comprehensive wallet analysis for:', walletAddress);
       
-      // Fetch transaction data with larger limits
-      const [txData, activityData] = await Promise.all([
-        getAccountTransactions(walletAddress, 100),
-        getAccountActivities(walletAddress, 100)
-      ]);
+      const { transactions, activities, totalFromTxApi } = await fetchAllTransactions(walletAddress, 1000);
 
-      console.log('Transaction data:', txData);
-      console.log('Activity data:', activityData);
-
-      const transactions = txData?.result?.data || [];
-      const activities = activityData?.result?.data || [];
-
-      console.log(`Found ${transactions.length} transactions and ${activities.length} activities`);
-
-      // Calculate metrics
-      const calculatedMetrics = calculateMetrics(transactions, activities);
+      // Calculate metrics with the fetched data
+      const calculatedMetrics = calculateMetrics(transactions, activities, totalFromTxApi);
       console.log('Calculated metrics:', calculatedMetrics);
       
       const breakdown = calculateScoreBreakdown(calculatedMetrics);
@@ -89,60 +101,68 @@ const WalletScoreCard = ({ walletAddress, isDarkMode = true, isLoreMode = false 
     }
   };
 
-  const calculateMetrics = (transactions: any[], activities: any[]): ScoreMetrics => {
-    // Combine all transactions for comprehensive analysis
+  const calculateMetrics = (transactions: any[], activities: any[], apiTotalTx: number): ScoreMetrics => {
+    // Use API total if available, otherwise use fetched count
+    const totalTransactions = Math.max(apiTotalTx, transactions.length + activities.length);
+    console.log(`Total transactions: ${totalTransactions} (API: ${apiTotalTx}, Fetched: ${transactions.length + activities.length})`);
+    
+    // Combine all transactions for analysis
     const allTxs = [...transactions, ...activities];
-    console.log('Processing', allTxs.length, 'total transactions');
+    console.log('Processing', allTxs.length, 'transactions for detailed analysis');
     
-    // Basic counts
-    const totalTransactions = allTxs.length;
+    // Volume calculation - improved handling
+    let totalVolume = 0;
     
-    // Volume calculation - handle both regular transactions and activities
-    const totalVolume = allTxs.reduce((sum, tx) => {
-      let txValue = 0;
-      
+    allTxs.forEach(tx => {
       // For regular transactions
       if (tx.value && tx.value !== "0") {
-        txValue = Number(tx.value) / 1e18; // Convert wei to MON
+        const valueInEth = Number(tx.value) / 1e18;
+        totalVolume += valueInEth;
+        console.log(`Transaction value: ${valueInEth} MON`);
       }
       
       // For activities with token movements
       if (tx.addTokens && Array.isArray(tx.addTokens)) {
         tx.addTokens.forEach((token: any) => {
           if (token.amount && token.symbol === 'MON') {
-            txValue += Number(token.amount);
+            totalVolume += Number(token.amount);
+            console.log(`Activity token amount: ${token.amount} MON`);
           }
         });
       }
-      
-      return sum + txValue;
-    }, 0);
+    });
+
+    console.log(`Total volume calculated: ${totalVolume} MON`);
 
     // Gas spent calculation - fixed conversion
-    const gasSpent = allTxs.reduce((sum, tx) => {
-      let gasUsed = 0;
-      
+    let gasSpent = 0;
+    
+    allTxs.forEach(tx => {
       if (tx.transactionFee) {
         // transactionFee is already in MON format for activities
-        gasUsed = Number(tx.transactionFee);
+        const feeInMon = Number(tx.transactionFee);
+        gasSpent += feeInMon;
       } else if (tx.gasUsed && tx.gasPrice) {
         // For raw transactions, calculate from gasUsed * gasPrice and convert wei to MON
-        gasUsed = (Number(tx.gasUsed) * Number(tx.gasPrice)) / 1e18;
+        const feeInWei = Number(tx.gasUsed) * Number(tx.gasPrice);
+        const feeInMon = feeInWei / 1e18;
+        gasSpent += feeInMon;
       }
-      
-      return sum + gasUsed;
-    }, 0);
+    });
+
+    console.log(`Total gas spent: ${gasSpent} MON`);
 
     // Contract interactions - improved detection
     const contractAddresses = new Set<string>();
     let contractsInteracted = 0;
     
     allTxs.forEach(tx => {
-      // Check if it's a contract interaction
+      // Enhanced contract detection
       const isContractTx = tx.isContract || 
                           tx.contractAddress ||
                           (tx.to && tx.to !== walletAddress && tx.to !== '' && tx.to !== '0x0000000000000000000000000000000000000000') ||
-                          (tx.transactionAddress && tx.transactionAddress !== walletAddress);
+                          (tx.transactionAddress && tx.transactionAddress !== walletAddress) ||
+                          tx.methodID || tx.methodName;
       
       if (isContractTx) {
         contractsInteracted++;
@@ -154,12 +174,13 @@ const WalletScoreCard = ({ walletAddress, isDarkMode = true, isLoreMode = false 
     });
 
     const uniqueContracts = contractAddresses.size;
+    console.log(`Contracts: ${contractsInteracted} interactions, ${uniqueContracts} unique`);
 
-    // Active days calculation - improved timestamp handling
+    // Active days calculation
     const dates = new Set<string>();
     allTxs.forEach(tx => {
       if (tx.timestamp) {
-        // Handle both timestamp formats (seconds and milliseconds)
+        // Handle both timestamp formats
         const timestamp = typeof tx.timestamp === 'number' && tx.timestamp > 1e12 
           ? tx.timestamp 
           : tx.timestamp * 1000;
@@ -169,7 +190,7 @@ const WalletScoreCard = ({ walletAddress, isDarkMode = true, isLoreMode = false 
     });
     const activeDays = dates.size;
 
-    // Calculate time-based metrics
+    // Time-based metrics
     const timestamps = allTxs
       .map(tx => tx.timestamp)
       .filter(ts => ts)
@@ -177,18 +198,18 @@ const WalletScoreCard = ({ walletAddress, isDarkMode = true, isLoreMode = false 
       .sort((a, b) => a - b);
     
     const firstTransactionAge = timestamps.length > 0 
-      ? Math.max(1, (Date.now() / 1000 - timestamps[0]) / 86400) // Days since first transaction
+      ? Math.max(1, (Date.now() / 1000 - timestamps[0]) / 86400)
       : 1;
 
-    const transactionFrequency = totalTransactions / firstTransactionAge; // Transactions per day
+    const transactionFrequency = totalTransactions / firstTransactionAge;
 
-    // Average gas price (for transactions that have gasPrice)
+    // Average gas price
     const gasTransactions = allTxs.filter(tx => tx.gasPrice && Number(tx.gasPrice) > 0);
     const averageGasPrice = gasTransactions.length > 0 
-      ? gasTransactions.reduce((sum, tx) => sum + Number(tx.gasPrice), 0) / gasTransactions.length / 1e9 // Convert to Gwei
+      ? gasTransactions.reduce((sum, tx) => sum + Number(tx.gasPrice), 0) / gasTransactions.length / 1e9
       : 0;
 
-    // Diversity score - different types of interactions
+    // Diversity score
     const interactionTypes = new Set<string>();
     allTxs.forEach(tx => {
       if (tx.methodName && tx.methodName !== '') interactionTypes.add(tx.methodName);
@@ -217,7 +238,7 @@ const WalletScoreCard = ({ walletAddress, isDarkMode = true, isLoreMode = false 
   const calculateScoreBreakdown = (metrics: ScoreMetrics): ScoreBreakdown => {
     // Activity Score (0-100) - Based on transaction count and frequency
     const activityScore = Math.min(100, 
-      Math.min(50, metrics.totalTransactions * 2) + 
+      Math.min(50, metrics.totalTransactions * 0.1) + 
       Math.min(50, metrics.transactionFrequency * 20)
     );
 
@@ -232,8 +253,8 @@ const WalletScoreCard = ({ walletAddress, isDarkMode = true, isLoreMode = false 
 
     // Diversity Score (0-100) - Based on unique contracts and interaction types
     const diversityScore = Math.min(100, 
-      Math.min(70, metrics.uniqueContracts * 10) + 
-      Math.min(30, metrics.diversityScore * 5)
+      Math.min(70, metrics.uniqueContracts * 2) + 
+      Math.min(30, metrics.diversityScore * 3)
     );
 
     // Longevity Score (0-100) - Based on account age
@@ -241,7 +262,7 @@ const WalletScoreCard = ({ walletAddress, isDarkMode = true, isLoreMode = false 
 
     // Gas Efficiency Score (0-100) - Lower gas per transaction is better
     const avgGasPerTx = metrics.totalTransactions > 0 ? metrics.gasSpent / metrics.totalTransactions : 0;
-    const gasEfficiencyScore = Math.max(0, Math.min(100, 100 - (avgGasPerTx * 1000)));
+    const gasEfficiencyScore = Math.max(0, Math.min(100, 100 - (avgGasPerTx * 50)));
 
     return {
       activity: Math.max(0, activityScore),
@@ -329,7 +350,7 @@ const WalletScoreCard = ({ walletAddress, isDarkMode = true, isLoreMode = false 
             <div className="text-center py-8">
               <div className="animate-spin w-8 h-8 border-2 border-purple-400 border-t-transparent rounded-full mx-auto mb-4" />
               <p className={isDarkMode ? 'text-gray-300' : 'text-gray-600'}>
-                {isLoreMode ? 'Analyzing consciousness patterns...' : 'Analyzing wallet activity...'}
+                {isLoreMode ? 'Analyzing consciousness patterns...' : 'Analyzing comprehensive wallet data...'}
               </p>
             </div>
           ) : error ? (
