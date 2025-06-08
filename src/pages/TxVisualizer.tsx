@@ -50,6 +50,11 @@ const TxVisualizer = () => {
   const [isLoreMode, setIsLoreMode] = useState(false);
   const [totalTxCount, setTotalTxCount] = useState(null);
 
+  const handleBackClick = () => {
+    console.log('Back button clicked'); // Debug log
+    navigate('/'); // Navigate to home page instead of -1
+  };
+
   const handleGenerateVisualization = async () => {
     if (!walletAddress) return;
     setIsScanning(true);
@@ -126,7 +131,7 @@ const TxVisualizer = () => {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => navigate(-1)}
+            onClick={handleBackClick}
             className={`${
               isDarkMode 
                 ? 'border-slate-600 bg-slate-800/50 text-white hover:bg-slate-700/50' 
