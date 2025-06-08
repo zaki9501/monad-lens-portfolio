@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Search, Brain, Zap, Activity, ArrowRight, Eye, Radio } from "lucide-react";
+import { Search, Brain, Zap, Activity, ArrowRight, Eye, Radio, ArrowLeft } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import WalletAvatar from "@/components/WalletAvatar";
 import TransactionTimeline from "@/components/TransactionTimeline";
 import TransactionFlowDiagram from "@/components/TransactionFlowDiagram";
@@ -38,6 +39,7 @@ const fetchTotalTransactions = async (address, apiKey) => {
 };
 
 const TxVisualizer = () => {
+  const navigate = useNavigate();
   const [walletAddress, setWalletAddress] = useState('');
   const [isScanning, setIsScanning] = useState(false);
   const [scanProgress, setScanProgress] = useState(0);
@@ -119,6 +121,23 @@ const TxVisualizer = () => {
         : 'bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50'
     }`}>
       <div className="container mx-auto px-4 py-8">
+        {/* Back Button */}
+        <div className="mb-6">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => navigate(-1)}
+            className={`${
+              isDarkMode 
+                ? 'border-slate-600 bg-slate-800/50 text-white hover:bg-slate-700/50' 
+                : 'border-gray-300 bg-white/80 text-gray-900 hover:bg-gray-50'
+            } animate-fade-in`}
+          >
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Back
+          </Button>
+        </div>
+
         {/* Header */}
         <div className="text-center mb-12 animate-fade-in">
           <div className="flex items-center justify-center mb-4">
