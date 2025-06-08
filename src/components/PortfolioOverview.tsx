@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { TrendingUp, TrendingDown, DollarSign, PieChart, Activity, Wallet, Target, BarChart3 } from "lucide-react";
-import { getAccountTokens, getAccountNFTs } from "@/lib/blockvision";
+import { getAccountTokens, getAccountNFTs, getAccountTransactions, getAccountActivities } from "@/lib/blockvision";
 
 interface PortfolioOverviewProps {
   walletAddress: string;
@@ -24,6 +24,7 @@ const PortfolioOverview = ({ walletAddress }: PortfolioOverviewProps) => {
   const [error, setError] = useState<string | null>(null);
   const [usdValue, setUsdValue] = useState<number>(0);
   const [nftCount, setNftCount] = useState<number | null>(null);
+  const [totalTransactions, setTotalTransactions] = useState<number>(0);
   const [showAllTokens, setShowAllTokens] = useState(false);
   const DEFAULT_VISIBLE_TOKENS = 5;
   const PRIORITY_TOKENS = ["MON", "USDC", "WMON"];
@@ -32,29 +33,47 @@ const PortfolioOverview = ({ walletAddress }: PortfolioOverviewProps) => {
     if (!walletAddress) return;
     setLoading(true);
     setError(null);
-    getAccountTokens(walletAddress)
-      .then(async (data) => {
-        console.log("API response:", data);
-        const tokensList = (data?.result?.data || []).map(token => ({
+    
+    Promise.all([
+      getAccountTokens(walletAddress),
+      getAccountNFTs(walletAddress, 1),
+      getAccountTransactions(walletAddress, 1000),
+      getAccountActivities(walletAddress, 1000)
+    ])
+      .then(async ([tokenData, nftData, txData, activityData]) => {
+        console.log("Token API response:", tokenData);
+        console.log("Transaction API response:", txData);
+        console.log("Activity API response:", activityData);
+        
+        // Process tokens
+        const tokensList = (tokenData?.result?.data || []).map(token => ({
           ...token,
           decimals: token.decimal,
           token_address: token.contractAddress,
           logo_url: token.imageURL,
         }));
         setTokens(tokensList);
-        console.log("Tokens:", tokensList);
-        // Fetch prices for each token and calculate total USD value
+        
+        // Calculate total transactions from both sources
+        const transactions = txData?.result?.data || [];
+        const activities = activityData?.result?.data || [];
+        const txTotal = txData?.result?.total || transactions.length;
+        const activityTotal = activityData?.result?.total || activities.length;
+        const totalTx = Math.max(txTotal + activityTotal, transactions.length + activities.length);
+        setTotalTransactions(totalTx);
+        console.log("Total transactions calculated:", totalTx);
+        
+        // Process NFTs
+        const nfts = nftData?.result?.data || [];
+        setNftCount(nfts.length);
+        
+        // Calculate USD value (placeholder logic)
         let total = 0;
         for (const token of tokensList) {
           let price = 0;
           try {
-            // Try to get price from Blockvision API if available
             if (token.priceUSD !== undefined) {
               price = Number(token.priceUSD);
-            } else {
-              // fallback: try MCP plugin (if available in your project)
-              // const meta = await functions.mcp_piki_monadhub_get_token_metadata({ tokenAddress: token.token_address });
-              // price = meta.priceUsd || 0;
             }
           } catch (e) {
             price = 0;
@@ -68,26 +87,14 @@ const PortfolioOverview = ({ walletAddress }: PortfolioOverviewProps) => {
         setUsdValue(total);
       })
       .catch((err) => {
-        console.error("Blockvision error:", err);
+        console.error("API error:", err);
         if (err.message && err.message.includes("429")) {
           setError("Rate limit exceeded. Please try again later.");
         } else {
-          setError("Failed to load tokens");
+          setError("Failed to load portfolio data");
         }
       })
       .finally(() => setLoading(false));
-
-    // Fetch NFTs
-    (async () => {
-      try {
-        const nftData = await getAccountNFTs(walletAddress, 1);
-        // Blockvision returns an array of NFTs in nftData.result.data
-        const nfts = nftData?.result?.data || [];
-        setNftCount(nfts.length);
-      } catch (e) {
-        setNftCount(null);
-      }
-    })();
   }, [walletAddress]);
 
   const totalBalance = typeof usdValue === 'number' && !isNaN(usdValue)
@@ -225,25 +232,25 @@ const PortfolioOverview = ({ walletAddress }: PortfolioOverviewProps) => {
           </CardContent>
         </Card>
 
-        {/* Transaction Volume */}
+        {/* Transaction Volume - Now uses real data */}
         <Card className="bg-slate-800/50 border-slate-700">
           <CardContent className="p-6 text-center">
             <div className="w-12 h-12 bg-gradient-to-r from-cyan-500 to-blue-500 rounded-lg flex items-center justify-center mx-auto mb-4">
               <Activity className="w-6 h-6 text-white" />
             </div>
-            <p className="text-2xl font-bold text-white">127</p>
+            <p className="text-2xl font-bold text-white">{totalTransactions}</p>
             <p className="text-gray-400 text-sm">Total Transactions</p>
-            <p className="text-cyan-400 text-xs mt-1">+12 this week</p>
+            <p className="text-cyan-400 text-xs mt-1">On Monad</p>
           </CardContent>
         </Card>
 
-        {/* DeFi Positions */}
+        {/* DeFi Positions - Removed the hardcoded number */}
         <Card className="bg-slate-800/50 border-slate-700">
           <CardContent className="p-6 text-center">
             <div className="w-12 h-12 bg-gradient-to-r from-violet-500 to-purple-500 rounded-lg flex items-center justify-center mx-auto mb-4">
               <PieChart className="w-6 h-6 text-white" />
             </div>
-            <p className="text-2xl font-bold text-white">3</p>
+            <p className="text-2xl font-bold text-white">--</p>
             <p className="text-gray-400 text-sm">DeFi Positions</p>
             <p className="text-violet-400 text-xs mt-1">Coming soon</p>
           </CardContent>
