@@ -1,14 +1,16 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Search, Brain, Zap, Activity, ArrowRight, Eye, Radio, ArrowLeft } from "lucide-react";
+import { Search, Brain, Zap, Activity, ArrowRight, Eye, Radio, ArrowLeft, Shield } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import WalletAvatar from "@/components/WalletAvatar";
 import TransactionTimeline from "@/components/TransactionTimeline";
 import TransactionFlowDiagram from "@/components/TransactionFlowDiagram";
 import TokenMovementGraph from "@/components/TokenMovementGraph";
 import LiveTransactionLogger from "@/components/LiveTransactionLogger";
+import WalletScoreCard from "@/components/WalletScoreCard";
 import ScanningAnimation from "@/components/ScanningAnimation";
 import AnalysisResults from "@/components/AnalysisResults";
 
@@ -105,6 +107,7 @@ const TxVisualizer = () => {
     { id: 'timeline', label: 'Timeline Chart', icon: Activity },
     { id: 'flow', label: 'Flow Diagram', icon: ArrowRight },
     { id: 'tokens', label: 'Token Movement', icon: Zap },
+    { id: 'score', label: 'Wallet Score', icon: Shield },
     { id: 'live', label: 'Live Monitor', icon: Radio }
   ];
 
@@ -314,6 +317,13 @@ const TxVisualizer = () => {
                 )}
                 {visualizationMode === 'tokens' && (
                   <TokenMovementGraph 
+                    walletAddress={walletAddress}
+                    isDarkMode={isDarkMode}
+                    isLoreMode={isLoreMode}
+                  />
+                )}
+                {visualizationMode === 'score' && (
+                  <WalletScoreCard 
                     walletAddress={walletAddress}
                     isDarkMode={isDarkMode}
                     isLoreMode={isLoreMode}
