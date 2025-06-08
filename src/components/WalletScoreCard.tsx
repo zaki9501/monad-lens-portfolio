@@ -102,14 +102,14 @@ const WalletScoreCard = ({ walletAddress, isDarkMode = true, isLoreMode = false 
       let txValue = 0;
       
       // For regular transactions
-      if (tx.value) {
-        txValue = Number(tx.value) / 1e18;
+      if (tx.value && tx.value !== "0") {
+        txValue = Number(tx.value) / 1e18; // Convert wei to MON
       }
       
       // For activities with token movements
       if (tx.addTokens && Array.isArray(tx.addTokens)) {
         tx.addTokens.forEach((token: any) => {
-          if (token.amount) {
+          if (token.amount && token.symbol === 'MON') {
             txValue += Number(token.amount);
           }
         });
@@ -118,35 +118,36 @@ const WalletScoreCard = ({ walletAddress, isDarkMode = true, isLoreMode = false 
       return sum + txValue;
     }, 0);
 
-    // Gas spent calculation
+    // Gas spent calculation - fixed conversion
     const gasSpent = allTxs.reduce((sum, tx) => {
       let gasUsed = 0;
       
       if (tx.transactionFee) {
-        // transactionFee is already in ETH/MON format for activities
+        // transactionFee is already in MON format for activities
         gasUsed = Number(tx.transactionFee);
       } else if (tx.gasUsed && tx.gasPrice) {
-        // For raw transactions, calculate from gasUsed * gasPrice
+        // For raw transactions, calculate from gasUsed * gasPrice and convert wei to MON
         gasUsed = (Number(tx.gasUsed) * Number(tx.gasPrice)) / 1e18;
       }
       
       return sum + gasUsed;
     }, 0);
 
-    // Contract interactions
+    // Contract interactions - improved detection
     const contractAddresses = new Set<string>();
     let contractsInteracted = 0;
     
     allTxs.forEach(tx => {
       // Check if it's a contract interaction
       const isContractTx = tx.isContract || 
+                          tx.contractAddress ||
                           (tx.to && tx.to !== walletAddress && tx.to !== '' && tx.to !== '0x0000000000000000000000000000000000000000') ||
                           (tx.transactionAddress && tx.transactionAddress !== walletAddress);
       
       if (isContractTx) {
         contractsInteracted++;
-        const contractAddr = tx.transactionAddress || tx.to || tx.contractAddress;
-        if (contractAddr && contractAddr !== '') {
+        const contractAddr = tx.contractAddress || tx.transactionAddress || tx.to;
+        if (contractAddr && contractAddr !== '' && contractAddr !== '0x0000000000000000000000000000000000000000') {
           contractAddresses.add(contractAddr.toLowerCase());
         }
       }
@@ -154,7 +155,7 @@ const WalletScoreCard = ({ walletAddress, isDarkMode = true, isLoreMode = false 
 
     const uniqueContracts = contractAddresses.size;
 
-    // Active days calculation
+    // Active days calculation - improved timestamp handling
     const dates = new Set<string>();
     allTxs.forEach(tx => {
       if (tx.timestamp) {
@@ -176,23 +177,23 @@ const WalletScoreCard = ({ walletAddress, isDarkMode = true, isLoreMode = false 
       .sort((a, b) => a - b);
     
     const firstTransactionAge = timestamps.length > 0 
-      ? Math.max(1, (Date.now() / 1000 - timestamps[0]) / 86400)
+      ? Math.max(1, (Date.now() / 1000 - timestamps[0]) / 86400) // Days since first transaction
       : 1;
 
-    const transactionFrequency = totalTransactions / firstTransactionAge;
+    const transactionFrequency = totalTransactions / firstTransactionAge; // Transactions per day
 
     // Average gas price (for transactions that have gasPrice)
     const gasTransactions = allTxs.filter(tx => tx.gasPrice && Number(tx.gasPrice) > 0);
     const averageGasPrice = gasTransactions.length > 0 
-      ? gasTransactions.reduce((sum, tx) => sum + Number(tx.gasPrice), 0) / gasTransactions.length
+      ? gasTransactions.reduce((sum, tx) => sum + Number(tx.gasPrice), 0) / gasTransactions.length / 1e9 // Convert to Gwei
       : 0;
 
     // Diversity score - different types of interactions
     const interactionTypes = new Set<string>();
     allTxs.forEach(tx => {
-      if (tx.methodName) interactionTypes.add(tx.methodName);
-      if (tx.txName) interactionTypes.add(tx.txName);
-      if (tx.methodID) interactionTypes.add(tx.methodID);
+      if (tx.methodName && tx.methodName !== '') interactionTypes.add(tx.methodName);
+      if (tx.txName && tx.txName !== '') interactionTypes.add(tx.txName);
+      if (tx.methodID && tx.methodID !== '') interactionTypes.add(tx.methodID);
     });
     const diversityScore = interactionTypes.size;
 
@@ -423,10 +424,10 @@ const WalletScoreCard = ({ walletAddress, isDarkMode = true, isLoreMode = false 
                   }`}>
                     <TrendingUp className="w-6 h-6 mx-auto mb-2 text-green-400" />
                     <div className={`text-xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                      {metrics.totalVolume.toFixed(3)} MON
+                      {metrics.totalVolume.toFixed(3)}
                     </div>
                     <div className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                      Total Volume
+                      Total Volume (MON)
                     </div>
                   </div>
 
@@ -451,6 +452,54 @@ const WalletScoreCard = ({ walletAddress, isDarkMode = true, isLoreMode = false 
                     </div>
                     <div className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
                       Active Days
+                    </div>
+                  </div>
+
+                  <div className={`text-center p-3 rounded-lg ${
+                    isDarkMode ? 'bg-slate-700/30' : 'bg-gray-50'
+                  }`}>
+                    <Zap className="w-6 h-6 mx-auto mb-2 text-yellow-400" />
+                    <div className={`text-xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                      {metrics.gasSpent.toFixed(4)}
+                    </div>
+                    <div className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                      Gas Spent (MON)
+                    </div>
+                  </div>
+
+                  <div className={`text-center p-3 rounded-lg ${
+                    isDarkMode ? 'bg-slate-700/30' : 'bg-gray-50'
+                  }`}>
+                    <Activity className="w-6 h-6 mx-auto mb-2 text-cyan-400" />
+                    <div className={`text-xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                      {metrics.transactionFrequency.toFixed(2)}
+                    </div>
+                    <div className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                      Frequency/Day
+                    </div>
+                  </div>
+
+                  <div className={`text-center p-3 rounded-lg ${
+                    isDarkMode ? 'bg-slate-700/30' : 'bg-gray-50'
+                  }`}>
+                    <Star className="w-6 h-6 mx-auto mb-2 text-pink-400" />
+                    <div className={`text-xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                      {metrics.diversityScore}
+                    </div>
+                    <div className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                      Diversity Score
+                    </div>
+                  </div>
+
+                  <div className={`text-center p-3 rounded-lg ${
+                    isDarkMode ? 'bg-slate-700/30' : 'bg-gray-50'
+                  }`}>
+                    <Calendar className="w-6 h-6 mx-auto mb-2 text-indigo-400" />
+                    <div className={`text-xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                      {Math.round(metrics.firstTransactionAge)}
+                    </div>
+                    <div className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                      Account Age (Days)
                     </div>
                   </div>
                 </div>
