@@ -1,102 +1,362 @@
-import { useState, useEffect } from "react";
-import { Input } from "@/components/ui/input";
+import React, { useState, useEffect } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Search, Copy, AlertTriangle } from "lucide-react";
-import { useToast } from "@/components/ui/use-toast";
-import { useClipboard } from "@/hooks/use-clipboard";
-import TransactionHistory from "@/components/TransactionHistory";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { Search, Brain, Zap, Activity, ArrowRight, Eye, Radio } from "lucide-react";
+import WalletAvatar from "@/components/WalletAvatar";
+import TransactionTimeline from "@/components/TransactionTimeline";
+import TransactionFlowDiagram from "@/components/TransactionFlowDiagram";
 import TokenMovementGraph from "@/components/TokenMovementGraph";
+import LiveTransactionLogger from "@/components/LiveTransactionLogger";
+import ScanningAnimation from "@/components/ScanningAnimation";
+import AnalysisResults from "@/components/AnalysisResults";
+
+const fetchAccountActivities = async (address, apiKey, limit = 50) => {
+  const url = `https://api.blockvision.org/v2/monad/account/activities?address=${address}&limit=${limit}`;
+  const res = await fetch(url, {
+    headers: {
+      'accept': 'application/json',
+      'x-api-key': apiKey,
+    },
+  });
+  if (!res.ok) throw new Error('Failed to fetch activities');
+  return res.json();
+};
+
+const fetchTotalTransactions = async (address, apiKey) => {
+  const url = `https://api.blockvision.org/v2/monad/account/transactions?address=${address}&limit=1&ascendingOrder=false`;
+  const res = await fetch(url, {
+    headers: {
+      'accept': 'application/json',
+      'x-api-key': apiKey,
+    },
+  });
+  if (!res.ok) return null;
+  const data = await res.json();
+  // BlockVision returns total in data.result.total
+  return data?.result?.total || null;
+};
 
 const TxVisualizer = () => {
-  const [address, setAddress] = useState("");
-  const [selectedAddress, setSelectedAddress] = useState("");
-  const { toast } = useToast();
-  const { isCopied, copyToClipboard } = useClipboard();
+  const [walletAddress, setWalletAddress] = useState('');
+  const [isScanning, setIsScanning] = useState(false);
+  const [scanProgress, setScanProgress] = useState(0);
+  const [transactionData, setTransactionData] = useState(null);
+  const [analysisData, setAnalysisData] = useState(null);
+  const [visualizationMode, setVisualizationMode] = useState('timeline');
+  const [isDarkMode, setIsDarkMode] = useState(true);
+  const [isLoreMode, setIsLoreMode] = useState(false);
+  const [totalTxCount, setTotalTxCount] = useState(null);
 
-  useEffect(() => {
-    const storedAddress = localStorage.getItem("walletAddress");
-    if (storedAddress) {
-      setAddress(storedAddress);
-      setSelectedAddress(storedAddress);
+  const handleGenerateVisualization = async () => {
+    if (!walletAddress) return;
+    setIsScanning(true);
+    setScanProgress(0);
+
+    try {
+      // Simulate scan progress
+      for (let i = 0; i <= 100; i += 10) {
+        await new Promise(resolve => setTimeout(resolve, 20));
+        setScanProgress(i);
+      }
+      const apiKey = import.meta.env.VITE_BLOCKVISION_API_KEY;
+      const data = await fetchAccountActivities(walletAddress, apiKey, 50);
+      // Optionally, you can process/transform data here to fit your UI
+      setTransactionData(data); // Passes the real data to TransactionTimeline
+      setAnalysisData(null); // Remove mock analysis for now
+
+      const activities = data?.result?.data || [];
+
+      const totalTransactions = activities.length;
+      const sentTxs = activities.filter(tx => tx.from?.toLowerCase() === walletAddress.toLowerCase()).length;
+      const receivedTxs = activities.filter(
+        tx => Array.isArray(tx.addTokens) && tx.addTokens.some(token => token.to?.toLowerCase() === walletAddress.toLowerCase())
+      ).length;
+      const totalGasSpent = activities
+        .filter(tx => tx.transactionFee)
+        .reduce((sum, tx) => sum + Number(tx.transactionFee), 0);
+    } catch (e) {
+      // Optionally handle error
+      setTransactionData(null);
+      setAnalysisData(null);
+    } finally {
+      setIsScanning(false);
     }
-  }, []);
-
-  const handleSearch = () => {
-    if (!address) {
-      toast({
-        title: "Error",
-        description: "Please enter a wallet address.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (!/^0x[a-fA-F0-9]{40}$/.test(address)) {
-      toast({
-        title: "Error",
-        description: "Please enter a valid Ethereum wallet address.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setSelectedAddress(address);
-    localStorage.setItem("walletAddress", address);
   };
 
-  return (
-    <div className="container mx-auto py-10">
-      <Card className="max-w-3xl mx-auto bg-slate-900/70 border-slate-700">
-        <CardHeader>
-          <CardTitle className="text-2xl font-bold text-white">Transaction Visualizer</CardTitle>
-          <CardDescription className="text-slate-400">
-            Enter a wallet address to visualize its transaction history and token movements.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex items-center space-x-2">
-            <Input
-              type="text"
-              placeholder="Enter wallet address (0x...)"
-              value={address}
-              onChange={(e) => setAddress(e.target.value)}
-              className="bg-slate-800 border-slate-600 text-white placeholder:text-slate-400 focus-visible:ring-2 focus-visible:ring-blue-500"
-            />
-            <Button onClick={handleSearch} className="bg-blue-500 text-white hover:bg-blue-600">
-              <Search className="w-4 h-4 mr-2" />
-              Search
-            </Button>
-            {selectedAddress && (
-              <Button
-                variant="secondary"
-                onClick={() => {
-                  copyToClipboard(selectedAddress);
-                  toast({
-                    title: "Copied!",
-                    description: "Wallet address copied to clipboard.",
-                  });
-                }}
-                className="ml-2"
-                disabled={isCopied}
-              >
-                {isCopied ? <AlertTriangle className="h-4 w-4 mr-2" /> : <Copy className="h-4 w-4 mr-2" />}
-                {isCopied ? "Copied" : "Copy Address"}
-              </Button>
-            )}
-          </div>
-        </CardContent>
-      </Card>
+  useEffect(() => {
+    const getTotalTxCount = async () => {
+      if (!walletAddress) return;
+      const apiKey = import.meta.env.VITE_BLOCKVISION_API_KEY;
+      const total = await fetchTotalTransactions(walletAddress, apiKey);
+      setTotalTxCount(total);
+    };
+    getTotalTxCount();
+  }, [walletAddress]);
 
-      {selectedAddress && (
-        <div className="mt-8">
-          <h2 className="text-2xl font-bold text-white mb-4">Wallet Address: {selectedAddress}</h2>
-          <div className="grid gap-6 lg:grid-cols-2">
-            <TransactionHistory walletAddress={selectedAddress} />
-            <TokenMovementGraph walletAddress={selectedAddress} />
+  const visualizationModes = [
+    { id: 'timeline', label: 'Timeline Chart', icon: Activity },
+    { id: 'flow', label: 'Flow Diagram', icon: ArrowRight },
+    { id: 'tokens', label: 'Token Movement', icon: Zap },
+    { id: 'live', label: 'Live Monitor', icon: Radio }
+  ];
+
+  // Calculate stats from transactionData
+  const activities = transactionData?.result?.data || [];
+  const sentTxs = activities.filter(tx => tx.from?.toLowerCase() === walletAddress.toLowerCase()).length;
+  const receivedTxs = activities.filter(
+    tx => Array.isArray(tx.addTokens) && tx.addTokens.some(token => token.to?.toLowerCase() === walletAddress.toLowerCase())
+  ).length;
+  const totalGasSpent = activities
+    .filter(tx => tx.transactionFee)
+    .reduce((sum, tx) => sum + Number(tx.transactionFee), 0);
+  const totalTransactions = totalTxCount !== null ? totalTxCount : activities.length;
+
+  return (
+    <div className={`min-h-screen transition-all duration-500 ${
+      isDarkMode 
+        ? 'bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900' 
+        : 'bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50'
+    }`}>
+      <div className="container mx-auto px-4 py-8">
+        {/* Header */}
+        <div className="text-center mb-12 animate-fade-in">
+          <div className="flex items-center justify-center mb-4">
+            <Brain className={`w-12 h-12 mr-4 ${isDarkMode ? 'text-purple-400' : 'text-purple-600'} animate-pulse`} />
+            <h1 className={`text-5xl font-bold ${
+              isLoreMode 
+                ? 'bg-gradient-to-r from-purple-400 via-pink-400 to-blue-400 bg-clip-text text-transparent'
+                : isDarkMode 
+                  ? 'text-white' 
+                  : 'text-gray-900'
+            }`}>
+              {isLoreMode ? 'Mind Trail Viewer' : 'Monad Mindscope'}
+            </h1>
+          </div>
+          <p className={`text-xl ${isDarkMode ? 'text-gray-300' : 'text-gray-600'} mb-6`}>
+            {isLoreMode 
+              ? 'Unveil the hidden paths of consciousness through the blockchain' 
+              : 'Visualize complete transaction history from block 0 to latest'
+            }
+          </p>
+          
+          {/* Mode Toggles */}
+          <div className="flex justify-center space-x-4 mb-8">
+            <Button
+              variant={isDarkMode ? "default" : "outline"}
+              size="sm"
+              onClick={() => setIsDarkMode(!isDarkMode)}
+              className="animate-scale-in"
+            >
+              {isDarkMode ? '🌙' : '☀️'} {isDarkMode ? 'Dark' : 'Light'}
+            </Button>
+            <Button
+              variant={isLoreMode ? "default" : "outline"}
+              size="sm"
+              onClick={() => setIsLoreMode(!isLoreMode)}
+              className="animate-scale-in"
+            >
+              <Eye className="w-4 h-4 mr-2" />
+              {isLoreMode ? 'Lore Mode' : 'Standard'}
+            </Button>
           </div>
         </div>
-      )}
+
+        {/* Search Section */}
+        <Card className={`max-w-2xl mx-auto mb-8 animate-slide-in-right ${
+          isDarkMode ? 'bg-slate-800/50 border-slate-700' : 'bg-white/80 border-gray-200'
+        }`}>
+          <CardHeader>
+            <CardTitle className={`text-center ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+              {isLoreMode ? 'Enter the Mind Address' : 'Enter Wallet Address'}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex space-x-2">
+              <Input
+                placeholder="0x... (Monad Testnet address)"
+                value={walletAddress}
+                onChange={(e) => setWalletAddress(e.target.value)}
+                className={`flex-1 font-mono ${
+                  isDarkMode 
+                    ? 'bg-slate-700 border-slate-600 text-white' 
+                    : 'bg-gray-50 border-gray-300'
+                }`}
+              />
+              <Button 
+                onClick={handleGenerateVisualization}
+                disabled={!walletAddress || isScanning}
+                className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
+              >
+                <Search className="w-4 h-4 mr-2" />
+                {isLoreMode ? 'Trace Mind' : 'Generate Visualization'}
+              </Button>
+            </div>
+            
+            {walletAddress && (
+              <div className="flex items-center justify-center space-x-3 animate-fade-in">
+                <WalletAvatar address={walletAddress} />
+                <span className={`font-mono text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+                  {walletAddress.slice(0, 6)}...{walletAddress.slice(-4)}
+                </span>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Scanning Animation */}
+        {isScanning && (
+          <ScanningAnimation 
+            progress={scanProgress} 
+            isDarkMode={isDarkMode}
+            isLoreMode={isLoreMode}
+          />
+        )}
+
+        {/* Analysis Results */}
+        {analysisData && !isScanning && (
+          <AnalysisResults 
+            isDarkMode={isDarkMode}
+            isLoreMode={isLoreMode}
+            analysisData={analysisData}
+          />
+        )}
+
+        {/* Results Section */}
+        {transactionData && !isScanning && (
+          <div className="space-y-8 animate-fade-in">
+            {/* Stats Overview */}
+            <div className="grid gap-6 md:grid-cols-4">
+              {[
+                { label: 'Total TXs', value: totalTransactions, icon: Activity },
+                { label: 'Sent', value: sentTxs, icon: ArrowRight },
+                { label: 'Received', value: receivedTxs, icon: ArrowRight },
+                { label: 'Gas Spent', value: `${totalGasSpent} MON`, icon: Zap }
+              ].map((stat, index) => (
+                <Card key={index} className={`${
+                  isDarkMode ? 'bg-slate-800/50 border-slate-700' : 'bg-white/80 border-gray-200'
+                } hover-scale`}>
+                  <CardContent className="p-6">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                          {stat.label}
+                        </p>
+                        <p className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                          {stat.value}
+                        </p>
+                      </div>
+                      <stat.icon className={`w-8 h-8 ${isDarkMode ? 'text-purple-400' : 'text-purple-600'}`} />
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+
+            {/* Visualization Mode Selector */}
+            <div className="flex justify-center space-x-2">
+              {visualizationModes.map((mode) => (
+                <Button
+                  key={mode.id}
+                  variant={visualizationMode === mode.id ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setVisualizationMode(mode.id)}
+                  className="animate-scale-in"
+                >
+                  <mode.icon className="w-4 h-4 mr-2" />
+                  {mode.label}
+                </Button>
+              ))}
+            </div>
+
+            {/* Visualization Content */}
+            <Card className={`${
+              isDarkMode ? 'bg-slate-800/50 border-slate-700' : 'bg-white/80 border-gray-200'
+            } animate-fade-in`}>
+              <CardContent className="p-6">
+                {visualizationMode === 'timeline' && (
+                  <TransactionTimeline 
+                    data={transactionData} 
+                    isDarkMode={isDarkMode}
+                    isLoreMode={isLoreMode}
+                  />
+                )}
+                {visualizationMode === 'flow' && (
+                  <TransactionFlowDiagram 
+                    data={transactionData} 
+                    isDarkMode={isDarkMode}
+                    isLoreMode={isLoreMode}
+                  />
+                )}
+                {visualizationMode === 'tokens' && (
+                  <TokenMovementGraph 
+                    data={transactionData} 
+                    isDarkMode={isDarkMode}
+                    isLoreMode={isLoreMode}
+                  />
+                )}
+                {visualizationMode === 'live' && (
+                  <LiveTransactionLogger 
+                    isDarkMode={isDarkMode}
+                    isLoreMode={isLoreMode}
+                    walletAddress={walletAddress}
+                  />
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {/* Features Section */}
+        {!transactionData && !isScanning && (
+          <div className="mt-16 grid gap-8 md:grid-cols-3 animate-fade-in">
+            {[
+              {
+                title: isLoreMode ? "Mind Mapping" : "Complete History",
+                description: isLoreMode 
+                  ? "Map every thought and intention from genesis to present"
+                  : "Scan all blocks from 0 to latest for complete transaction history",
+                icon: Brain
+              },
+              {
+                title: isLoreMode ? "Flow Consciousness" : "Visual Analytics", 
+                description: isLoreMode
+                  ? "Visualize the flow of digital consciousness through time"
+                  : "Beautiful charts, timelines, and flow diagrams",
+                icon: Activity
+              },
+              {
+                title: isLoreMode ? "Token Essence" : "Token Tracking",
+                description: isLoreMode
+                  ? "Track the essence of digital assets through their journey"
+                  : "Follow token movements and contract interactions",
+                icon: Zap
+              }
+            ].map((feature, index) => (
+              <Card key={index} className={`${
+                isDarkMode ? 'bg-slate-800/50 border-slate-700' : 'bg-white/80 border-gray-200'
+              } hover-scale`}>
+                <CardHeader>
+                  <div className={`w-12 h-12 ${
+                    isDarkMode ? 'bg-gradient-to-r from-purple-500 to-blue-500' : 'bg-gradient-to-r from-purple-400 to-blue-400'
+                  } rounded-lg flex items-center justify-center mb-4`}>
+                    <feature.icon className="w-6 h-6 text-white" />
+                  </div>
+                  <CardTitle className={isDarkMode ? 'text-white' : 'text-gray-900'}>
+                    {feature.title}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className={isDarkMode ? 'text-gray-400' : 'text-gray-600'}>
+                    {feature.description}
+                  </p>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 };
