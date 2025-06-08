@@ -19,6 +19,7 @@ import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/comp
 import { Link } from "react-router-dom";
 import { getAccountTokens } from "@/lib/blockvision";
 import { ethers } from "ethers";
+import { X } from "lucide-react";
 
 const CopyAddressButton = ({ address }: { address: string }) => {
   const [copied, setCopied] = useState(false);
@@ -356,6 +357,22 @@ const Index = () => {
             </Tabs>
           </div>
         )}
+
+        {/* Built by Piki Section */}
+        <div className="mt-16 text-center">
+          <div className="flex items-center justify-center space-x-3">
+            <span className="text-gray-400 text-lg">Built by</span>
+            <a
+              href="https://x.com/Piki_eth"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center space-x-2 text-purple-400 hover:text-purple-300 transition-colors group"
+            >
+              <span className="text-xl font-bold">Piki</span>
+              <X className="w-5 h-5 group-hover:scale-110 transition-transform" />
+            </a>
+          </div>
+        </div>
       </main>
     </div>
   );
