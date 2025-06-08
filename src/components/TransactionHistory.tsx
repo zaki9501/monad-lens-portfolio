@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { getAccountTransactions } from "@/lib/blockvision";
 import { formatEther } from "ethers";
-import { Activity, ArrowUpRight, ArrowDownLeft, Repeat, ExternalLink, Filter, RefreshCw } from "lucide-react";
+import { Activity, ArrowUpRight, ArrowDownLeft, Repeat, ExternalLink, Filter, RefreshCw, Plus, Zap, FileText, DollarSign } from "lucide-react";
 
 interface TransactionHistoryProps {
   walletAddress: string;
@@ -15,50 +15,118 @@ interface TransactionHistoryProps {
 const TransactionHistory = ({ walletAddress }: TransactionHistoryProps) => {
   const [txs, setTxs] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [filter, setFilter] = useState<'all' | 'send' | 'receive' | 'swap'>('all');
+  const [filter, setFilter] = useState<'all' | 'send' | 'receive' | 'contract'>('all');
+  const [currentLimit, setCurrentLimit] = useState(20);
+  const [hasMore, setHasMore] = useState(true);
 
-  const fetchTransactions = async () => {
+  const fetchTransactions = async (limit = 20, append = false) => {
     if (!walletAddress) return;
-    setLoading(true);
-    setError(null);
+    
+    if (append) {
+      setLoadingMore(true);
+    } else {
+      setLoading(true);
+      setError(null);
+    }
+
     try {
-      const data = await getAccountTransactions(walletAddress, 20);
+      const data = await getAccountTransactions(walletAddress, limit);
       const txList = data?.result?.data || [];
-      setTxs(txList);
+      
+      if (append) {
+        setTxs(prev => [...prev, ...txList.slice(prev.length)]);
+      } else {
+        setTxs(txList);
+      }
+      
+      setHasMore(txList.length === limit);
     } catch (err) {
       setError("Failed to load transactions");
     } finally {
       setLoading(false);
+      setLoadingMore(false);
     }
   };
 
   useEffect(() => {
-    fetchTransactions();
+    setCurrentLimit(20);
+    setHasMore(true);
+    fetchTransactions(20, false);
   }, [walletAddress]);
+
+  const loadMoreTransactions = () => {
+    const newLimit = currentLimit + 20;
+    setCurrentLimit(newLimit);
+    fetchTransactions(newLimit, true);
+  };
 
   // Helper functions
   const getTransactionType = (tx: any) => {
     if (tx.to?.toLowerCase() === walletAddress.toLowerCase()) return 'receive';
-    if (tx.from?.toLowerCase() === walletAddress.toLowerCase()) return 'send';
-    if (tx.method && tx.method.toLowerCase().includes('swap')) return 'swap';
-    return 'send';
+    if (tx.from?.toLowerCase() === walletAddress.toLowerCase()) {
+      if (tx.toAddress?.isContract) return 'contract';
+      return 'send';
+    }
+    return 'contract';
   };
 
-  const getTransactionIcon = (type: string) => {
-    switch (type) {
-      case "send": return <ArrowUpRight className="w-4 h-4 text-red-400" />;
-      case "receive": return <ArrowDownLeft className="w-4 h-4 text-green-400" />;
-      case "swap": return <Repeat className="w-4 h-4 text-blue-400" />;
-      default: return <Activity className="w-4 h-4 text-gray-400" />;
+  const getDetailedTransactionType = (tx: any) => {
+    const basicType = getTransactionType(tx);
+    
+    if (basicType === 'contract') {
+      if (tx.methodName) {
+        return {
+          type: 'contract',
+          label: tx.methodName,
+          description: `Contract: ${tx.methodName}`,
+          icon: <FileText className="w-4 h-4 text-purple-400" />
+        };
+      }
+      if (tx.methodID && tx.methodID !== '0x') {
+        return {
+          type: 'contract',
+          label: 'Contract Call',
+          description: `Method: ${tx.methodID.slice(0, 10)}...`,
+          icon: <Zap className="w-4 h-4 text-purple-400" />
+        };
+      }
+      return {
+        type: 'contract',
+        label: 'Contract',
+        description: 'Contract interaction',
+        icon: <FileText className="w-4 h-4 text-purple-400" />
+      };
     }
+    
+    if (basicType === 'send') {
+      return {
+        type: 'send',
+        label: 'Send',
+        description: 'Outgoing transfer',
+        icon: <ArrowUpRight className="w-4 h-4 text-red-400" />
+      };
+    }
+    
+    return {
+      type: 'receive',
+      label: 'Receive',
+      description: 'Incoming transfer',
+      icon: <ArrowDownLeft className="w-4 h-4 text-green-400" />
+    };
   };
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case "success": return "bg-green-500/20 text-green-400 border-green-500/30";
-      case "failed": return "bg-red-500/20 text-red-400 border-red-500/30";
-      default: return "bg-yellow-500/20 text-yellow-400 border-yellow-500/30";
+      case "success": 
+      case 1: 
+        return "bg-green-500/20 text-green-400 border-green-500/30";
+      case "failed": 
+      case 0: 
+        return "bg-red-500/20 text-red-400 border-red-500/30";
+      default: 
+        return "bg-yellow-500/20 text-yellow-400 border-yellow-500/30";
     }
   };
 
@@ -77,7 +145,13 @@ const TransactionHistory = ({ walletAddress }: TransactionHistoryProps) => {
   // Filter transactions
   const filteredTxs = useMemo(() => {
     if (filter === 'all') return txs;
-    return txs.filter(tx => getTransactionType(tx) === filter);
+    return txs.filter(tx => {
+      const type = getTransactionType(tx);
+      if (filter === 'contract') {
+        return type === 'contract';
+      }
+      return type === filter;
+    });
   }, [txs, filter]);
 
   // Transaction stats
@@ -85,14 +159,19 @@ const TransactionHistory = ({ walletAddress }: TransactionHistoryProps) => {
     let total = txs.length;
     let gasSpent = 0;
     let success = 0;
+    let contractInteractions = 0;
+    
     txs.forEach(tx => {
       if (tx.gasUsed) gasSpent += Number(tx.gasUsed);
-      if ((tx.status || "success") === "success") success++;
+      if ((tx.status === 1 || tx.status === "success")) success++;
+      if (getTransactionType(tx) === 'contract') contractInteractions++;
     });
+    
     return {
       total,
       gasSpent: gasSpent > 0 ? formatEther(gasSpent.toString()) : "0",
-      successRate: total > 0 ? Math.round((success / total) * 100) : 0
+      successRate: total > 0 ? Math.round((success / total) * 100) : 0,
+      contractInteractions
     };
   }, [txs]);
 
@@ -115,11 +194,11 @@ const TransactionHistory = ({ walletAddress }: TransactionHistoryProps) => {
               <option value="all">All Transactions</option>
               <option value="send">Sent</option>
               <option value="receive">Received</option>
-              <option value="swap">Swaps</option>
+              <option value="contract">Contract Calls</option>
             </select>
           </div>
           <Button
-            onClick={fetchTransactions}
+            onClick={() => fetchTransactions(currentLimit, false)}
             variant="outline"
             size="sm"
             className="border-slate-600 text-gray-300 hover:bg-slate-700"
@@ -131,8 +210,8 @@ const TransactionHistory = ({ walletAddress }: TransactionHistoryProps) => {
         </div>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid gap-4 md:grid-cols-3">
+      {/* Enhanced Stats Cards */}
+      <div className="grid gap-4 md:grid-cols-4">
         <Card className="bg-gradient-to-r from-blue-600/20 to-purple-600/20 border-blue-500/30">
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
@@ -144,17 +223,31 @@ const TransactionHistory = ({ walletAddress }: TransactionHistoryProps) => {
             </div>
           </CardContent>
         </Card>
+        
+        <Card className="bg-gradient-to-r from-purple-600/20 to-pink-600/20 border-purple-500/30">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-purple-300 text-sm font-medium">Contract Calls</p>
+                <p className="text-white text-2xl font-bold">{stats.contractInteractions}</p>
+              </div>
+              <FileText className="w-8 h-8 text-purple-400" />
+            </div>
+          </CardContent>
+        </Card>
+        
         <Card className="bg-gradient-to-r from-red-600/20 to-orange-600/20 border-red-500/30">
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-red-300 text-sm font-medium">Gas Spent</p>
-                <p className="text-white text-2xl font-bold">{parseFloat(stats.gasSpent).toFixed(4)} MON</p>
+                <p className="text-white text-xl font-bold">{parseFloat(stats.gasSpent).toFixed(4)} MON</p>
               </div>
-              <ArrowUpRight className="w-8 h-8 text-red-400" />
+              <Zap className="w-8 h-8 text-red-400" />
             </div>
           </CardContent>
         </Card>
+        
         <Card className="bg-gradient-to-r from-green-600/20 to-emerald-600/20 border-green-500/30">
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
@@ -188,86 +281,115 @@ const TransactionHistory = ({ walletAddress }: TransactionHistoryProps) => {
               <p className="text-gray-400">No transactions found for this address.</p>
             </div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow className="border-slate-700 hover:bg-slate-800/50">
-                  <TableHead className="text-gray-300">Type</TableHead>
-                  <TableHead className="text-gray-300">Hash</TableHead>
-                  <TableHead className="text-gray-300">From/To</TableHead>
-                  <TableHead className="text-gray-300">Value</TableHead>
-                  <TableHead className="text-gray-300">Gas</TableHead>
-                  <TableHead className="text-gray-300">Status</TableHead>
-                  <TableHead className="text-gray-300">Time</TableHead>
-                  <TableHead className="text-gray-300"></TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredTxs.map((tx, idx) => {
-                  const type = getTransactionType(tx);
-                  const status = tx.status || "success";
-                  const from = shortAddr(tx.from);
-                  const to = shortAddr(tx.to);
-                  const hash = tx.hash;
-                  let value = "-";
-                  if (tx.value && Number(tx.value) > 0) {
-                    try {
-                      value = parseFloat(formatEther(tx.value)).toFixed(4) + " MON";
-                    } catch {
-                      value = Number(tx.value).toLocaleString();
+            <>
+              <Table>
+                <TableHeader>
+                  <TableRow className="border-slate-700 hover:bg-slate-800/50">
+                    <TableHead className="text-gray-300">Type</TableHead>
+                    <TableHead className="text-gray-300">Hash</TableHead>
+                    <TableHead className="text-gray-300">From/To</TableHead>
+                    <TableHead className="text-gray-300">Value</TableHead>
+                    <TableHead className="text-gray-300">Gas</TableHead>
+                    <TableHead className="text-gray-300">Status</TableHead>
+                    <TableHead className="text-gray-300">Time</TableHead>
+                    <TableHead className="text-gray-300"></TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredTxs.map((tx, idx) => {
+                    const typeInfo = getDetailedTransactionType(tx);
+                    const status = tx.status === 1 ? "success" : tx.status === 0 ? "failed" : tx.status || "success";
+                    const from = shortAddr(tx.from);
+                    const to = shortAddr(tx.to);
+                    const hash = tx.hash;
+                    let value = "-";
+                    if (tx.value && Number(tx.value) > 0) {
+                      try {
+                        value = parseFloat(formatEther(tx.value)).toFixed(4) + " MON";
+                      } catch {
+                        value = Number(tx.value).toLocaleString();
+                      }
                     }
-                  }
-                  const gas = tx.gasUsed ? Number(tx.gasUsed).toLocaleString() : "-";
-                  const ago = tx.timestamp ? timeAgo(tx.timestamp) : "";
+                    const gas = tx.gasUsed ? Number(tx.gasUsed).toLocaleString() : "-";
+                    const ago = tx.timestamp ? timeAgo(tx.timestamp) : "";
 
-                  return (
-                    <TableRow key={hash || idx} className="border-slate-700 hover:bg-slate-700/30">
-                      <TableCell>
-                        <div className="flex items-center space-x-2">
-                          {getTransactionIcon(type)}
-                          <span className="text-white capitalize font-medium">{type}</span>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <code className="text-blue-300 bg-slate-900/50 px-2 py-1 rounded text-sm">
-                          {hash ? `${hash.slice(0, 8)}...${hash.slice(-6)}` : ""}
-                        </code>
-                      </TableCell>
-                      <TableCell>
-                        <div className="text-gray-300">
-                          {type === "receive" ? `From ${from}` : `To ${to}`}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <span className={`font-mono ${value !== "-" ? "text-white" : "text-gray-500"}`}>
-                          {value}
-                        </span>
-                      </TableCell>
-                      <TableCell>
-                        <span className="text-gray-400 text-sm">{gas}</span>
-                      </TableCell>
-                      <TableCell>
-                        <Badge className={`${getStatusColor(status)} border`}>
-                          {status}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <span className="text-gray-400 text-sm">{ago}</span>
-                      </TableCell>
-                      <TableCell>
-                        <a 
-                          href={`https://monadscan.io/tx/${hash}`} 
-                          target="_blank" 
-                          rel="noopener noreferrer"
-                          className="text-gray-400 hover:text-blue-400 transition-colors"
-                        >
-                          <ExternalLink className="w-4 h-4" />
-                        </a>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
+                    return (
+                      <TableRow key={hash || idx} className="border-slate-700 hover:bg-slate-700/30">
+                        <TableCell>
+                          <div className="flex items-center space-x-2">
+                            {typeInfo.icon}
+                            <div>
+                              <span className="text-white font-medium">{typeInfo.label}</span>
+                              <p className="text-xs text-gray-400">{typeInfo.description}</p>
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <code className="text-blue-300 bg-slate-900/50 px-2 py-1 rounded text-sm">
+                            {hash ? `${hash.slice(0, 8)}...${hash.slice(-6)}` : ""}
+                          </code>
+                        </TableCell>
+                        <TableCell>
+                          <div className="text-gray-300">
+                            {typeInfo.type === "receive" ? `From ${from}` : `To ${to}`}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <span className={`font-mono ${value !== "-" ? "text-white" : "text-gray-500"}`}>
+                            {value}
+                          </span>
+                        </TableCell>
+                        <TableCell>
+                          <span className="text-gray-400 text-sm">{gas}</span>
+                        </TableCell>
+                        <TableCell>
+                          <Badge className={`${getStatusColor(status)} border`}>
+                            {status === 1 || status === "success" ? "Success" : status === 0 || status === "failed" ? "Failed" : status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <span className="text-gray-400 text-sm">{ago}</span>
+                        </TableCell>
+                        <TableCell>
+                          <a 
+                            href={`https://monadscan.io/tx/${hash}`} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="text-gray-400 hover:text-blue-400 transition-colors"
+                          >
+                            <ExternalLink className="w-4 h-4" />
+                          </a>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+              
+              {/* Load More Button */}
+              {hasMore && (
+                <div className="p-6 border-t border-slate-700 bg-slate-800/30">
+                  <Button
+                    onClick={loadMoreTransactions}
+                    variant="outline"
+                    className="w-full border-slate-600 text-gray-300 hover:bg-slate-700"
+                    disabled={loadingMore}
+                  >
+                    {loadingMore ? (
+                      <>
+                        <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                        Loading more...
+                      </>
+                    ) : (
+                      <>
+                        <Plus className="w-4 h-4 mr-2" />
+                        Load More Transactions
+                      </>
+                    )}
+                  </Button>
+                </div>
+              )}
+            </>
           )}
         </CardContent>
       </Card>
