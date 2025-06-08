@@ -3,20 +3,18 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Wallet, TrendingUp, Shield, Zap, Users, DollarSign, ArrowUpRight, Copy } from "lucide-react";
+import { Wallet, TrendingUp, Shield, Zap, Users, DollarSign, ArrowUpRight, Copy, Star, Check } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import SearchBar from "@/components/SearchBar";
+import { Link } from "react-router-dom";
 
 const Lending = () => {
   const [isConnected, setIsConnected] = useState(false);
   const [walletAddress, setWalletAddress] = useState("");
-  const [viewingAddress, setViewingAddress] = useState("");
   const { toast } = useToast();
 
   const connectWallet = () => {
     const mockAddress = "0x742d35Cc6634C0532925a3b8D48C405BeF8b30Ab";
     setWalletAddress(mockAddress);
-    setViewingAddress(mockAddress);
     setIsConnected(true);
     toast({
       title: "Wallet Connected",
@@ -26,7 +24,6 @@ const Lending = () => {
 
   const disconnectWallet = () => {
     setWalletAddress("");
-    setViewingAddress("");
     setIsConnected(false);
     toast({
       title: "Wallet Disconnected",
@@ -42,10 +39,6 @@ const Lending = () => {
     });
   };
 
-  const handleWalletSearch = (address: string) => {
-    setViewingAddress(address);
-  };
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
       {/* Header */}
@@ -56,7 +49,7 @@ const Lending = () => {
               <div className="w-8 h-8 bg-gradient-to-r from-purple-500 to-blue-500 rounded-lg flex items-center justify-center animate-pulse">
                 <DollarSign className="w-5 h-5 text-white" />
               </div>
-              <h1 className="text-2xl font-bold text-white">Monad Lending</h1>
+              <h1 className="text-2xl font-bold text-white">Monad Explorer</h1>
               <Badge variant="outline" className="border-purple-500 text-purple-300">
                 Testnet
               </Badge>
@@ -100,28 +93,78 @@ const Lending = () => {
       </header>
 
       {/* Hero Section */}
-      <section className="container mx-auto px-4 py-16">
+      <section className="container mx-auto px-4 py-20">
         <div className="text-center mb-16 animate-fade-in">
-          <h1 className="text-6xl font-bold text-white mb-6">
-            Explore <span className="bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent">Monad Lending</span>
+          <h1 className="text-7xl font-bold text-white mb-6">
+            Welcome to <span className="bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent">Monad Explorer</span>
           </h1>
-          <p className="text-xl text-gray-300 mb-8 max-w-3xl mx-auto">
-            Discover lending opportunities, track borrowing positions, and analyze DeFi protocols across the Monad Testnet ecosystem. Search any wallet to explore their lending portfolio.
+          <p className="text-2xl text-gray-300 mb-12 max-w-4xl mx-auto">
+            The ultimate tool for exploring wallets, analyzing DApps, and visualizing transactions on the Monad Testnet. 
+            Discover insights, track activities, and understand blockchain interactions like never before.
           </p>
+          
+          <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
+            <Link to="/">
+              <Button size="lg" className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-lg px-8 py-4">
+                <Star className="w-5 h-5 mr-2" />
+                Start Exploring
+              </Button>
+            </Link>
+            <Link to="/tx-visualizer">
+              <Button size="lg" variant="outline" className="border-purple-500 text-purple-300 hover:bg-purple-500/10 text-lg px-8 py-4">
+                <TrendingUp className="w-5 h-5 mr-2" />
+                View Transactions
+              </Button>
+            </Link>
+          </div>
         </div>
 
-        {/* Search Bar - Centered */}
-        <div className="flex justify-center mb-16 animate-scale-in">
-          <SearchBar onWalletSelect={handleWalletSearch} />
+        {/* Features Grid */}
+        <div className="grid gap-8 md:grid-cols-3 mb-20">
+          <Card className="bg-slate-800/50 border-slate-700 hover:border-purple-500/50 transition-all duration-300 group hover-scale animate-fade-in">
+            <CardHeader>
+              <div className="w-16 h-16 bg-gradient-to-r from-blue-500 to-purple-500 rounded-lg flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
+                <Shield className="w-8 h-8 text-white" />
+              </div>
+              <CardTitle className="text-white text-xl">Wallet Analysis</CardTitle>
+              <CardDescription className="text-gray-400 text-base">
+                Deep dive into any wallet's activity, reputation, and transaction patterns with comprehensive analytics and visual insights.
+              </CardDescription>
+            </CardHeader>
+          </Card>
+
+          <Card className="bg-slate-800/50 border-slate-700 hover:border-purple-500/50 transition-all duration-300 group hover-scale animate-fade-in" style={{ animationDelay: '150ms' }}>
+            <CardHeader>
+              <div className="w-16 h-16 bg-gradient-to-r from-green-500 to-teal-500 rounded-lg flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
+                <TrendingUp className="w-8 h-8 text-white" />
+              </div>
+              <CardTitle className="text-white text-xl">Transaction Visualizer</CardTitle>
+              <CardDescription className="text-gray-400 text-base">
+                Visualize complex transaction flows and patterns with interactive charts and real-time monitoring capabilities.
+              </CardDescription>
+            </CardHeader>
+          </Card>
+
+          <Card className="bg-slate-800/50 border-slate-700 hover:border-purple-500/50 transition-all duration-300 group hover-scale animate-fade-in" style={{ animationDelay: '300ms' }}>
+            <CardHeader>
+              <div className="w-16 h-16 bg-gradient-to-r from-orange-500 to-red-500 rounded-lg flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
+                <Zap className="w-8 h-8 text-white" />
+              </div>
+              <CardTitle className="text-white text-xl">DApp Analyzer</CardTitle>
+              <CardDescription className="text-gray-400 text-base">
+                Analyze DApp interactions, engagement patterns, and ecosystem participation with detailed metrics and insights.
+              </CardDescription>
+            </CardHeader>
+          </Card>
         </div>
 
         {/* Stats Section */}
-        <div className="grid gap-6 md:grid-cols-4 mb-16">
+        <div className="grid gap-6 md:grid-cols-4 mb-20">
           {[
-            { label: "Total Value Locked", value: "$12.5M", icon: DollarSign, color: "from-green-500 to-teal-500" },
-            { label: "Active Lenders", value: "2,847", icon: Users, color: "from-blue-500 to-purple-500" },
-            { label: "Protocols", value: "8", icon: Shield, color: "from-orange-500 to-red-500" },
-            { label: "Avg APY", value: "12.5%", icon: TrendingUp, color: "from-purple-500 to-pink-500" }
+            { label: "Wallets Analyzed", value: "15,847", icon: Users, color: "from-blue-500 to-purple-500" },
+            { label: "Transactions Tracked", value: "2.3M", icon: TrendingUp, color: "from-green-500 to-teal-500" },
+            { label: "DApps Monitored", value: "124", icon: Shield, color: "from-orange-500 to-red-500" },
+            { label: "Active Users", value: "3,291", icon: DollarSign, color: "from-purple-500 to-pink-500" }
           ].map((stat, index) => (
             <Card key={stat.label} className="bg-slate-800/50 border-slate-700 hover:border-purple-500/50 transition-all duration-300 animate-fade-in hover-scale" style={{ animationDelay: `${index * 100}ms` }}>
               <CardContent className="p-6">
@@ -139,82 +182,46 @@ const Lending = () => {
           ))}
         </div>
 
-        {/* Features Section */}
-        <div className="grid gap-8 md:grid-cols-3 mb-16">
-          {[
-            {
-              icon: Shield,
-              title: "Secure Lending",
-              description: "Lend your assets with confidence using battle-tested protocols on Monad Testnet",
-              gradient: "from-blue-500 to-purple-500"
-            },
-            {
-              icon: TrendingUp,
-              title: "Yield Optimization",
-              description: "Maximize your returns with advanced yield farming strategies and automated protocols",
-              gradient: "from-green-500 to-teal-500"
-            },
-            {
-              icon: Zap,
-              title: "Lightning Fast",
-              description: "Experience instant transactions with Monad's high-performance blockchain infrastructure",
-              gradient: "from-orange-500 to-red-500"
-            }
-          ].map((feature, index) => (
-            <Card key={feature.title} className="bg-slate-800/50 border-slate-700 hover:border-purple-500/50 transition-all duration-300 group hover-scale animate-fade-in" style={{ animationDelay: `${index * 150}ms` }}>
-              <CardHeader>
-                <div className={`w-16 h-16 bg-gradient-to-r ${feature.gradient} rounded-lg flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300`}>
-                  <feature.icon className="w-8 h-8 text-white" />
-                </div>
-                <CardTitle className="text-white text-xl">{feature.title}</CardTitle>
-                <CardDescription className="text-gray-400 text-base">
-                  {feature.description}
-                </CardDescription>
-              </CardHeader>
-            </Card>
-          ))}
-        </div>
-
-        {/* Popular Protocols */}
+        {/* Key Features Section */}
         <Card className="bg-slate-800/50 border-slate-700 animate-fade-in">
           <CardHeader>
-            <CardTitle className="text-white text-2xl flex items-center">
-              <Shield className="w-6 h-6 mr-2 text-purple-500" />
-              Popular Lending Protocols
+            <CardTitle className="text-white text-3xl text-center flex items-center justify-center">
+              <Star className="w-8 h-8 mr-3 text-purple-500" />
+              Why Choose Monad Explorer?
             </CardTitle>
-            <CardDescription className="text-gray-400">
-              Explore the most trusted lending platforms on Monad Testnet
-            </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-              {[
-                { name: "Kuru Finance", apy: "15.2%", tvl: "$4.2M", users: "892" },
-                { name: "Curvance", apy: "12.8%", tvl: "$3.1M", users: "647" },
-                { name: "MonadLend", apy: "18.5%", tvl: "$2.8M", users: "534" },
-                { name: "TestnetVault", apy: "11.3%", tvl: "$2.4M", users: "423" }
-              ].map((protocol, index) => (
-                <div key={protocol.name} className="p-4 bg-slate-700/30 rounded-lg hover:bg-slate-700/50 transition-colors cursor-pointer group animate-scale-in" style={{ animationDelay: `${index * 100}ms` }}>
-                  <div className="flex items-center justify-between mb-2">
-                    <h3 className="text-white font-medium">{protocol.name}</h3>
-                    <ArrowUpRight className="w-4 h-4 text-gray-400 group-hover:text-white transition-colors" />
+            <div className="grid gap-8 md:grid-cols-2">
+              <div className="space-y-6">
+                {[
+                  "Comprehensive wallet reputation scoring",
+                  "Real-time transaction monitoring",
+                  "Advanced DApp interaction analytics",
+                  "Beautiful data visualizations"
+                ].map((feature, index) => (
+                  <div key={index} className="flex items-center space-x-3 animate-scale-in" style={{ animationDelay: `${index * 100}ms` }}>
+                    <div className="w-6 h-6 bg-gradient-to-r from-green-500 to-teal-500 rounded-full flex items-center justify-center">
+                      <Check className="w-4 h-4 text-white" />
+                    </div>
+                    <span className="text-gray-300 text-lg">{feature}</span>
                   </div>
-                  <div className="space-y-1">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-400">APY</span>
-                      <span className="text-green-400 font-bold">{protocol.apy}</span>
+                ))}
+              </div>
+              <div className="space-y-6">
+                {[
+                  "Lightning-fast Monad blockchain integration",
+                  "User-friendly interface design",
+                  "Detailed portfolio insights",
+                  "Export and sharing capabilities"
+                ].map((feature, index) => (
+                  <div key={index} className="flex items-center space-x-3 animate-scale-in" style={{ animationDelay: `${(index + 4) * 100}ms` }}>
+                    <div className="w-6 h-6 bg-gradient-to-r from-purple-500 to-blue-500 rounded-full flex items-center justify-center">
+                      <Check className="w-4 h-4 text-white" />
                     </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-400">TVL</span>
-                      <span className="text-white">{protocol.tvl}</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-400">Users</span>
-                      <span className="text-blue-400">{protocol.users}</span>
-                    </div>
+                    <span className="text-gray-300 text-lg">{feature}</span>
                   </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
           </CardContent>
         </Card>
