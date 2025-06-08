@@ -1,4 +1,3 @@
-
 import React, { useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -522,18 +521,13 @@ const ReputationArtGenerator = ({
                   />
                 </text>
 
-                {/* Metadata for NFT compatibility */}
-                <metadata>
-                  <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
-                           xmlns:dc="http://purl.org/dc/elements/1.1/">
-                    <rdf:Description rdf:about="">
-                      <dc:title>{isLoreMode ? 'Cosmic Mind Pulse' : 'Cosmic Pulse Pattern'}</dc:title>
-                      <dc:creator>Reputation Art Generator</dc:creator>
-                      <dc:description>NFT-compatible animated reputation art with score {overallScore}</dc:description>
-                      <dc:format>image/svg+xml</dc:format>
-                    </rdf:Description>
-                  </rdf:RDF>
-                </metadata>
+                {/* Simple metadata comment for NFT compatibility */}
+                <desc>
+                  {isLoreMode ? 'Cosmic Mind Pulse' : 'Cosmic Pulse Pattern'} - 
+                  NFT-compatible animated reputation art with score {overallScore} - 
+                  Created by Reputation Art Generator - 
+                  Wallet: {walletAddress.slice(0, 8)}...{walletAddress.slice(-4)}
+                </desc>
               </svg>
             </div>
 
