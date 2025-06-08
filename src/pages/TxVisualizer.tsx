@@ -290,6 +290,7 @@ const TxVisualizer = () => {
                 )}
                 {visualizationMode === 'tokens' && (
                   <TokenMovementGraph 
+                    walletAddress={walletAddress}
                     isDarkMode={isDarkMode}
                     isLoreMode={isLoreMode}
                   />

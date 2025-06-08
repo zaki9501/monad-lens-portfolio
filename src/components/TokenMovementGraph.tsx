@@ -7,9 +7,11 @@ import { JsonRpcProvider, formatEther } from "ethers";
 
 interface TokenMovementGraphProps {
   walletAddress: string;
+  isDarkMode?: boolean;
+  isLoreMode?: boolean;
 }
 
-const TokenMovementGraph = ({ walletAddress }: TokenMovementGraphProps) => {
+const TokenMovementGraph = ({ walletAddress, isDarkMode = true, isLoreMode = false }: TokenMovementGraphProps) => {
   const [data, setData] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [trend, setTrend] = useState<'up' | 'down' | 'neutral'>('neutral');
@@ -75,9 +77,9 @@ const TokenMovementGraph = ({ walletAddress }: TokenMovementGraphProps) => {
   };
 
   return (
-    <Card className="bg-slate-800/50 border-slate-700">
+    <Card className={`${isDarkMode ? 'bg-slate-800/50 border-slate-700' : 'bg-white/80 border-gray-200'}`}>
       <CardHeader>
-        <CardTitle className="text-white flex items-center">
+        <CardTitle className={`${isDarkMode ? 'text-white' : 'text-gray-900'} flex items-center`}>
           {trend === 'up' ? (
             <TrendingUp className="w-5 h-5 mr-2 text-green-500" />
           ) : trend === 'down' ? (
@@ -85,29 +87,31 @@ const TokenMovementGraph = ({ walletAddress }: TokenMovementGraphProps) => {
           ) : (
             <TrendingUp className="w-5 h-5 mr-2 text-blue-500" />
           )}
-          Token Movement (7 Days)
+          {isLoreMode ? 'Token Essence Flow (7 Days)' : 'Token Movement (7 Days)'}
         </CardTitle>
       </CardHeader>
       <CardContent>
         {loading ? (
           <div className="h-64 flex items-center justify-center">
-            <p className="text-gray-400">Loading token movements...</p>
+            <p className={`${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+              {isLoreMode ? 'Tracing essence patterns...' : 'Loading token movements...'}
+            </p>
           </div>
         ) : (
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={data}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                <XAxis dataKey="date" stroke="#9CA3AF" />
-                <YAxis stroke="#9CA3AF" tickFormatter={(value) => `${formatBalance(value)} MON`} />
+                <CartesianGrid strokeDasharray="3 3" stroke={isDarkMode ? "#374151" : "#E5E7EB"} />
+                <XAxis dataKey="date" stroke={isDarkMode ? "#9CA3AF" : "#6B7280"} />
+                <YAxis stroke={isDarkMode ? "#9CA3AF" : "#6B7280"} tickFormatter={(value) => `${formatBalance(value)} MON`} />
                 <Tooltip
                   contentStyle={{
-                    backgroundColor: '#1F2937',
-                    border: '1px solid #374151',
+                    backgroundColor: isDarkMode ? '#1F2937' : '#FFFFFF',
+                    border: `1px solid ${isDarkMode ? '#374151' : '#E5E7EB'}`,
                     borderRadius: '8px',
-                    color: '#F9FAFB'
+                    color: isDarkMode ? '#F9FAFB' : '#111827'
                   }}
-                  formatter={(value: number) => [`${formatBalance(value)} MON`, 'Balance']}
+                  formatter={(value: number) => [`${formatBalance(value)} MON`, isLoreMode ? 'Essence' : 'Balance']}
                 />
                 <Line
                   type="monotone"
