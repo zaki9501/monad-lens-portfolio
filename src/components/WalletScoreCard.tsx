@@ -134,23 +134,34 @@ const WalletScoreCard = ({ walletAddress, isDarkMode = true, isLoreMode = false 
 
     console.log(`Total volume calculated: ${totalVolume} MON`);
 
-    // Gas spent calculation - fixed conversion
+    // Gas spent calculation - FIXED conversion
     let gasSpent = 0;
     
     allTxs.forEach(tx => {
       if (tx.transactionFee) {
-        // transactionFee is already in MON format for activities
-        const feeInMon = Number(tx.transactionFee);
-        gasSpent += feeInMon;
+        // Check if transactionFee is already in MON format (activities) or in wei
+        const feeValue = Number(tx.transactionFee);
+        
+        // If the fee is a very large number (> 1e15), it's likely in wei and needs conversion
+        if (feeValue > 1e15) {
+          const feeInMon = feeValue / 1e18;
+          gasSpent += feeInMon;
+          console.log(`Converting large transaction fee from wei: ${feeValue} wei = ${feeInMon} MON`);
+        } else {
+          // Already in MON format
+          gasSpent += feeValue;
+          console.log(`Transaction fee already in MON: ${feeValue} MON`);
+        }
       } else if (tx.gasUsed && tx.gasPrice) {
         // For raw transactions, calculate from gasUsed * gasPrice and convert wei to MON
         const feeInWei = Number(tx.gasUsed) * Number(tx.gasPrice);
         const feeInMon = feeInWei / 1e18;
         gasSpent += feeInMon;
+        console.log(`Calculated gas fee: ${tx.gasUsed} * ${tx.gasPrice} = ${feeInWei} wei = ${feeInMon} MON`);
       }
     });
 
-    console.log(`Total gas spent: ${gasSpent} MON`);
+    console.log(`Total gas spent (corrected): ${gasSpent} MON`);
 
     // Contract interactions - improved detection
     const contractAddresses = new Set<string>();
