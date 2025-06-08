@@ -25,6 +25,10 @@ const SearchBar = ({ onWalletSelect }: SearchBarProps) => {
     "0x555666777888999aaabbbcccdddeeefff0001112"
   ];
 
+  const isValidEthereumAddress = (address: string) => {
+    return /^0x[a-fA-F0-9]{40}$/.test(address);
+  };
+
   const handleSearch = () => {
     if (!searchQuery.trim()) {
       toast({
@@ -38,7 +42,10 @@ const SearchBar = ({ onWalletSelect }: SearchBarProps) => {
     
     // Simulate API call delay
     setTimeout(() => {
-      if (searchQuery.length >= 10) {
+      // If it's a valid Ethereum address format, include it in results
+      if (isValidEthereumAddress(searchQuery)) {
+        setSearchResults([searchQuery]);
+      } else if (searchQuery.length >= 10) {
         // Filter mock wallets that contain the search query
         const filtered = mockWallets.filter(wallet => 
           wallet.toLowerCase().includes(searchQuery.toLowerCase())
@@ -63,6 +70,20 @@ const SearchBar = ({ onWalletSelect }: SearchBarProps) => {
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
+      // If the search query is a valid address, directly select it
+      if (isValidEthereumAddress(searchQuery)) {
+        handleWalletClick(searchQuery);
+      } else {
+        handleSearch();
+      }
+    }
+  };
+
+  const handleDirectSearch = () => {
+    // If the search query is a valid address, directly select it
+    if (isValidEthereumAddress(searchQuery)) {
+      handleWalletClick(searchQuery);
+    } else {
       handleSearch();
     }
   };
@@ -82,7 +103,7 @@ const SearchBar = ({ onWalletSelect }: SearchBarProps) => {
           />
         </div>
         <Button
-          onClick={handleSearch}
+          onClick={handleDirectSearch}
           disabled={isSearching}
           className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
         >
@@ -128,7 +149,7 @@ const SearchBar = ({ onWalletSelect }: SearchBarProps) => {
       )}
 
       {/* No Results */}
-      {searchQuery.length >= 10 && searchResults.length === 0 && !isSearching && (
+      {searchQuery.length >= 10 && searchResults.length === 0 && !isSearching && !isValidEthereumAddress(searchQuery) && (
         <Card className="absolute top-full mt-2 w-full bg-slate-800/95 border-slate-700 backdrop-blur-sm z-50">
           <CardContent className="p-4 text-center">
             <p className="text-gray-400">No portfolios found for this address</p>
