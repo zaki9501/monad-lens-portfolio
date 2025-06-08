@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { Wallet, TrendingUp, Activity, ExternalLink, Copy, CheckCircle, BarChart3, Target } from "lucide-react";
+import { Wallet, TrendingUp, Activity, ExternalLink, Copy, CheckCircle, BarChart3, Target, Coins } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import WalletConnection from "@/components/WalletConnection";
 import PortfolioOverview from "@/components/PortfolioOverview";
@@ -12,6 +12,7 @@ import NFTCollection from "@/components/NFTCollection";
 import DAppExplorer from "@/components/DAppExplorer";
 import TransactionHistory from "@/components/TransactionHistory";
 import BadgeCollection from "@/components/BadgeCollection";
+import StakeInfo from "@/components/StakeInfo";
 import SearchBar from "@/components/SearchBar";
 import { usePrivy } from "@privy-io/react-auth";
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
@@ -252,9 +253,13 @@ const Index = () => {
 
             {/* Main Dashboard */}
             <Tabs defaultValue="portfolio" className="space-y-6">
-              <TabsList className="grid w-full grid-cols-4 bg-slate-800/50">
+              <TabsList className="grid w-full grid-cols-5 bg-slate-800/50">
                 <TabsTrigger value="portfolio" className="text-white data-[state=active]:bg-purple-600">
                   Portfolio
+                </TabsTrigger>
+                <TabsTrigger value="stake" className="text-white data-[state=active]:bg-purple-600">
+                  <Coins className="w-4 h-4 mr-2" />
+                  Stake
                 </TabsTrigger>
                 <TabsTrigger value="nfts" className="text-white data-[state=active]:bg-purple-600">
                   NFTs
@@ -331,6 +336,10 @@ const Index = () => {
                     </CardContent>
                   </Card>
                 </div>
+              </TabsContent>
+
+              <TabsContent value="stake">
+                <StakeInfo walletAddress={viewingAddress} />
               </TabsContent>
 
               <TabsContent value="nfts">
