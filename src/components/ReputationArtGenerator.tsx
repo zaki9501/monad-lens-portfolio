@@ -1,8 +1,9 @@
-
 import React, { useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Download, Palette, Sparkles } from "lucide-react";
+
+import EagerMintDialog from "@/components/EagerMintDialog";
 
 interface ReputationArtProps {
   walletAddress: string;
@@ -297,17 +298,14 @@ const ReputationArtGenerator = ({
                 <Download className="w-4 h-4 mr-2" />
                 Download Art
               </Button>
-              <Button
-                variant="outline"
-                className={`${
-                  isDarkMode 
-                    ? 'border-slate-600 bg-slate-800/50 text-white hover:bg-slate-700/50' 
-                    : 'border-gray-300 bg-white/80 text-gray-900 hover:bg-gray-50'
-                }`}
-              >
-                <Sparkles className="w-4 h-4 mr-2" />
-                {isLoreMode ? 'Mint Mind Essence' : 'Mint as NFT'}
-              </Button>
+              
+              <EagerMintDialog
+                walletAddress={walletAddress}
+                overallScore={overallScore}
+                artData={artData}
+                isDarkMode={isDarkMode}
+                isLoreMode={isLoreMode}
+              />
             </div>
 
             {/* Art Description */}
