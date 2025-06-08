@@ -2,8 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { Shield, TrendingUp, Activity, Users, Calendar, Zap, Target, Star, AlertTriangle, CheckCircle } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Shield, TrendingUp, Activity, Users, Calendar, Zap, Target, Star, AlertTriangle, CheckCircle, Palette } from "lucide-react";
 import { getAccountTransactions, getAccountActivities } from "@/lib/blockvision";
+import ReputationArtGenerator from "./ReputationArtGenerator";
 
 interface WalletScoreProps {
   walletAddress: string;
@@ -40,6 +42,7 @@ const WalletScoreCard = ({ walletAddress, isDarkMode = true, isLoreMode = false 
   const [overallScore, setOverallScore] = useState<number>(0);
   const [scoreGrade, setScoreGrade] = useState<string>('');
   const [error, setError] = useState<string>('');
+  const [showArtGenerator, setShowArtGenerator] = useState(false);
 
   useEffect(() => {
     if (!walletAddress) return;
@@ -349,11 +352,28 @@ const WalletScoreCard = ({ walletAddress, isDarkMode = true, isLoreMode = false 
         isDarkMode ? 'bg-slate-800/50 border-slate-700' : 'bg-white/80 border-gray-200'
       } border-2`}>
         <CardHeader>
-          <CardTitle className={`flex items-center space-x-2 ${
+          <CardTitle className={`flex items-center justify-between ${
             isDarkMode ? 'text-white' : 'text-gray-900'
           }`}>
-            <Target className="w-6 h-6 text-purple-400" />
-            <span>{isLoreMode ? 'Mind Authenticity Score' : 'Wallet Reputation Score'}</span>
+            <div className="flex items-center space-x-2">
+              <Target className="w-6 h-6 text-purple-400" />
+              <span>{isLoreMode ? 'Mind Authenticity Score' : 'Wallet Reputation Score'}</span>
+            </div>
+            {!loading && !error && metrics && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowArtGenerator(!showArtGenerator)}
+                className={`${
+                  isDarkMode 
+                    ? 'border-slate-600 bg-slate-800/50 text-white hover:bg-slate-700/50' 
+                    : 'border-gray-300 bg-white/80 text-gray-900 hover:bg-gray-50'
+                }`}
+              >
+                <Palette className="w-4 h-4 mr-2" />
+                {showArtGenerator ? 'Hide Art' : 'Generate Art'}
+              </Button>
+            )}
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -540,6 +560,18 @@ const WalletScoreCard = ({ walletAddress, isDarkMode = true, isLoreMode = false 
           )}
         </CardContent>
       </Card>
+
+      {/* Art Generator */}
+      {showArtGenerator && !loading && !error && metrics && scoreBreakdown && (
+        <ReputationArtGenerator
+          walletAddress={walletAddress}
+          overallScore={overallScore}
+          metrics={metrics}
+          scoreBreakdown={scoreBreakdown}
+          isDarkMode={isDarkMode}
+          isLoreMode={isLoreMode}
+        />
+      )}
     </div>
   );
 };
