@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -20,6 +21,18 @@ const NFTCollection = ({ walletAddress }: NFTCollectionProps) => {
     getAccountNFTs(walletAddress, 1)
       .then((data) => {
         const nftList = data?.result?.data || [];
+        console.log("NFT data received:", nftList);
+        // Log each NFT to see what image fields are available
+        nftList.forEach((nft, index) => {
+          console.log(`NFT ${index}:`, {
+            name: nft.name,
+            image_url: nft.image_url,
+            image: nft.image,
+            imageURL: nft.imageURL,
+            imageUrl: nft.imageUrl,
+            metadata: nft.metadata
+          });
+        });
         setNfts(nftList);
       })
       .catch((err) => {
@@ -27,6 +40,11 @@ const NFTCollection = ({ walletAddress }: NFTCollectionProps) => {
       })
       .finally(() => setLoading(false));
   }, [walletAddress]);
+
+  const getNFTImageUrl = (nft: any) => {
+    // Try multiple possible image field names
+    return nft.image_url || nft.imageURL || nft.imageUrl || nft.image || nft.metadata?.image;
+  };
 
   return (
     <div className="space-y-6">
@@ -58,29 +76,53 @@ const NFTCollection = ({ walletAddress }: NFTCollectionProps) => {
             <p className="text-gray-400">No NFTs found for this address.</p>
           ) : (
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-              {nfts.map((nft, index) => (
-                <div key={index} className="bg-slate-700/30 rounded-lg p-4 hover:bg-slate-700/50 transition-all duration-300">
-                  <div className="aspect-square bg-gradient-to-br from-purple-600 to-blue-600 rounded-lg mb-4 flex items-center justify-center overflow-hidden">
-                    {nft.image_url ? (
-                      <img src={nft.image_url} alt={nft.name || `NFT #${index + 1}`} className="w-full h-full object-cover" />
-                    ) : (
-                      <Image className="w-16 h-16 text-white/50" />
-                    )}
-                  </div>
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-white font-semibold">{nft.name || `NFT #${index + 1}`}</h3>
-                      {nft.external_url && (
-                        <a href={nft.external_url} target="_blank" rel="noopener noreferrer">
-                          <ExternalLink className="w-4 h-4 text-gray-400 hover:text-white cursor-pointer" />
-                        </a>
-                      )}
+              {nfts.map((nft, index) => {
+                const imageUrl = getNFTImageUrl(nft);
+                return (
+                  <div key={index} className="bg-slate-700/30 rounded-lg p-4 hover:bg-slate-700/50 transition-all duration-300">
+                    <div className="aspect-square bg-gradient-to-br from-purple-600 to-blue-600 rounded-lg mb-4 flex items-center justify-center overflow-hidden">
+                      {imageUrl ? (
+                        <img 
+                          src={imageUrl} 
+                          alt={nft.name || `NFT #${index + 1}`} 
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            console.log(`Failed to load image for NFT ${index}:`, imageUrl);
+                            // Hide the broken image and show fallback
+                            e.currentTarget.style.display = 'none';
+                            const fallback = e.currentTarget.nextElementSibling as HTMLElement;
+                            if (fallback) fallback.style.display = 'flex';
+                          }}
+                          onLoad={() => {
+                            console.log(`Successfully loaded image for NFT ${index}:`, imageUrl);
+                          }}
+                        />
+                      ) : null}
+                      <div 
+                        className="w-full h-full flex items-center justify-center"
+                        style={{ display: imageUrl ? 'none' : 'flex' }}
+                      >
+                        <Image className="w-16 h-16 text-white/50" />
+                      </div>
                     </div>
-                    <p className="text-gray-400 text-sm">{nft.collection_name || nft.contract_address}</p>
-                    {/* Add more NFT metadata here if available */}
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <h3 className="text-white font-semibold">{nft.name || `NFT #${index + 1}`}</h3>
+                        {nft.external_url && (
+                          <a href={nft.external_url} target="_blank" rel="noopener noreferrer">
+                            <ExternalLink className="w-4 h-4 text-gray-400 hover:text-white cursor-pointer" />
+                          </a>
+                        )}
+                      </div>
+                      <p className="text-gray-400 text-sm">{nft.collection_name || nft.contract_address}</p>
+                      {/* Debug info - remove this in production */}
+                      <p className="text-xs text-gray-500">
+                        Image URL: {imageUrl ? "✓" : "✗"} | Token ID: {nft.token_id}
+                      </p>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </CardContent>
