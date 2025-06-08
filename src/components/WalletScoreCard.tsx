@@ -40,6 +40,7 @@ const WalletScoreCard = ({ walletAddress, isDarkMode = true, isLoreMode = false 
   const [scoreBreakdown, setScoreBreakdown] = useState<ScoreBreakdown | null>(null);
   const [overallScore, setOverallScore] = useState<number>(0);
   const [scoreGrade, setScoreGrade] = useState<string>('');
+  const [error, setError] = useState<string>('');
 
   useEffect(() => {
     if (!walletAddress) return;
@@ -48,20 +49,33 @@ const WalletScoreCard = ({ walletAddress, isDarkMode = true, isLoreMode = false 
 
   const analyzeWallet = async () => {
     setLoading(true);
+    setError('');
     try {
-      // Fetch transaction data
+      console.log('Starting wallet analysis for:', walletAddress);
+      
+      // Fetch transaction data with larger limits
       const [txData, activityData] = await Promise.all([
         getAccountTransactions(walletAddress, 100),
         getAccountActivities(walletAddress, 100)
       ]);
 
+      console.log('Transaction data:', txData);
+      console.log('Activity data:', activityData);
+
       const transactions = txData?.result?.data || [];
       const activities = activityData?.result?.data || [];
 
+      console.log(`Found ${transactions.length} transactions and ${activities.length} activities`);
+
       // Calculate metrics
       const calculatedMetrics = calculateMetrics(transactions, activities);
+      console.log('Calculated metrics:', calculatedMetrics);
+      
       const breakdown = calculateScoreBreakdown(calculatedMetrics);
+      console.log('Score breakdown:', breakdown);
+      
       const score = calculateOverallScore(breakdown);
+      console.log('Overall score:', score);
 
       setMetrics(calculatedMetrics);
       setScoreBreakdown(breakdown);
@@ -69,77 +83,120 @@ const WalletScoreCard = ({ walletAddress, isDarkMode = true, isLoreMode = false 
       setScoreGrade(getScoreGrade(score));
     } catch (error) {
       console.error('Error analyzing wallet:', error);
+      setError('Failed to analyze wallet data');
     } finally {
       setLoading(false);
     }
   };
 
   const calculateMetrics = (transactions: any[], activities: any[]): ScoreMetrics => {
+    // Combine all transactions for comprehensive analysis
     const allTxs = [...transactions, ...activities];
+    console.log('Processing', allTxs.length, 'total transactions');
     
     // Basic counts
     const totalTransactions = allTxs.length;
     
-    // Volume calculation
+    // Volume calculation - handle both regular transactions and activities
     const totalVolume = allTxs.reduce((sum, tx) => {
-      return sum + (Number(tx.value || 0) / 1e18);
+      let txValue = 0;
+      
+      // For regular transactions
+      if (tx.value) {
+        txValue = Number(tx.value) / 1e18;
+      }
+      
+      // For activities with token movements
+      if (tx.addTokens && Array.isArray(tx.addTokens)) {
+        tx.addTokens.forEach((token: any) => {
+          if (token.amount) {
+            txValue += Number(token.amount);
+          }
+        });
+      }
+      
+      return sum + txValue;
     }, 0);
 
-    // Gas spent
+    // Gas spent calculation
     const gasSpent = allTxs.reduce((sum, tx) => {
-      return sum + Number(tx.transactionFee || tx.gasUsed || 0);
+      let gasUsed = 0;
+      
+      if (tx.transactionFee) {
+        // transactionFee is already in ETH/MON format for activities
+        gasUsed = Number(tx.transactionFee);
+      } else if (tx.gasUsed && tx.gasPrice) {
+        // For raw transactions, calculate from gasUsed * gasPrice
+        gasUsed = (Number(tx.gasUsed) * Number(tx.gasPrice)) / 1e18;
+      }
+      
+      return sum + gasUsed;
     }, 0);
 
     // Contract interactions
-    const contractAddresses = new Set();
+    const contractAddresses = new Set<string>();
     let contractsInteracted = 0;
     
     allTxs.forEach(tx => {
-      if (tx.to && tx.to !== walletAddress && tx.input && tx.input !== '0x') {
+      // Check if it's a contract interaction
+      const isContractTx = tx.isContract || 
+                          (tx.to && tx.to !== walletAddress && tx.to !== '' && tx.to !== '0x0000000000000000000000000000000000000000') ||
+                          (tx.transactionAddress && tx.transactionAddress !== walletAddress);
+      
+      if (isContractTx) {
         contractsInteracted++;
-        contractAddresses.add(tx.to);
+        const contractAddr = tx.transactionAddress || tx.to || tx.contractAddress;
+        if (contractAddr && contractAddr !== '') {
+          contractAddresses.add(contractAddr.toLowerCase());
+        }
       }
     });
 
     const uniqueContracts = contractAddresses.size;
 
-    // Active days
-    const dates = new Set();
+    // Active days calculation
+    const dates = new Set<string>();
     allTxs.forEach(tx => {
       if (tx.timestamp) {
-        const date = new Date(tx.timestamp * 1000).toDateString();
+        // Handle both timestamp formats (seconds and milliseconds)
+        const timestamp = typeof tx.timestamp === 'number' && tx.timestamp > 1e12 
+          ? tx.timestamp 
+          : tx.timestamp * 1000;
+        const date = new Date(timestamp).toDateString();
         dates.add(date);
       }
     });
     const activeDays = dates.size;
 
-    // Average gas price
+    // Calculate time-based metrics
+    const timestamps = allTxs
+      .map(tx => tx.timestamp)
+      .filter(ts => ts)
+      .map(ts => typeof ts === 'number' && ts > 1e12 ? ts / 1000 : ts)
+      .sort((a, b) => a - b);
+    
+    const firstTransactionAge = timestamps.length > 0 
+      ? Math.max(1, (Date.now() / 1000 - timestamps[0]) / 86400)
+      : 1;
+
+    const transactionFrequency = totalTransactions / firstTransactionAge;
+
+    // Average gas price (for transactions that have gasPrice)
     const gasTransactions = allTxs.filter(tx => tx.gasPrice && Number(tx.gasPrice) > 0);
     const averageGasPrice = gasTransactions.length > 0 
       ? gasTransactions.reduce((sum, tx) => sum + Number(tx.gasPrice), 0) / gasTransactions.length
       : 0;
 
-    // Transaction frequency (txs per day)
-    const oldestTx = allTxs.reduce((oldest, tx) => {
-      return tx.timestamp < oldest.timestamp ? tx : oldest;
-    }, allTxs[0]);
-    
-    const daysSinceFirst = oldestTx?.timestamp 
-      ? Math.max(1, (Date.now() / 1000 - oldestTx.timestamp) / 86400)
-      : 1;
-    
-    const transactionFrequency = totalTransactions / daysSinceFirst;
-    const firstTransactionAge = daysSinceFirst;
-
-    // Diversity score (different types of interactions)
-    const interactionTypes = new Set();
+    // Diversity score - different types of interactions
+    const interactionTypes = new Set<string>();
     allTxs.forEach(tx => {
       if (tx.methodName) interactionTypes.add(tx.methodName);
-      if (tx.type) interactionTypes.add(tx.type);
+      if (tx.txName) interactionTypes.add(tx.txName);
+      if (tx.methodID) interactionTypes.add(tx.methodID);
     });
     const diversityScore = interactionTypes.size;
 
-    return {
+    const result = {
       totalTransactions,
       totalVolume,
       gasSpent,
@@ -151,37 +208,39 @@ const WalletScoreCard = ({ walletAddress, isDarkMode = true, isLoreMode = false 
       firstTransactionAge,
       diversityScore
     };
+
+    console.log('Final metrics:', result);
+    return result;
   };
 
   const calculateScoreBreakdown = (metrics: ScoreMetrics): ScoreBreakdown => {
     // Activity Score (0-100) - Based on transaction count and frequency
     const activityScore = Math.min(100, 
-      (metrics.totalTransactions * 2) + 
-      (metrics.transactionFrequency * 10)
+      Math.min(50, metrics.totalTransactions * 2) + 
+      Math.min(50, metrics.transactionFrequency * 20)
     );
 
     // Volume Score (0-100) - Based on total volume moved
-    const volumeScore = Math.min(100, metrics.totalVolume * 10);
+    const volumeScore = Math.min(100, Math.log10(Math.max(1, metrics.totalVolume)) * 20);
 
     // Consistency Score (0-100) - Based on active days and frequency
     const consistencyScore = Math.min(100, 
-      (metrics.activeDays * 3) + 
-      (metrics.transactionFrequency * 20)
+      Math.min(60, metrics.activeDays * 2) + 
+      Math.min(40, metrics.transactionFrequency * 30)
     );
 
     // Diversity Score (0-100) - Based on unique contracts and interaction types
     const diversityScore = Math.min(100, 
-      (metrics.uniqueContracts * 5) + 
-      (metrics.diversityScore * 3)
+      Math.min(70, metrics.uniqueContracts * 10) + 
+      Math.min(30, metrics.diversityScore * 5)
     );
 
     // Longevity Score (0-100) - Based on account age
-    const longevityScore = Math.min(100, metrics.firstTransactionAge * 2);
+    const longevityScore = Math.min(100, Math.log10(Math.max(1, metrics.firstTransactionAge)) * 25);
 
-    // Gas Efficiency Score (0-100) - Based on reasonable gas usage
-    const gasEfficiencyScore = metrics.totalTransactions > 0 
-      ? Math.min(100, 100 - (metrics.gasSpent / metrics.totalTransactions / 1000))
-      : 0;
+    // Gas Efficiency Score (0-100) - Lower gas per transaction is better
+    const avgGasPerTx = metrics.totalTransactions > 0 ? metrics.gasSpent / metrics.totalTransactions : 0;
+    const gasEfficiencyScore = Math.max(0, Math.min(100, 100 - (avgGasPerTx * 1000)));
 
     return {
       activity: Math.max(0, activityScore),
@@ -272,6 +331,17 @@ const WalletScoreCard = ({ walletAddress, isDarkMode = true, isLoreMode = false 
                 {isLoreMode ? 'Analyzing consciousness patterns...' : 'Analyzing wallet activity...'}
               </p>
             </div>
+          ) : error ? (
+            <div className="text-center py-8">
+              <AlertTriangle className="w-8 h-8 text-red-400 mx-auto mb-4" />
+              <p className="text-red-400">{error}</p>
+              <button 
+                onClick={analyzeWallet}
+                className="mt-4 px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700"
+              >
+                Retry Analysis
+              </button>
+            </div>
           ) : (
             <div className="space-y-6">
               {/* Overall Score Display */}
@@ -353,7 +423,7 @@ const WalletScoreCard = ({ walletAddress, isDarkMode = true, isLoreMode = false 
                   }`}>
                     <TrendingUp className="w-6 h-6 mx-auto mb-2 text-green-400" />
                     <div className={`text-xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                      {metrics.totalVolume.toFixed(2)} MON
+                      {metrics.totalVolume.toFixed(3)} MON
                     </div>
                     <div className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
                       Total Volume
