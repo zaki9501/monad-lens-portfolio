@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -34,21 +35,40 @@ const LiveTransactionLogger: React.FC<LiveTransactionLoggerProps> = ({ isDarkMod
     const fetchLatestTxs = async () => {
       const apiKey = import.meta.env.VITE_BLOCKVISION_API_KEY;
       const url = `https://api.blockvision.org/v2/monad/account/activities?address=${walletAddress}&limit=10`;
-      const res = await fetch(url, {
-        headers: {
-          'accept': 'application/json',
-          'x-api-key': apiKey,
-        },
-      });
-      if (!res.ok) return;
-      const data = await res.json();
-      const txs = data?.result?.data || [];
-      if (txs.length && txs[0].hash !== lastSeenTx) {
-        setTransactions(txs);
-        setPulseData(prev => [...prev.slice(-199), Math.random() * 100 + 20]);
-        setHeartbeatActive(true);
-        setTimeout(() => setHeartbeatActive(false), 500);
-        lastSeenTx = txs[0].hash;
+      
+      try {
+        const res = await fetch(url, {
+          headers: {
+            'accept': 'application/json',
+            'x-api-key': apiKey,
+          },
+        });
+        if (!res.ok) return;
+        
+        const data = await res.json();
+        const apiTxs = data?.result?.data || [];
+        
+        if (apiTxs.length && apiTxs[0].hash !== lastSeenTx) {
+          // Transform API data to display format
+          const transformedTxs = apiTxs.map((tx: any) => ({
+            id: tx.hash,
+            hash: tx.hash,
+            type: tx.type || 'Transaction',
+            direction: tx.from?.toLowerCase() === walletAddress.toLowerCase() ? 'outgoing' : 'incoming',
+            amount: tx.transactionFee || '0',
+            token: 'MON',
+            timestamp: new Date(tx.timestamp * 1000), // Convert Unix timestamp to Date
+            blockNumber: tx.blockNumber
+          }));
+          
+          setTransactions(transformedTxs);
+          setPulseData(prev => [...prev.slice(-199), Math.random() * 100 + 20]);
+          setHeartbeatActive(true);
+          setTimeout(() => setHeartbeatActive(false), 500);
+          lastSeenTx = apiTxs[0].hash;
+        }
+      } catch (error) {
+        console.error('Error fetching transactions:', error);
       }
     };
 
@@ -257,7 +277,7 @@ const LiveTransactionLogger: React.FC<LiveTransactionLoggerProps> = ({ isDarkMod
                             ? (isDarkMode ? 'text-gray-400 font-mono' : 'text-gray-600 font-mono')
                             : (isDarkMode ? 'text-gray-400' : 'text-gray-600')
                         }`}>
-                          {proMode ? tx.hash : tx.timestamp.toLocaleTimeString()}
+                          {proMode ? tx.hash.slice(0, 10) + '...' : (tx.timestamp instanceof Date ? tx.timestamp.toLocaleTimeString() : 'Unknown time')}
                         </div>
                       </div>
                     </div>
