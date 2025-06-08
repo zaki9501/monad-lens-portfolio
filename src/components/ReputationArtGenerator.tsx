@@ -51,120 +51,130 @@ const ReputationArtGenerator = ({
       return rng / 233280;
     };
 
-    // Enhanced color palette based on scores
-    const primaryHue = (scoreBreakdown.activity / 100) * 360;
-    const secondaryHue = (scoreBreakdown.diversity / 100) * 360;
-    const tertiaryHue = (scoreBreakdown.longevity / 100) * 360;
-    const accentHue = (scoreBreakdown.volume / 100) * 360;
-
-    // Generate sophisticated geometric patterns with varying complexity
-    const patterns = [];
-    const numShapes = Math.max(8, Math.min(30, Math.floor(metrics.totalTransactions / 5)));
+    // Cosmic Pulse Pattern Implementation
+    const scoreCategory = overallScore <= 30 ? 'low' : overallScore <= 70 ? 'medium' : 'high';
     
-    for (let i = 0; i < numShapes; i++) {
-      const x = 50 + random() * 300; // Keep within bounds
-      const y = 50 + random() * 300;
-      const size = (scoreBreakdown.volume / 100) * 40 + 8;
-      const rotation = random() * 360;
-      const opacity = 0.4 + (scoreBreakdown.consistency / 100) * 0.6;
-      const complexity = Math.floor(random() * 4) + 3; // 3-6 sided polygons
-      
-      patterns.push({
-        x, y, size, rotation, opacity, complexity,
-        hue: primaryHue + (random() - 0.5) * 120,
-        saturation: 60 + random() * 40,
-        lightness: 50 + random() * 30,
-        type: random() > 0.3 ? 'polygon' : 'circle'
-      });
-    }
+    // Core colors based on score
+    const coreColor = '#6B21A8'; // Dark purple core
+    const ringColors = {
+      low: ['#6B21A8', '#8B5CF6', '#A855F7'],
+      medium: ['#6B21A8', '#8B5CF6', '#A855F7', '#C084FC', '#E879F9'],
+      high: ['#6B21A8', '#8B5CF6', '#A855F7', '#C084FC', '#E879F9', '#F0ABFC', '#FDE68A']
+    };
 
-    // Generate flowing connection lines with curves
-    const connections = [];
-    const numConnections = Math.min(25, metrics.uniqueContracts * 2);
-    
-    for (let i = 0; i < numConnections; i++) {
-      const x1 = 50 + random() * 300;
-      const y1 = 50 + random() * 300;
-      const x2 = 50 + random() * 300;
-      const y2 = 50 + random() * 300;
-      
-      // Create flowing curves
-      const cp1x = x1 + (random() - 0.5) * 100;
-      const cp1y = y1 + (random() - 0.5) * 100;
-      const cp2x = x2 + (random() - 0.5) * 100;
-      const cp2y = y2 + (random() - 0.5) * 100;
-      
-      connections.push({
-        x1, y1, x2, y2, cp1x, cp1y, cp2x, cp2y,
-        opacity: 0.15 + (scoreBreakdown.gasEfficiency / 100) * 0.4,
-        strokeWidth: 1 + random() * 2,
-        hue: secondaryHue + (random() - 0.5) * 60
-      });
-    }
-
-    // Generate elaborate central mandala
-    const mandalaRings = [];
-    const numRings = Math.max(4, Math.min(12, Math.floor(overallScore / 10)));
+    // Generate cosmic pulse rings based on score
+    const numRings = Math.max(3, Math.floor(overallScore / 10));
+    const pulseRings = [];
     
     for (let i = 0; i < numRings; i++) {
-      const radius = 20 + (i * 15);
-      const segments = 8 + (i * 3);
-      const ringRotation = (i * 15) % 360;
+      const radius = 30 + (i * 25);
+      const opacity = scoreCategory === 'low' ? 0.2 + (i * 0.1) : 
+                     scoreCategory === 'medium' ? 0.3 + (i * 0.15) : 
+                     0.4 + (i * 0.2);
+      const strokeWidth = scoreCategory === 'low' ? 1 : 
+                         scoreCategory === 'medium' ? 2 : 3;
+      const animationDelay = i * 0.3;
       
-      mandalaRings.push({
+      pulseRings.push({
         radius,
-        segments,
-        ringRotation,
-        hue: (primaryHue + (i * 25)) % 360,
-        saturation: 70 + (i * 5),
-        lightness: 45 + (i * 3),
-        opacity: 0.6 + (i / numRings) * 0.4,
-        shape: i % 3 === 0 ? 'diamond' : i % 2 === 0 ? 'circle' : 'star'
+        opacity: Math.min(opacity, 0.8),
+        strokeWidth,
+        animationDelay,
+        colorIndex: i % ringColors[scoreCategory].length,
+        pulseIntensity: scoreCategory === 'high' ? 1.5 : scoreCategory === 'medium' ? 1.2 : 1
       });
     }
 
-    // Generate particle effects
-    const particles = [];
-    const numParticles = Math.floor(overallScore / 2);
+    // Generate star particles based on transaction frequency
+    const starParticles = [];
+    const numStars = Math.min(100, Math.max(10, metrics.transactionFrequency * 5));
     
-    for (let i = 0; i < numParticles; i++) {
-      particles.push({
-        x: random() * 400,
-        y: random() * 400,
-        size: 1 + random() * 3,
-        opacity: 0.3 + random() * 0.7,
-        hue: accentHue + (random() - 0.5) * 180
+    for (let i = 0; i < numStars; i++) {
+      const distance = 50 + random() * 300;
+      const angle = random() * Math.PI * 2;
+      const x = 200 + Math.cos(angle) * distance;
+      const y = 200 + Math.sin(angle) * distance;
+      const size = scoreCategory === 'high' ? 1 + random() * 2 : 
+                  scoreCategory === 'medium' ? 0.5 + random() * 1.5 : 
+                  0.3 + random() * 1;
+      const brightness = scoreCategory === 'high' ? 0.6 + random() * 0.4 : 
+                        scoreCategory === 'medium' ? 0.4 + random() * 0.3 : 
+                        0.2 + random() * 0.3;
+      
+      starParticles.push({
+        x, y, size, brightness,
+        twinkleDelay: random() * 2,
+        color: ringColors[scoreCategory][Math.floor(random() * ringColors[scoreCategory].length)]
       });
     }
 
-    // Generate energy waves
-    const waves = [];
-    const numWaves = Math.floor(scoreBreakdown.activity / 20);
+    // Generate DApp interaction nodes
+    const dappNodes = [];
+    const numNodes = Math.min(12, metrics.uniqueContracts);
     
-    for (let i = 0; i < numWaves; i++) {
-      waves.push({
-        centerX: 200,
-        centerY: 200,
-        radius: 30 + i * 40,
-        opacity: 0.1 + (0.3 / (i + 1)),
-        strokeWidth: 2,
-        hue: tertiaryHue
+    for (let i = 0; i < numNodes; i++) {
+      const angle = (i / numNodes) * Math.PI * 2;
+      const radius = 120 + random() * 100;
+      const x = 200 + Math.cos(angle) * radius;
+      const y = 200 + Math.sin(angle) * radius;
+      const nodeSize = scoreCategory === 'high' ? 4 + random() * 3 : 
+                      scoreCategory === 'medium' ? 3 + random() * 2 : 
+                      2 + random() * 1.5;
+      
+      dappNodes.push({
+        x, y, size: nodeSize,
+        glowIntensity: scoreCategory === 'high' ? 6 : scoreCategory === 'medium' ? 4 : 2,
+        connectionOpacity: scoreCategory === 'high' ? 0.6 : scoreCategory === 'medium' ? 0.4 : 0.2
       });
+    }
+
+    // Generate connection lines between nodes
+    const connections = [];
+    for (let i = 0; i < dappNodes.length; i++) {
+      for (let j = i + 1; j < dappNodes.length; j++) {
+        if (random() > 0.7) { // Only connect some nodes
+          connections.push({
+            x1: dappNodes[i].x,
+            y1: dappNodes[i].y,
+            x2: dappNodes[j].x,
+            y2: dappNodes[j].y,
+            opacity: dappNodes[i].connectionOpacity
+          });
+        }
+      }
+    }
+
+    // Generate particle effects for high scores
+    const particleEffects = [];
+    if (scoreCategory === 'high') {
+      const numParticles = 30;
+      for (let i = 0; i < numParticles; i++) {
+        const angle = random() * Math.PI * 2;
+        const distance = 40 + random() * 150;
+        const x = 200 + Math.cos(angle) * distance;
+        const y = 200 + Math.sin(angle) * distance;
+        
+        particleEffects.push({
+          x, y,
+          size: 0.5 + random() * 1.5,
+          opacity: 0.3 + random() * 0.4,
+          animationDelay: random() * 3
+        });
+      }
     }
 
     return {
-      patterns,
+      scoreCategory,
+      ringColors: ringColors[scoreCategory],
+      pulseRings,
+      starParticles,
+      dappNodes,
       connections,
-      mandalaRings,
-      particles,
-      waves,
-      primaryHue,
-      secondaryHue,
-      tertiaryHue,
-      accentHue,
+      particleEffects,
+      coreColor,
       background: isDarkMode 
-        ? `radial-gradient(circle at 30% 70%, hsl(${primaryHue}, 25%, 8%) 0%, hsl(${secondaryHue}, 20%, 5%) 50%, hsl(${tertiaryHue}, 15%, 3%) 100%)`
-        : `radial-gradient(circle at 30% 70%, hsl(${primaryHue}, 30%, 95%) 0%, hsl(${secondaryHue}, 25%, 97%) 50%, hsl(${tertiaryHue}, 20%, 99%) 100%)`
+        ? `radial-gradient(circle at 50% 50%, #1e1b4b 0%, #0f0f23 40%, #000000 100%)`
+        : `radial-gradient(circle at 50% 50%, #e0e7ff 0%, #f1f5f9 40%, #ffffff 100%)`
     };
   }, [walletAddress, overallScore, metrics, scoreBreakdown, isDarkMode]);
 
@@ -178,7 +188,7 @@ const ReputationArtGenerator = ({
     
     const link = document.createElement('a');
     link.href = url;
-    link.download = `wallet-reputation-${walletAddress.slice(0, 8)}.svg`;
+    link.download = `cosmic-pulse-${walletAddress.slice(0, 8)}.svg`;
     link.click();
     
     URL.revokeObjectURL(url);
@@ -194,12 +204,12 @@ const ReputationArtGenerator = ({
             isDarkMode ? 'text-white' : 'text-gray-900'
           }`}>
             <Palette className="w-6 h-6 text-purple-400" />
-            <span>{isLoreMode ? 'Mind Essence Art' : 'Reputation Masterpiece'}</span>
+            <span>{isLoreMode ? 'Cosmic Mind Pulse' : 'Cosmic Pulse Pattern'}</span>
           </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="flex flex-col items-center space-y-4">
-            {/* Generated High-Quality Art */}
+            {/* Generated Cosmic Pulse Art */}
             <div className={`relative rounded-xl p-6 shadow-2xl ${
               isDarkMode ? 'bg-slate-900/80' : 'bg-gray-50/80'
             }`}>
@@ -212,27 +222,25 @@ const ReputationArtGenerator = ({
                 style={{ background: artData.background }}
               >
                 <defs>
-                  {/* Advanced gradients */}
-                  <radialGradient id="primaryGradient" cx="50%" cy="50%" r="50%">
-                    <stop offset="0%" stopColor={`hsl(${artData.primaryHue}, 80%, 70%)`} stopOpacity="0.8" />
-                    <stop offset="70%" stopColor={`hsl(${artData.secondaryHue}, 60%, 50%)`} stopOpacity="0.4" />
-                    <stop offset="100%" stopColor={`hsl(${artData.tertiaryHue}, 40%, 30%)`} stopOpacity="0.2" />
+                  {/* Core glow gradient */}
+                  <radialGradient id="coreGlow" cx="50%" cy="50%" r="50%">
+                    <stop offset="0%" stopColor={artData.coreColor} stopOpacity="1" />
+                    <stop offset="30%" stopColor="#8B5CF6" stopOpacity="0.8" />
+                    <stop offset="70%" stopColor="#A855F7" stopOpacity="0.4" />
+                    <stop offset="100%" stopColor="#C084FC" stopOpacity="0.1" />
                   </radialGradient>
                   
-                  <linearGradient id="accentGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                    <stop offset="0%" stopColor={`hsl(${artData.accentHue}, 70%, 60%)`} />
-                    <stop offset="100%" stopColor={`hsl(${artData.primaryHue}, 60%, 50%)`} />
-                  </linearGradient>
-
-                  {/* Enhanced texture patterns */}
-                  <pattern id="particleTexture" patternUnits="userSpaceOnUse" width="20" height="20">
-                    <circle cx="10" cy="10" r="1" fill={`hsl(${artData.accentHue}, 70%, 70%)`} opacity="0.3" />
-                    <circle cx="5" cy="15" r="0.5" fill={`hsl(${artData.primaryHue}, 60%, 60%)`} opacity="0.4" />
-                    <circle cx="15" cy="5" r="0.8" fill={`hsl(${artData.secondaryHue}, 65%, 65%)`} opacity="0.2" />
-                  </pattern>
+                  {/* Ring gradients */}
+                  {artData.ringColors.map((color, i) => (
+                    <radialGradient key={`ring-grad-${i}`} id={`ringGradient${i}`} cx="50%" cy="50%" r="50%">
+                      <stop offset="0%" stopColor={color} stopOpacity="0" />
+                      <stop offset="50%" stopColor={color} stopOpacity="0.6" />
+                      <stop offset="100%" stopColor={color} stopOpacity="0" />
+                    </radialGradient>
+                  ))}
 
                   {/* Glow effects */}
-                  <filter id="glow">
+                  <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
                     <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
                     <feMerge> 
                       <feMergeNode in="coloredBlur"/>
@@ -240,149 +248,175 @@ const ReputationArtGenerator = ({
                     </feMerge>
                   </filter>
 
-                  <filter id="softGlow">
+                  <filter id="starGlow" x="-100%" y="-100%" width="300%" height="300%">
                     <feGaussianBlur stdDeviation="2" result="coloredBlur"/>
                     <feMerge> 
                       <feMergeNode in="coloredBlur"/>
                       <feMergeNode in="SourceGraphic"/>
                     </feMerge>
                   </filter>
+
+                  <filter id="nodeGlow" x="-200%" y="-200%" width="500%" height="500%">
+                    <feGaussianBlur stdDeviation="4" result="coloredBlur"/>
+                    <feMerge> 
+                      <feMergeNode in="coloredBlur"/>
+                      <feMergeNode in="SourceGraphic"/>
+                    </feMerge>
+                  </filter>
+
+                  {/* Animation definitions */}
+                  <animate id="pulseAnimation" attributeName="r" dur="2s" repeatCount="indefinite" />
+                  <animate id="twinkleAnimation" attributeName="opacity" dur="1.5s" repeatCount="indefinite" />
                 </defs>
 
-                {/* Background with texture */}
-                <rect width="400" height="400" fill="url(#primaryGradient)" />
-                <rect width="400" height="400" fill="url(#particleTexture)" opacity="0.5" />
+                {/* Background cosmic field */}
+                <rect width="400" height="400" fill="url(#coreGlow)" opacity="0.1" />
 
-                {/* Energy waves */}
-                {artData.waves.map((wave, i) => (
-                  <circle
-                    key={`wave-${i}`}
-                    cx={wave.centerX}
-                    cy={wave.centerY}
-                    r={wave.radius}
-                    fill="none"
-                    stroke={`hsl(${wave.hue}, 60%, 60%)`}
-                    strokeWidth={wave.strokeWidth}
-                    opacity={wave.opacity}
-                    filter="url(#softGlow)"
-                  />
-                ))}
-
-                {/* Flowing connection curves */}
+                {/* Connection lines between DApp nodes */}
                 {artData.connections.map((conn, i) => (
-                  <path
+                  <line
                     key={`conn-${i}`}
-                    d={`M ${conn.x1} ${conn.y1} C ${conn.cp1x} ${conn.cp1y}, ${conn.cp2x} ${conn.cp2y}, ${conn.x2} ${conn.y2}`}
-                    stroke={`hsl(${conn.hue}, 60%, 60%)`}
-                    strokeWidth={conn.strokeWidth}
-                    fill="none"
+                    x1={conn.x1}
+                    y1={conn.y1}
+                    x2={conn.x2}
+                    y2={conn.y2}
+                    stroke="#8B5CF6"
+                    strokeWidth="1"
                     opacity={conn.opacity}
-                    filter="url(#softGlow)"
-                  />
+                    strokeDasharray="2,4"
+                  >
+                    <animate
+                      attributeName="stroke-dashoffset"
+                      values="0;6"
+                      dur="1s"
+                      repeatCount="indefinite"
+                    />
+                  </line>
                 ))}
 
-                {/* Elaborate central mandala */}
-                <g transform="translate(200, 200)">
-                  {artData.mandalaRings.map((ring, i) => (
-                    <g key={`ring-${i}`} transform={`rotate(${ring.ringRotation})`}>
-                      {Array.from({ length: ring.segments }).map((_, j) => {
-                        const angle = (j / ring.segments) * 2 * Math.PI;
-                        const x = Math.cos(angle) * ring.radius;
-                        const y = Math.sin(angle) * ring.radius;
-                        
-                        if (ring.shape === 'diamond') {
-                          return (
-                            <polygon
-                              key={`ring-${i}-${j}`}
-                              points={`${x},${y-4} ${x+3},${y} ${x},${y+4} ${x-3},${y}`}
-                              fill={`hsl(${ring.hue}, ${ring.saturation}%, ${ring.lightness}%)`}
-                              opacity={ring.opacity}
-                              filter="url(#glow)"
-                            />
-                          );
-                        } else if (ring.shape === 'star') {
-                          return (
-                            <polygon
-                              key={`ring-${i}-${j}`}
-                              points={`${x},${y-3} ${x+1},${y-1} ${x+3},${y} ${x+1},${y+1} ${x},${y+3} ${x-1},${y+1} ${x-3},${y} ${x-1},${y-1}`}
-                              fill={`hsl(${ring.hue}, ${ring.saturation}%, ${ring.lightness}%)`}
-                              opacity={ring.opacity}
-                              filter="url(#glow)"
-                            />
-                          );
-                        } else {
-                          return (
-                            <circle
-                              key={`ring-${i}-${j}`}
-                              cx={x}
-                              cy={y}
-                              r="3"
-                              fill={`hsl(${ring.hue}, ${ring.saturation}%, ${ring.lightness}%)`}
-                              opacity={ring.opacity}
-                              filter="url(#glow)"
-                            />
-                          );
-                        }
-                      })}
-                    </g>
-                  ))}
-                </g>
-
-                {/* Sophisticated scattered patterns */}
-                {artData.patterns.map((pattern, i) => (
-                  <g key={`pattern-${i}`} transform={`translate(${pattern.x}, ${pattern.y}) rotate(${pattern.rotation})`}>
-                    {pattern.type === 'circle' ? (
-                      <circle
-                        r={pattern.size}
-                        fill={`hsl(${pattern.hue}, ${pattern.saturation}%, ${pattern.lightness}%)`}
-                        opacity={pattern.opacity}
-                        filter="url(#glow)"
+                {/* Cosmic pulse rings */}
+                {artData.pulseRings.map((ring, i) => (
+                  <g key={`ring-${i}`}>
+                    <circle
+                      cx="200"
+                      cy="200"
+                      r={ring.radius}
+                      fill="none"
+                      stroke={artData.ringColors[ring.colorIndex]}
+                      strokeWidth={ring.strokeWidth}
+                      opacity={ring.opacity}
+                      filter="url(#glow)"
+                    >
+                      <animate
+                        attributeName="r"
+                        values={`${ring.radius};${ring.radius + 10};${ring.radius}`}
+                        dur="2s"
+                        repeatCount="indefinite"
+                        begin={`${ring.animationDelay}s`}
                       />
-                    ) : (
-                      <polygon
-                        points={Array.from({ length: pattern.complexity }, (_, j) => {
-                          const angle = (j / pattern.complexity) * 2 * Math.PI;
-                          const x = Math.cos(angle) * pattern.size;
-                          const y = Math.sin(angle) * pattern.size;
-                          return `${x},${y}`;
-                        }).join(' ')}
-                        fill={`hsl(${pattern.hue}, ${pattern.saturation}%, ${pattern.lightness}%)`}
-                        opacity={pattern.opacity}
-                        filter="url(#glow)"
+                      <animate
+                        attributeName="opacity"
+                        values={`${ring.opacity};${ring.opacity * ring.pulseIntensity};${ring.opacity}`}
+                        dur="2s"
+                        repeatCount="indefinite"
+                        begin={`${ring.animationDelay}s`}
                       />
-                    )}
+                    </circle>
                   </g>
                 ))}
 
-                {/* Floating particles */}
-                {artData.particles.map((particle, i) => (
+                {/* Central core */}
+                <circle
+                  cx="200"
+                  cy="200"
+                  r="15"
+                  fill="url(#coreGlow)"
+                  filter="url(#glow)"
+                >
+                  <animate
+                    attributeName="r"
+                    values="15;20;15"
+                    dur="1.5s"
+                    repeatCount="indefinite"
+                  />
+                </circle>
+
+                {/* Star particles (transaction frequency) */}
+                {artData.starParticles.map((star, i) => (
+                  <circle
+                    key={`star-${i}`}
+                    cx={star.x}
+                    cy={star.y}
+                    r={star.size}
+                    fill={star.color}
+                    opacity={star.brightness}
+                    filter="url(#starGlow)"
+                  >
+                    <animate
+                      attributeName="opacity"
+                      values={`${star.brightness};${star.brightness * 0.3};${star.brightness}`}
+                      dur="2s"
+                      repeatCount="indefinite"
+                      begin={`${star.twinkleDelay}s`}
+                    />
+                  </circle>
+                ))}
+
+                {/* DApp interaction nodes */}
+                {artData.dappNodes.map((node, i) => (
+                  <circle
+                    key={`node-${i}`}
+                    cx={node.x}
+                    cy={node.y}
+                    r={node.size}
+                    fill="#E879F9"
+                    filter="url(#nodeGlow)"
+                  >
+                    <animate
+                      attributeName="r"
+                      values={`${node.size};${node.size + 2};${node.size}`}
+                      dur="3s"
+                      repeatCount="indefinite"
+                      begin={`${i * 0.5}s`}
+                    />
+                  </circle>
+                ))}
+
+                {/* High score particle effects */}
+                {artData.particleEffects.map((particle, i) => (
                   <circle
                     key={`particle-${i}`}
                     cx={particle.x}
                     cy={particle.y}
                     r={particle.size}
-                    fill={`hsl(${particle.hue}, 80%, 70%)`}
+                    fill="#FDE68A"
                     opacity={particle.opacity}
-                    filter="url(#softGlow)"
-                  />
+                    filter="url(#starGlow)"
+                  >
+                    <animate
+                      attributeName="opacity"
+                      values={`${particle.opacity};0;${particle.opacity}`}
+                      dur="2.5s"
+                      repeatCount="indefinite"
+                      begin={`${particle.animationDelay}s`}
+                    />
+                  </circle>
                 ))}
 
-                {/* Elegant score display */}
-                <g transform="translate(200, 350)">
-                  <circle cx="0" cy="0" r="25" fill="url(#accentGradient)" opacity="0.8" filter="url(#glow)" />
-                  <text
-                    x="0"
-                    y="0"
-                    textAnchor="middle"
-                    dominantBaseline="central"
-                    fontSize="20"
-                    fontWeight="bold"
-                    fill="white"
-                    filter="url(#glow)"
-                  >
-                    {overallScore}
-                  </text>
-                </g>
+                {/* Score display in center */}
+                <text
+                  x="200"
+                  y="200"
+                  textAnchor="middle"
+                  dominantBaseline="central"
+                  fontSize="24"
+                  fontWeight="bold"
+                  fill="white"
+                  filter="url(#glow)"
+                  opacity="0.9"
+                >
+                  {overallScore}
+                </text>
 
                 {/* Signature */}
                 <text
@@ -390,7 +424,7 @@ const ReputationArtGenerator = ({
                   y="380"
                   textAnchor="middle"
                   fontSize="10"
-                  fill={`hsl(${artData.primaryHue}, 60%, 60%)`}
+                  fill="#8B5CF6"
                   opacity="0.7"
                   fontFamily="monospace"
                 >
@@ -404,27 +438,25 @@ const ReputationArtGenerator = ({
               isDarkMode ? 'text-gray-300' : 'text-gray-600'
             }`}>
               <div className="text-center p-3 rounded-lg bg-gradient-to-r from-purple-500/10 to-blue-500/10">
-                <div className="font-semibold">Visual Elements</div>
-                <div>{artData.patterns.length + artData.particles.length} pieces</div>
+                <div className="font-semibold">Pulse Rings</div>
+                <div>{artData.pulseRings.length} layers</div>
               </div>
               <div className="text-center p-3 rounded-lg bg-gradient-to-r from-pink-500/10 to-purple-500/10">
-                <div className="font-semibold">Complexity Score</div>
-                <div>{artData.mandalaRings.length}x mandala layers</div>
+                <div className="font-semibold">Star Field</div>
+                <div>{artData.starParticles.length} particles</div>
               </div>
               <div className="text-center p-3 rounded-lg bg-gradient-to-r from-blue-500/10 to-cyan-500/10">
-                <div className="font-semibold">Energy Flows</div>
-                <div>{artData.connections.length + artData.waves.length} paths</div>
+                <div className="font-semibold">DApp Nodes</div>
+                <div>{artData.dappNodes.length} connections</div>
               </div>
               <div className="text-center p-3 rounded-lg bg-gradient-to-r from-yellow-500/10 to-orange-500/10">
-                <div className="font-semibold">Rarity Tier</div>
+                <div className="font-semibold">Intensity</div>
                 <div className={`font-bold ${
-                  overallScore >= 80 ? 'text-yellow-400' :
-                  overallScore >= 60 ? 'text-purple-400' :
-                  overallScore >= 40 ? 'text-blue-400' : 'text-gray-400'
+                  artData.scoreCategory === 'high' ? 'text-yellow-400' :
+                  artData.scoreCategory === 'medium' ? 'text-purple-400' : 'text-blue-400'
                 }`}>
-                  {overallScore >= 80 ? 'Legendary' :
-                   overallScore >= 60 ? 'Epic' :
-                   overallScore >= 40 ? 'Rare' : 'Common'}
+                  {artData.scoreCategory === 'high' ? 'Cosmic' :
+                   artData.scoreCategory === 'medium' ? 'Stellar' : 'Nebula'}
                 </div>
               </div>
             </div>
@@ -437,7 +469,7 @@ const ReputationArtGenerator = ({
                 className="bg-gradient-to-r from-gray-600 to-gray-700 hover:from-gray-700 hover:to-gray-800 text-white border-gray-500"
               >
                 <Download className="w-4 h-4 mr-2" />
-                Download Masterpiece
+                Download Cosmic Art
               </Button>
               
               <EagerMintDialog
@@ -455,14 +487,14 @@ const ReputationArtGenerator = ({
             } p-4 rounded-lg bg-gradient-to-r from-purple-500/5 to-blue-500/5`}>
               <p className="font-medium mb-2">
                 {isLoreMode 
-                  ? '✨ Ethereal Mind Essence ✨'
-                  : '🎨 Unique Digital Masterpiece 🎨'
+                  ? '🌌 Cosmic Mind Pulse 🌌'
+                  : '⭐ Cosmic Pulse Pattern ⭐'
                 }
               </p>
               <p>
                 {isLoreMode 
-                  ? 'A transcendent visualization of your digital consciousness, where each flowing curve and radiant particle represents the essence of your blockchain journey through space and time.'
-                  : 'This one-of-a-kind artwork is algorithmically generated from your complete on-chain history. Every element - from the flowing energy patterns to the intricate mandala core - tells the story of your unique blockchain identity.'
+                  ? 'Your digital consciousness radiates through the cosmic void, with each pulse ring representing the depth of your blockchain journey. Star particles dance around your core essence, while glowing nodes mark your interactions across the digital universe.'
+                  : 'A radial, pulsating pattern resembling a starfield blockchain network. The central core glows in deep purple, with concentric rings radiating outward. Ring density and particle effects directly reflect your wallet activity and reputation score.'
                 }
               </p>
             </div>
