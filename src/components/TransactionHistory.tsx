@@ -324,7 +324,7 @@ const TransactionHistory = ({
               
               {/* Load More Button */}
               {hasMore && <div className="p-6 border-t border-slate-700 bg-slate-800/30">
-                  <Button onClick={loadMoreTransactions} variant="outline" className="w-full border-slate-600 text-gray-300 hover:bg-slate-700" disabled={loadingMore}>
+                  <Button onClick={loadMoreTransactions} variant="outline" disabled={loadingMore} className="w-full border-slate-600 hover:bg-slate-700 text-gray-300">
                     {loadingMore ? <>
                         <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
                         Loading more...
