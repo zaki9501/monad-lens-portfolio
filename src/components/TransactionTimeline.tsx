@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Circle, Hexagon, Square, Brain, Zap, Calendar, ArrowRight } from 'lucide-react';
 import { groupBy } from 'lodash';
@@ -42,6 +43,7 @@ const TransactionTimeline = ({ data, isDarkMode, isLoreMode }: TransactionTimeli
   const [hoveredNode, setHoveredNode] = useState<string | null>(null);
   const [zoomRange, setZoomRange] = useState({ start: 0, end: 100 });
   const [animationPhase, setAnimationPhase] = useState(0);
+  const [floatingElements, setFloatingElements] = useState<Array<{id: string, x: number, y: number, type: string, delay: number}>>([]);
 
   // Group activities by day
   const activities = Array.isArray(data?.result?.data) ? data.result.data : [];
@@ -96,6 +98,24 @@ const TransactionTimeline = ({ data, isDarkMode, isLoreMode }: TransactionTimeli
       counterparties
     };
   });
+
+  // Generate floating elements for 3D effect
+  useEffect(() => {
+    const generateFloatingElements = () => {
+      const elements = [];
+      for (let i = 0; i < 20; i++) {
+        elements.push({
+          id: `float-${i}`,
+          x: Math.random() * 100,
+          y: Math.random() * 100,
+          type: ['circle', 'diamond', 'triangle'][Math.floor(Math.random() * 3)],
+          delay: Math.random() * 5
+        });
+      }
+      setFloatingElements(elements);
+    };
+    generateFloatingElements();
+  }, []);
 
   // Animation cycle
   useEffect(() => {
@@ -152,34 +172,89 @@ const TransactionTimeline = ({ data, isDarkMode, isLoreMode }: TransactionTimeli
     return `M ${startX} 200 Q ${midX} ${200 - curve} ${endX} 200`;
   };
 
+  const get3DTransform = (node: MemoryNode, phase: number) => {
+    const baseTransform = 'translate(-50%, -50%)';
+    const rotateY = Math.sin((phase + node.x) * 0.1) * 15;
+    const rotateX = Math.cos((phase + node.volume) * 0.08) * 10;
+    const translateZ = Math.sin((phase + node.value) * 0.05) * 20;
+    const scale = 1 + Math.sin((phase + node.gasUsed) * 0.03) * 0.1;
+    
+    return `${baseTransform} scale(${scale}) rotateY(${rotateY}deg) rotateX(${rotateX}deg) translateZ(${translateZ}px)`;
+  };
+
+  const getFloatingElementStyle = (element: any, phase: number) => {
+    const x = element.x + Math.sin((phase + element.delay) * 0.02) * 10;
+    const y = element.y + Math.cos((phase + element.delay) * 0.03) * 15;
+    const rotation = (phase + element.delay) * 2;
+    const scale = 0.5 + Math.sin((phase + element.delay) * 0.04) * 0.3;
+    
+    return {
+      left: `${x}%`,
+      top: `${y}%`,
+      transform: `translate(-50%, -50%) rotate(${rotation}deg) scale(${scale})`,
+      opacity: 0.1 + Math.sin((phase + element.delay) * 0.05) * 0.1
+    };
+  };
+
   return (
-    <div className="h-96 relative overflow-hidden">
-      {/* Background with animated grid */}
+    <div className="h-96 relative overflow-hidden" style={{ perspective: '1000px' }}>
+      {/* Enhanced Background with 3D floating elements */}
       <div className={`absolute inset-0 ${
         isDarkMode 
           ? 'bg-gradient-to-r from-slate-900 via-purple-900/20 to-slate-900' 
           : 'bg-gradient-to-r from-blue-50 via-purple-50/50 to-pink-50'
-      } rounded-lg`}>
-        {/* Animated grid pattern */}
-        <div className="absolute inset-0 opacity-20">
-          <div className="absolute inset-0" style={{
-            backgroundImage: `linear-gradient(90deg, ${isDarkMode ? '#64748b' : '#94a3b8'} 1px, transparent 1px), linear-gradient(${isDarkMode ? '#64748b' : '#94a3b8'} 1px, transparent 1px)`,
-            backgroundSize: '50px 30px',
-            animation: `pulse 4s infinite`
-          }} />
+      } rounded-lg`} style={{ transformStyle: 'preserve-3d' }}>
+        
+        {/* Floating 3D Elements */}
+        {floatingElements.map((element) => (
+          <div
+            key={element.id}
+            className="absolute"
+            style={{
+              ...getFloatingElementStyle(element, animationPhase),
+              transformStyle: 'preserve-3d'
+            }}
+          >
+            {element.type === 'circle' && (
+              <div className={`w-2 h-2 rounded-full ${isDarkMode ? 'bg-purple-400/30' : 'bg-blue-400/30'}`} />
+            )}
+            {element.type === 'diamond' && (
+              <div className={`w-2 h-2 transform rotate-45 ${isDarkMode ? 'bg-pink-400/30' : 'bg-purple-400/30'}`} />
+            )}
+            {element.type === 'triangle' && (
+              <div 
+                className={`w-0 h-0 border-l-[4px] border-r-[4px] border-b-[6px] border-transparent ${
+                  isDarkMode ? 'border-b-cyan-400/30' : 'border-b-indigo-400/30'
+                }`}
+              />
+            )}
+          </div>
+        ))}
+
+        {/* Animated grid pattern with 3D depth */}
+        <div className="absolute inset-0 opacity-20" style={{ transformStyle: 'preserve-3d' }}>
+          <div 
+            className="absolute inset-0" 
+            style={{
+              backgroundImage: `linear-gradient(90deg, ${isDarkMode ? '#64748b' : '#94a3b8'} 1px, transparent 1px), linear-gradient(${isDarkMode ? '#64748b' : '#94a3b8'} 1px, transparent 1px)`,
+              backgroundSize: '50px 30px',
+              transform: `rotateX(${Math.sin(animationPhase * 0.02) * 5}deg)`,
+              animation: `pulse 4s infinite`
+            }} 
+          />
         </div>
         
-        {/* Shimmering neural connections */}
-        <div className="absolute inset-0">
+        {/* Enhanced neural connections with 3D waves */}
+        <div className="absolute inset-0" style={{ transformStyle: 'preserve-3d' }}>
           <svg className="w-full h-full">
             <defs>
-              <linearGradient id="neuralGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+              <linearGradient id="neuralGradient3D" x1="0%" y1="0%" x2="100%" y2="0%">
                 <stop offset="0%" stopColor={isDarkMode ? '#8b5cf6' : '#7c3aed'} stopOpacity="0" />
-                <stop offset="50%" stopColor={isDarkMode ? '#8b5cf6' : '#7c3aed'} stopOpacity="0.6" />
+                <stop offset="50%" stopColor={isDarkMode ? '#8b5cf6' : '#7c3aed'} stopOpacity="0.8" />
                 <stop offset="100%" stopColor={isDarkMode ? '#8b5cf6' : '#7c3aed'} stopOpacity="0" />
               </linearGradient>
-              <filter id="glow">
-                <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+              <filter id="glow3D">
+                <feGaussianBlur stdDeviation="4" result="coloredBlur"/>
                 <feMerge> 
                   <feMergeNode in="coloredBlur"/>
                   <feMergeNode in="SourceGraphic"/>
@@ -187,49 +262,83 @@ const TransactionTimeline = ({ data, isDarkMode, isLoreMode }: TransactionTimeli
               </filter>
             </defs>
             
-            {/* Background timeline path */}
-            <path
-              d="M 20 200 Q 100 180 200 200 Q 300 220 380 200"
-              stroke="url(#neuralGradient)"
-              strokeWidth="3"
-              fill="none"
-              filter="url(#glow)"
-              opacity="0.7"
-            />
+            {/* Multiple wave layers for depth */}
+            {[0, 1, 2].map(layer => (
+              <path
+                key={layer}
+                d={`M 20 ${200 + layer * 10} Q 100 ${180 + Math.sin(animationPhase * 0.05 + layer) * 20} 200 ${200 + layer * 10} Q 300 ${220 + Math.cos(animationPhase * 0.03 + layer) * 15} 380 ${200 + layer * 10}`}
+                stroke="url(#neuralGradient3D)"
+                strokeWidth={4 - layer}
+                fill="none"
+                filter="url(#glow3D)"
+                opacity={0.7 - layer * 0.2}
+                style={{
+                  transform: `translateZ(${layer * 10}px)`,
+                  transformOrigin: 'center'
+                }}
+              />
+            ))}
             
-            {/* Sparkline trails between nodes */}
+            {/* Enhanced sparkline trails with 3D movement */}
             {memoryNodes.slice(0, -1).map((node, index) => {
               const nextNode = memoryNodes[index + 1];
               const isActive = animationPhase % 20 === index % 20;
+              const waveOffset = Math.sin(animationPhase * 0.1 + index) * 10;
               
               return (
-                <path
-                  key={`trail-${index}`}
-                  d={generateSparklinePath(node, nextNode)}
-                  stroke={getNodeColor(node.type)}
-                  strokeWidth={isActive ? "2" : "1"}
-                  fill="none"
-                  opacity={isActive ? 0.8 : 0.3}
-                  strokeDasharray="5,5"
-                  style={{
-                    animation: isActive ? 'dash 2s linear infinite' : 'none'
-                  }}
-                />
+                <g key={`trail-${index}`}>
+                  <path
+                    d={generateSparklinePath(node, nextNode)}
+                    stroke={getNodeColor(node.type)}
+                    strokeWidth={isActive ? "3" : "2"}
+                    fill="none"
+                    opacity={isActive ? 0.9 : 0.4}
+                    strokeDasharray="8,4"
+                    transform={`translateY(${waveOffset})`}
+                    style={{
+                      animation: isActive ? 'dash 1.5s linear infinite' : 'none',
+                      filter: 'drop-shadow(0 0 6px currentColor)'
+                    }}
+                  />
+                  {/* Energy particles along the path */}
+                  {isActive && (
+                    <circle
+                      cx={node.x + (nextNode.x - node.x) * ((animationPhase % 40) / 40)}
+                      cy={200 + waveOffset}
+                      r="3"
+                      fill={getNodeColor(node.type)}
+                      opacity="0.8"
+                    >
+                      <animate
+                        attributeName="r"
+                        values="2;6;2"
+                        dur="1s"
+                        repeatCount="indefinite"
+                      />
+                    </circle>
+                  )}
+                </g>
               );
             })}
           </svg>
         </div>
       </div>
 
-      {/* Header */}
-      <div className="relative z-10 p-6">
-        <h3 className={`text-xl font-bold mb-4 text-center ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+      {/* Header with 3D text effect */}
+      <div className="relative z-10 p-6" style={{ transformStyle: 'preserve-3d' }}>
+        <h3 
+          className={`text-xl font-bold mb-4 text-center ${isDarkMode ? 'text-white' : 'text-gray-900'}`}
+          style={{
+            transform: `translateZ(30px) rotateX(${Math.sin(animationPhase * 0.02) * 2}deg)`,
+            textShadow: isDarkMode ? '0 0 20px rgba(139, 92, 246, 0.5)' : '0 0 20px rgba(124, 58, 237, 0.3)'
+          }}
+        >
           {isLoreMode ? 'Mind Trail Explorer' : 'Transaction Timeline'}
         </h3>
       </div>
 
-      {/* Memory Nodes */}
-      <div className="absolute inset-0 pointer-events-none">
+      {/* Enhanced Memory Nodes with 3D transforms */}
+      <div className="absolute inset-0 pointer-events-none" style={{ transformStyle: 'preserve-3d' }}>
         <div className="relative w-full h-full">
           {memoryNodes.map((node) => {
             const isHovered = hoveredNode === node.id;
@@ -240,62 +349,126 @@ const TransactionTimeline = ({ data, isDarkMode, isLoreMode }: TransactionTimeli
             return (
               <div
                 key={node.id}
-                className="absolute pointer-events-auto cursor-pointer transition-all duration-300"
+                className="absolute pointer-events-auto cursor-pointer transition-all duration-500"
                 style={{
                   left: `${node.x}%`,
                   top: '50%',
-                  transform: `translate(-50%, -50%) scale(${isHovered || isSelected ? 1.2 : 1})`,
+                  transform: get3DTransform(node, animationPhase + (isHovered ? 10 : 0)),
+                  transformStyle: 'preserve-3d'
                 }}
                 onMouseEnter={() => setHoveredNode(node.id)}
                 onMouseLeave={() => setHoveredNode(null)}
                 onClick={() => setSelectedNode(selectedNode?.id === node.id ? null : node)}
               >
-                {/* Node glow effect */}
+                {/* Enhanced node glow with 3D depth */}
                 <div
-                  className="absolute inset-0 rounded-full animate-pulse"
+                  className="absolute inset-0 rounded-full"
                   style={{
-                    width: `${nodeSize + 20}px`,
-                    height: `${nodeSize + 20}px`,
+                    width: `${nodeSize + 30}px`,
+                    height: `${nodeSize + 30}px`,
                     backgroundColor: getNodeColor(node.type, node.isHighlight),
-                    opacity: (glowIntensity / 100) + 0.1,
-                    filter: 'blur(8px)',
-                    transform: 'translate(-10px, -10px)'
+                    opacity: (glowIntensity / 100) + 0.2,
+                    filter: 'blur(12px)',
+                    transform: 'translate(-15px, -15px) translateZ(-10px)',
+                    animation: 'pulse 3s infinite'
                   }}
                 />
                 
-                {/* Main node */}
+                {/* Orbital rings for high-value transactions */}
+                {node.value > 50 && (
+                  <>
+                    <div
+                      className="absolute inset-0 border-2 border-current rounded-full opacity-30"
+                      style={{
+                        width: `${nodeSize + 40}px`,
+                        height: `${nodeSize + 40}px`,
+                        transform: `translate(-20px, -20px) rotateX(60deg) rotateY(${animationPhase * 2}deg)`,
+                        borderColor: getNodeColor(node.type)
+                      }}
+                    />
+                    <div
+                      className="absolute inset-0 border border-current rounded-full opacity-20"
+                      style={{
+                        width: `${nodeSize + 60}px`,
+                        height: `${nodeSize + 60}px`,
+                        transform: `translate(-30px, -30px) rotateX(30deg) rotateY(${-animationPhase * 1.5}deg)`,
+                        borderColor: getNodeColor(node.type)
+                      }}
+                    />
+                  </>
+                )}
+                
+                {/* Main node with enhanced 3D effect */}
                 <div
-                  className="relative rounded-full shadow-lg flex items-center justify-center text-white font-bold"
+                  className="relative rounded-full shadow-2xl flex items-center justify-center text-white font-bold"
                   style={{
                     width: `${nodeSize}px`,
                     height: `${nodeSize}px`,
                     backgroundColor: getNodeColor(node.type, node.isHighlight),
                     border: `3px solid ${node.isHighlight ? '#ffffff' : 'transparent'}`,
-                    boxShadow: node.isHighlight ? `0 0 20px ${getNodeColor(node.type, true)}` : 'none'
+                    boxShadow: `
+                      0 0 30px ${getNodeColor(node.type, true)},
+                      inset 0 2px 8px rgba(255,255,255,0.2),
+                      0 8px 32px rgba(0,0,0,0.3)
+                    `,
+                    transform: `translateZ(${isHovered ? '20px' : '0px'})`,
+                    transition: 'all 0.3s ease'
                   }}
                 >
-                  {getNodeIcon(node.type, nodeSize)}
+                  <div style={{ transform: `rotateY(${animationPhase}deg)` }}>
+                    {getNodeIcon(node.type, nodeSize)}
+                  </div>
                   
-                  {/* Highlight indicator */}
+                  {/* Energy pulses for active transactions */}
                   {node.isHighlight && (
-                    <div className="absolute -top-2 -right-2">
-                      <Zap className="w-4 h-4 text-yellow-400 animate-pulse" />
-                    </div>
+                    <>
+                      <div 
+                        className="absolute inset-0 rounded-full border-2 border-yellow-400"
+                        style={{
+                          animation: 'ping 2s cubic-bezier(0, 0, 0.2, 1) infinite',
+                          transform: 'translateZ(5px)'
+                        }}
+                      />
+                      <div className="absolute -top-2 -right-2" style={{ transform: 'translateZ(10px)' }}>
+                        <Zap 
+                          className="w-4 h-4 text-yellow-400" 
+                          style={{
+                            animation: 'pulse 1s infinite',
+                            filter: 'drop-shadow(0 0 8px #fbbf24)'
+                          }}
+                        />
+                      </div>
+                    </>
                   )}
                 </div>
                 
-                {/* Node label */}
-                <div className={`absolute top-full left-1/2 transform -translate-x-1/2 mt-2 text-xs font-medium whitespace-nowrap ${
-                  isDarkMode ? 'text-gray-300' : 'text-gray-700'
-                }`}>
+                {/* Floating label with 3D positioning */}
+                <div 
+                  className={`absolute top-full left-1/2 transform -translate-x-1/2 mt-2 text-xs font-medium whitespace-nowrap ${
+                    isDarkMode ? 'text-gray-300' : 'text-gray-700'
+                  }`}
+                  style={{
+                    transform: 'translate(-50%, 0) translateZ(15px)',
+                    textShadow: isDarkMode ? '0 0 10px rgba(0,0,0,0.8)' : '0 0 10px rgba(255,255,255,0.8)'
+                  }}
+                >
                   {getNodeLabel(node.type)}
                 </div>
                 
-                {/* Hover tooltip */}
+                {/* Enhanced hover tooltip with 3D depth */}
                 {isHovered && (
-                  <div className={`absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 p-3 rounded-lg shadow-lg whitespace-nowrap ${
-                    isDarkMode ? 'bg-slate-800 text-white border border-slate-600' : 'bg-white text-gray-900 border border-gray-200'
-                  } animate-fade-in`}>
+                  <div 
+                    className={`absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 p-3 rounded-lg shadow-2xl whitespace-nowrap ${
+                      isDarkMode ? 'bg-slate-800/95 text-white border border-slate-600' : 'bg-white/95 text-gray-900 border border-gray-200'
+                    } animate-fade-in backdrop-blur-sm`}
+                    style={{
+                      transform: 'translate(-50%, 0) translateZ(25px)',
+                      boxShadow: `
+                        0 20px 40px rgba(0,0,0,0.3),
+                        0 0 20px ${getNodeColor(node.type)}40
+                      `
+                    }}
+                  >
                     <div className="text-sm font-semibold">{node.date}</div>
                     <div className="text-xs opacity-80">Value: ${node.value}</div>
                     <div className="text-xs opacity-80">Volume: {node.volume} TXs</div>
@@ -372,11 +545,18 @@ const TransactionTimeline = ({ data, isDarkMode, isLoreMode }: TransactionTimeli
         </div>
       )}
 
-      {/* Timeline markers */}
-      <div className="absolute bottom-0 left-0 right-0 p-4">
+      {/* Timeline markers with 3D effect */}
+      <div className="absolute bottom-0 left-0 right-0 p-4" style={{ transformStyle: 'preserve-3d' }}>
         <div className="flex justify-between text-xs">
           {Object.values(memoryNodes).map((node, index) => (
-            <div key={index} className={`flex flex-col items-center ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+            <div 
+              key={index} 
+              className={`flex flex-col items-center ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}
+              style={{
+                transform: `translateZ(10px) rotateX(${Math.sin(animationPhase * 0.03 + index) * 3}deg)`,
+                transition: 'transform 0.5s ease'
+              }}
+            >
               <Calendar className="w-3 h-3 mb-1" />
               <span>{node.date}</span>
             </div>
@@ -388,7 +568,13 @@ const TransactionTimeline = ({ data, isDarkMode, isLoreMode }: TransactionTimeli
         {`
           @keyframes dash {
             to {
-              stroke-dashoffset: -10;
+              stroke-dashoffset: -12;
+            }
+          }
+          @keyframes ping {
+            75%, 100% {
+              transform: scale(2) translateZ(5px);
+              opacity: 0;
             }
           }
         `}
