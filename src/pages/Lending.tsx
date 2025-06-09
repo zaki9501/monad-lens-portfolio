@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -55,6 +55,13 @@ const Lending = () => {
   const { login, logout, authenticated, user, ready } = usePrivy();
   const { toast } = useToast();
   const navigate = useNavigate();
+
+  // Redirect to portfolio when wallet is connected
+  useEffect(() => {
+    if (authenticated && user?.wallet?.address) {
+      navigate(`/portfolio?wallet=${user.wallet.address}`);
+    }
+  }, [authenticated, user?.wallet?.address, navigate]);
 
   const handleWalletSelect = (address: string) => {
     // Navigate to portfolio page with the selected wallet address as a query parameter
