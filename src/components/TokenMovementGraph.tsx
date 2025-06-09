@@ -32,21 +32,21 @@ const TokenMovementGraph = ({ walletAddress, isDarkMode = true, isLoreMode = fal
   useEffect(() => {
     if (!walletAddress) return;
 
-    const fetchTokenMovements = async () => {
+    const generateTokenMovements = () => {
       setLoading(true);
+      console.log('Generating token movements for:', walletAddress);
+      
       try {
-        const provider = new JsonRpcProvider("https://testnet1.monad.xyz");
-        const latestBlock = await provider.getBlockNumber();
         const movements = [];
         const flows: TokenFlow[] = [];
         
-        // Simulate token movement data for the last 7 days
+        // Generate token movement data for the last 7 days
         for (let i = 6; i >= 0; i--) {
           const date = new Date();
           date.setDate(date.getDate() - i);
           
           // Generate multiple transactions per day
-          const dailyTxs = Math.floor(Math.random() * 5) + 1;
+          const dailyTxs = Math.floor(Math.random() * 5) + 2;
           let dailyBalance = Math.random() * 1000 + 500;
           
           for (let j = 0; j < dailyTxs; j++) {
@@ -56,7 +56,7 @@ const TokenMovementGraph = ({ walletAddress, isDarkMode = true, isLoreMode = fal
             if (txType === 'buy') {
               dailyBalance += amount;
               flows.push({
-                id: `${i}-${j}-${Date.now()}`,
+                id: `flow-${i}-${j}-${Date.now()}-${Math.random()}`,
                 type: 'buy',
                 from: '0xExchange' + Math.floor(Math.random() * 3),
                 to: walletAddress,
@@ -69,7 +69,7 @@ const TokenMovementGraph = ({ walletAddress, isDarkMode = true, isLoreMode = fal
             } else {
               dailyBalance -= amount;
               flows.push({
-                id: `${i}-${j}-${Date.now()}`,
+                id: `flow-${i}-${j}-${Date.now()}-${Math.random()}`,
                 type: 'sell',
                 from: walletAddress,
                 to: '0xExchange' + Math.floor(Math.random() * 3),
@@ -107,61 +107,87 @@ const TokenMovementGraph = ({ walletAddress, isDarkMode = true, isLoreMode = fal
           }
         }
       } catch (error) {
-        console.error("Error fetching token movements:", error);
+        console.error("Error generating token movements:", error);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchTokenMovements();
+    generateTokenMovements();
   }, [walletAddress]);
 
-  // Enhanced animation system
+  // Enhanced animation system - fixed to work reliably
   useEffect(() => {
     if (tokenFlows.length === 0) return;
 
     console.log('Starting animation system with', tokenFlows.length, 'flows');
     
-    const animateFlow = () => {
-      const availableFlows = tokenFlows.filter(flow => !flow.animated);
-      if (availableFlows.length === 0) return;
-      
-      const randomIndex = Math.floor(Math.random() * availableFlows.length);
-      const selectedFlow = availableFlows[randomIndex];
-      
-      console.log('Animating flow:', selectedFlow.id, selectedFlow.type);
-      
-      setTokenFlows(prev => 
-        prev.map(flow => 
-          flow.id === selectedFlow.id 
-            ? { ...flow, animated: true }
-            : flow
-        )
-      );
-      
-      setActiveFlowCount(prev => prev + 1);
-      
-      // Stop animation after 3 seconds
-      setTimeout(() => {
-        console.log('Stopping animation for flow:', selectedFlow.id);
-        setTokenFlows(current => 
-          current.map(flow => 
+    let animationInterval: NodeJS.Timeout;
+    
+    const startAnimations = () => {
+      const animateRandomFlow = () => {
+        const availableFlows = tokenFlows.filter(flow => !flow.animated);
+        
+        if (availableFlows.length === 0) {
+          console.log('No available flows to animate');
+          return;
+        }
+        
+        const randomIndex = Math.floor(Math.random() * availableFlows.length);
+        const selectedFlow = availableFlows[randomIndex];
+        
+        console.log('Starting animation for flow:', selectedFlow.id, selectedFlow.type);
+        
+        // Start animation
+        setTokenFlows(prev => 
+          prev.map(flow => 
             flow.id === selectedFlow.id 
-              ? { ...flow, animated: false }
+              ? { ...flow, animated: true }
               : flow
           )
         );
-        setActiveFlowCount(prev => Math.max(0, prev - 1));
-      }, 3000);
+        
+        setActiveFlowCount(prev => {
+          const newCount = prev + 1;
+          console.log('Active flow count increased to:', newCount);
+          return newCount;
+        });
+        
+        // Stop animation after 3 seconds
+        setTimeout(() => {
+          console.log('Stopping animation for flow:', selectedFlow.id);
+          setTokenFlows(current => 
+            current.map(flow => 
+              flow.id === selectedFlow.id 
+                ? { ...flow, animated: false }
+                : flow
+            )
+          );
+          
+          setActiveFlowCount(prev => {
+            const newCount = Math.max(0, prev - 1);
+            console.log('Active flow count decreased to:', newCount);
+            return newCount;
+          });
+        }, 3000);
+      };
+
+      // Start first animation after a short delay
+      setTimeout(animateRandomFlow, 1000);
+      
+      // Continue animating every 2-4 seconds
+      animationInterval = setInterval(() => {
+        animateRandomFlow();
+      }, 2000 + Math.random() * 2000);
     };
 
-    // Start first animation immediately
-    setTimeout(animateFlow, 1000);
-    
-    // Continue animating every 2-4 seconds
-    const interval = setInterval(animateFlow, 2000 + Math.random() * 2000);
+    startAnimations();
 
-    return () => clearInterval(interval);
+    return () => {
+      if (animationInterval) {
+        clearInterval(animationInterval);
+      }
+    };
   }, [tokenFlows.length]);
 
   const formatBalance = (value: number) => {
