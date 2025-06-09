@@ -168,7 +168,7 @@ const Index = () => {
                   <Target className="w-4 h-4 mr-2" />
                   dApp Analyzer
                 </Button>
-              </Link> */}
+               </Link> */}
               {authenticated && user?.wallet?.address ? <div className="flex items-center space-x-3">
                   <div className="flex items-center space-x-2 bg-slate-800/50 rounded-lg px-3 py-2">
                     <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
@@ -195,7 +195,7 @@ const Index = () => {
             <p className="text-white mb-4">Wallet not connected - showing connection page</p>
             <WalletConnection />
           </div> : <div className="space-y-8">
-            <p className="text-white mb-4">Wallet connected - showing main dashboard</p>
+            <p className="mb-4 text-center text-emerald-500 font-medium text-lg">Profile</p>
             
             {/* Search Bar */}
             <div className="flex justify-center">
@@ -225,7 +225,7 @@ const Index = () => {
                 {/* <TabsTrigger value="stake" className="text-white data-[state=active]:bg-purple-600">
                   <Coins className="w-4 h-4 mr-2" />
                   Stake
-                </TabsTrigger> */}
+                 </TabsTrigger> */}
                 <TabsTrigger value="nfts" className="text-white data-[state=active]:bg-purple-600">
                   NFTs
                 </TabsTrigger>
@@ -286,7 +286,7 @@ const Index = () => {
               {/* Temporarily disabled stake tab content */}
               {/* <TabsContent value="stake">
                 <StakeInfo walletAddress={viewingAddress} />
-              </TabsContent> */}
+               </TabsContent> */}
 
               <TabsContent value="nfts">
                 <NFTCollection walletAddress={viewingAddress} />
