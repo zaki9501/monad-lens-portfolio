@@ -1,4 +1,3 @@
-
 import { useEffect, useState, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -7,12 +6,12 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { getAccountTransactions } from "@/lib/blockvision";
 import { formatEther } from "ethers";
 import { Activity, ArrowUpRight, ArrowDownLeft, Repeat, ExternalLink, Filter, RefreshCw, Plus, Zap, FileText, DollarSign } from "lucide-react";
-
 interface TransactionHistoryProps {
   walletAddress: string;
 }
-
-const TransactionHistory = ({ walletAddress }: TransactionHistoryProps) => {
+const TransactionHistory = ({
+  walletAddress
+}: TransactionHistoryProps) => {
   const [txs, setTxs] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -26,47 +25,39 @@ const TransactionHistory = ({ walletAddress }: TransactionHistoryProps) => {
     totalGasSpent: "0",
     successRate: 0
   });
-
   const fetchTransactions = async (limit = 20, append = false) => {
     if (!walletAddress) return;
-    
     if (append) {
       setLoadingMore(true);
     } else {
       setLoading(true);
       setError(null);
     }
-
     try {
       const data = await getAccountTransactions(walletAddress, limit);
       const txList = data?.result?.data || [];
-      
       if (append) {
         setTxs(prev => [...prev, ...txList.slice(prev.length)]);
       } else {
         setTxs(txList);
       }
-      
       setHasMore(txList.length === limit);
 
       // Calculate total stats from all loaded transactions
       let totalGas = 0;
       let successCount = 0;
       let contractCount = 0;
-      
       txList.forEach((tx: any) => {
         if (tx.gasUsed) totalGas += Number(tx.gasUsed);
         if (tx.status === 1 || tx.status === "success") successCount++;
         if (getTransactionType(tx) === 'contract') contractCount++;
       });
-      
       setTotalStats({
         totalTransactions: txList.length,
         totalContractCalls: contractCount,
         totalGasSpent: totalGas > 0 ? formatEther(totalGas.toString()) : "0",
-        successRate: txList.length > 0 ? Math.round((successCount / txList.length) * 100) : 0
+        successRate: txList.length > 0 ? Math.round(successCount / txList.length * 100) : 0
       });
-      
     } catch (err) {
       setError("Failed to load transactions");
     } finally {
@@ -74,13 +65,11 @@ const TransactionHistory = ({ walletAddress }: TransactionHistoryProps) => {
       setLoadingMore(false);
     }
   };
-
   useEffect(() => {
     setCurrentLimit(20);
     setHasMore(true);
     fetchTransactions(20, false);
   }, [walletAddress]);
-
   const loadMoreTransactions = () => {
     const newLimit = currentLimit + 20;
     setCurrentLimit(newLimit);
@@ -96,10 +85,8 @@ const TransactionHistory = ({ walletAddress }: TransactionHistoryProps) => {
     }
     return 'contract';
   };
-
   const getDetailedTransactionType = (tx: any) => {
     const basicType = getTransactionType(tx);
-    
     if (basicType === 'contract') {
       if (tx.methodName) {
         return {
@@ -124,7 +111,6 @@ const TransactionHistory = ({ walletAddress }: TransactionHistoryProps) => {
         icon: <FileText className="w-4 h-4 text-purple-400" />
       };
     }
-    
     if (basicType === 'send') {
       return {
         type: 'send',
@@ -133,7 +119,6 @@ const TransactionHistory = ({ walletAddress }: TransactionHistoryProps) => {
         icon: <ArrowUpRight className="w-4 h-4 text-red-400" />
       };
     }
-    
     return {
       type: 'receive',
       label: 'Receive',
@@ -141,7 +126,6 @@ const TransactionHistory = ({ walletAddress }: TransactionHistoryProps) => {
       icon: <ArrowDownLeft className="w-4 h-4 text-green-400" />
     };
   };
-
   const getStatusColor = (status: string | number) => {
     if (status === "success" || status === 1) {
       return "bg-green-500/20 text-green-400 border-green-500/30";
@@ -151,9 +135,7 @@ const TransactionHistory = ({ walletAddress }: TransactionHistoryProps) => {
     }
     return "bg-yellow-500/20 text-yellow-400 border-yellow-500/30";
   };
-
   const shortAddr = (addr: string) => addr ? `${addr.slice(0, 6)}...${addr.slice(-4)}` : "";
-  
   const timeAgo = (ts: number | string) => {
     const now = Date.now();
     const date = new Date(Number(ts) < 1e12 ? Number(ts) * 1000 : Number(ts));
@@ -175,9 +157,7 @@ const TransactionHistory = ({ walletAddress }: TransactionHistoryProps) => {
       return type === filter;
     });
   }, [txs, filter]);
-
-  return (
-    <div className="space-y-6">
+  return <div className="space-y-6">
       {/* Header with actions */}
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-2">
@@ -187,24 +167,14 @@ const TransactionHistory = ({ walletAddress }: TransactionHistoryProps) => {
         <div className="flex items-center space-x-3">
           <div className="flex items-center space-x-2">
             <Filter className="w-4 h-4 text-gray-400" />
-            <select
-              value={filter}
-              onChange={(e) => setFilter(e.target.value as any)}
-              className="bg-slate-800 border border-slate-600 text-white rounded-lg px-3 py-1 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            >
+            <select value={filter} onChange={e => setFilter(e.target.value as any)} className="bg-slate-800 border border-slate-600 text-white rounded-lg px-3 py-1 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent">
               <option value="all">All Transactions</option>
               <option value="send">Sent</option>
               <option value="receive">Received</option>
               <option value="contract">Contract Calls</option>
             </select>
           </div>
-          <Button
-            onClick={() => fetchTransactions(currentLimit, false)}
-            variant="outline"
-            size="sm"
-            className="border-slate-600 text-gray-300 hover:bg-slate-700"
-            disabled={loading}
-          >
+          <Button onClick={() => fetchTransactions(currentLimit, false)} variant="outline" size="sm" className="border-slate-600 text-gray-300 hover:bg-slate-700" disabled={loading}>
             <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
             Refresh
           </Button>
@@ -214,11 +184,11 @@ const TransactionHistory = ({ walletAddress }: TransactionHistoryProps) => {
       {/* Enhanced Stats Cards - showing total wallet stats */}
       <div className="grid gap-4 md:grid-cols-4">
         <Card className="bg-gradient-to-r from-blue-600/20 to-purple-600/20 border-blue-500/30">
-          <CardContent className="p-4">
+          <CardContent className="p-4 bg-green-200">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-blue-300 text-sm font-medium">Total Transactions</p>
-                <p className="text-white text-2xl font-bold">{totalStats.totalTransactions}</p>
+                <p className="text-2xl font-bold text-neutral-400">{totalStats.totalTransactions}</p>
               </div>
               <Activity className="w-8 h-8 text-blue-400" />
             </div>
@@ -230,7 +200,7 @@ const TransactionHistory = ({ walletAddress }: TransactionHistoryProps) => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-purple-300 text-sm font-medium">Contract Calls</p>
-                <p className="text-white text-2xl font-bold">{totalStats.totalContractCalls}</p>
+                <p className="text-2xl font-bold text-gray-400">{totalStats.totalContractCalls}</p>
               </div>
               <FileText className="w-8 h-8 text-purple-400" />
             </div>
@@ -242,7 +212,7 @@ const TransactionHistory = ({ walletAddress }: TransactionHistoryProps) => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-red-300 text-sm font-medium">Gas Spent</p>
-                <p className="text-white text-xl font-bold">{parseFloat(totalStats.totalGasSpent).toFixed(4)} MON</p>
+                <p className="text-xl font-bold text-gray-400">{parseFloat(totalStats.totalGasSpent).toFixed(4)} MON</p>
               </div>
               <Zap className="w-8 h-8 text-red-400" />
             </div>
@@ -254,7 +224,7 @@ const TransactionHistory = ({ walletAddress }: TransactionHistoryProps) => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-green-300 text-sm font-medium">Success Rate</p>
-                <p className="text-white text-2xl font-bold">{totalStats.successRate}%</p>
+                <p className="text-2xl font-bold text-gray-400">{totalStats.successRate}%</p>
               </div>
               <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center">
                 <Activity className="w-4 h-4 text-white" />
@@ -267,22 +237,15 @@ const TransactionHistory = ({ walletAddress }: TransactionHistoryProps) => {
       {/* Transaction Table */}
       <Card className="bg-slate-800/50 border-slate-700">
         <CardContent className="p-0">
-          {loading ? (
-            <div className="p-8 text-center">
+          {loading ? <div className="p-8 text-center">
               <RefreshCw className="w-8 h-8 animate-spin mx-auto mb-4 text-blue-400" />
               <p className="text-gray-400">Loading transactions...</p>
-            </div>
-          ) : error ? (
-            <div className="p-8 text-center">
+            </div> : error ? <div className="p-8 text-center">
               <p className="text-red-400">{error}</p>
-            </div>
-          ) : filteredTxs.length === 0 ? (
-            <div className="p-8 text-center">
+            </div> : filteredTxs.length === 0 ? <div className="p-8 text-center">
               <Activity className="w-12 h-12 mx-auto mb-4 text-gray-500" />
               <p className="text-gray-400">No transactions found for this address.</p>
-            </div>
-          ) : (
-            <>
+            </div> : <>
               <Table>
                 <TableHeader>
                   <TableRow className="border-slate-700 hover:bg-slate-800/50">
@@ -298,24 +261,22 @@ const TransactionHistory = ({ walletAddress }: TransactionHistoryProps) => {
                 </TableHeader>
                 <TableBody>
                   {filteredTxs.map((tx, idx) => {
-                    const typeInfo = getDetailedTransactionType(tx);
-                    const status = tx.status === 1 ? "success" : tx.status === 0 ? "failed" : tx.status || "success";
-                    const from = shortAddr(tx.from);
-                    const to = shortAddr(tx.to);
-                    const hash = tx.hash;
-                    let value = "-";
-                    if (tx.value && Number(tx.value) > 0) {
-                      try {
-                        value = parseFloat(formatEther(tx.value)).toFixed(4) + " MON";
-                      } catch {
-                        value = Number(tx.value).toLocaleString();
-                      }
-                    }
-                    const gas = tx.gasUsed ? Number(tx.gasUsed).toLocaleString() : "-";
-                    const ago = tx.timestamp ? timeAgo(tx.timestamp) : "";
-
-                    return (
-                      <TableRow key={hash || idx} className="border-slate-700 hover:bg-slate-700/30">
+                const typeInfo = getDetailedTransactionType(tx);
+                const status = tx.status === 1 ? "success" : tx.status === 0 ? "failed" : tx.status || "success";
+                const from = shortAddr(tx.from);
+                const to = shortAddr(tx.to);
+                const hash = tx.hash;
+                let value = "-";
+                if (tx.value && Number(tx.value) > 0) {
+                  try {
+                    value = parseFloat(formatEther(tx.value)).toFixed(4) + " MON";
+                  } catch {
+                    value = Number(tx.value).toLocaleString();
+                  }
+                }
+                const gas = tx.gasUsed ? Number(tx.gasUsed).toLocaleString() : "-";
+                const ago = tx.timestamp ? timeAgo(tx.timestamp) : "";
+                return <TableRow key={hash || idx} className="border-slate-700 hover:bg-slate-700/30">
                         <TableCell>
                           <div className="flex items-center space-x-2">
                             {typeInfo.icon}
@@ -352,50 +313,30 @@ const TransactionHistory = ({ walletAddress }: TransactionHistoryProps) => {
                           <span className="text-gray-400 text-sm">{ago}</span>
                         </TableCell>
                         <TableCell>
-                          <a 
-                            href={`https://monadscan.io/tx/${hash}`} 
-                            target="_blank" 
-                            rel="noopener noreferrer"
-                            className="text-gray-400 hover:text-blue-400 transition-colors"
-                          >
+                          <a href={`https://monadscan.io/tx/${hash}`} target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-blue-400 transition-colors">
                             <ExternalLink className="w-4 h-4" />
                           </a>
                         </TableCell>
-                      </TableRow>
-                    );
-                  })}
+                      </TableRow>;
+              })}
                 </TableBody>
               </Table>
               
               {/* Load More Button */}
-              {hasMore && (
-                <div className="p-6 border-t border-slate-700 bg-slate-800/30">
-                  <Button
-                    onClick={loadMoreTransactions}
-                    variant="outline"
-                    className="w-full border-slate-600 text-gray-300 hover:bg-slate-700"
-                    disabled={loadingMore}
-                  >
-                    {loadingMore ? (
-                      <>
+              {hasMore && <div className="p-6 border-t border-slate-700 bg-slate-800/30">
+                  <Button onClick={loadMoreTransactions} variant="outline" className="w-full border-slate-600 text-gray-300 hover:bg-slate-700" disabled={loadingMore}>
+                    {loadingMore ? <>
                         <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
                         Loading more...
-                      </>
-                    ) : (
-                      <>
+                      </> : <>
                         <Plus className="w-4 h-4 mr-2" />
                         Load More Transactions
-                      </>
-                    )}
+                      </>}
                   </Button>
-                </div>
-              )}
-            </>
-          )}
+                </div>}
+            </>}
         </CardContent>
       </Card>
-    </div>
-  );
+    </div>;
 };
-
 export default TransactionHistory;
