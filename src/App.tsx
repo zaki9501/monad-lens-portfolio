@@ -21,8 +21,8 @@ const App = () => (
       <PrivyProvider appId="cmbi1huc7000rl10lp4av8plp">
         <BrowserRouter>
           <Routes>
-            <Route path="/" element={<Index />} />
-            <Route path="/lending" element={<Lending />} />
+            <Route path="/" element={<Lending />} />
+            <Route path="/portfolio" element={<Index />} />
             <Route path="/tx-visualizer" element={<TxVisualizer />} />
             <Route path="/dapp-analyzer" element={<DAppAnalyzer />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
