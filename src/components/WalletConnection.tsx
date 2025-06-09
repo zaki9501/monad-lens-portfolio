@@ -2,12 +2,14 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Wallet, Shield, Zap } from "lucide-react";
 import { usePrivy } from "@privy-io/react-auth";
-
 const WalletConnection = () => {
-  const { login, ready, authenticated, user } = usePrivy();
-
-  return (
-    <div className="max-w-4xl mx-auto">
+  const {
+    login,
+    ready,
+    authenticated,
+    user
+  } = usePrivy();
+  return <div className="max-w-4xl mx-auto">
       <div className="text-center mb-12">
         <h1 className="text-5xl font-bold text-white mb-4">
           Welcome to <span className="bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent">Monad Portfolio</span>
@@ -47,10 +49,8 @@ const WalletConnection = () => {
             <div className="w-12 h-12 bg-gradient-to-r from-orange-500 to-red-500 rounded-lg flex items-center justify-center mb-4">
               <Zap className="w-6 h-6 text-white" />
             </div>
-            <CardTitle className="text-white">dApp Explorer</CardTitle>
-            <CardDescription className="text-gray-400">
-              Discover and connect to the latest Monad Testnet applications and protocols
-            </CardDescription>
+            <CardTitle className="text-white">Visiualiser</CardTitle>
+            <CardDescription className="text-gray-400">Discover and connect to the latest Monad Testnet applications and protocols, and visualise your impressions </CardDescription>
           </CardHeader>
         </Card>
       </div>
@@ -63,10 +63,7 @@ const WalletConnection = () => {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <Button
-            onClick={login}
-            className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white py-6 text-lg"
-          >
+          <Button onClick={login} className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white py-6 text-lg">
             <Wallet className="w-5 h-5 mr-2" />
             Connect Wallet
           </Button>
@@ -75,8 +72,6 @@ const WalletConnection = () => {
           </p>
         </CardContent>
       </Card>
-    </div>
-  );
+    </div>;
 };
-
 export default WalletConnection;
