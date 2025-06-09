@@ -195,7 +195,7 @@ const Index = () => {
             <p className="text-white mb-4">Wallet not connected - showing connection page</p>
             <WalletConnection />
           </div> : <div className="space-y-8">
-            <p className="mb-4 text-center text-emerald-500 font-medium text-lg">Profile</p>
+            
             
             {/* Search Bar */}
             <div className="flex justify-center">
