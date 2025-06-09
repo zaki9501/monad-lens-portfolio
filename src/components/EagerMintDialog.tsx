@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -84,12 +83,16 @@ const EagerMintDialog = ({
       if (!open) resetDialog();
     }}>
       <DialogTrigger asChild>
-        <Button
-          className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
-        >
-          <Sparkles className="w-4 h-4 mr-2" />
-          {isLoreMode ? 'Eager Mint Mind Essence' : 'Eager Mint NFT'}
-        </Button>
+        <div className="relative">
+          <Button
+            disabled={true}
+            className="bg-gray-400 hover:bg-gray-400 cursor-not-allowed opacity-50"
+            title="NFT minting temporarily disabled - contracts not yet implemented"
+          >
+            <Sparkles className="w-4 h-4 mr-2" />
+            {isLoreMode ? 'Eager Mint Mind Essence' : 'Eager Mint NFT'} (Coming Soon)
+          </Button>
+        </div>
       </DialogTrigger>
       
       <DialogContent className={`max-w-md ${
