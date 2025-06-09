@@ -16,9 +16,10 @@ import StakeInfo from "@/components/StakeInfo";
 import SearchBar from "@/components/SearchBar";
 import { usePrivy } from "@privy-io/react-auth";
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { getAccountTokens } from "@/lib/blockvision";
 import { ethers } from "ethers";
+
 const CopyAddressButton = ({
   address
 }: {
@@ -57,6 +58,7 @@ const CopyAddressButton = ({
       </Tooltip>
     </TooltipProvider>;
 };
+
 const MONAD_RPC_URL = "https://rpc.monad.monadblockchain.com"; // Replace with your Monad RPC URL if needed
 const MULTICALL_ADDRESS = "0xcA11bde05977b3631167028862bE2a173976CA11";
 const ERC20_ABI = ["function balanceOf(address) view returns (uint256)", "function decimals() view returns (uint8)", "function symbol() view returns (string)", "function name() view returns (string)"];
@@ -99,6 +101,7 @@ const Index = () => {
   const {
     toast
   } = useToast();
+  const [searchParams] = useSearchParams();
 
   // For viewing other wallets, keep this state
   const [viewingAddress, setViewingAddress] = useState<string>("");
@@ -107,11 +110,17 @@ const Index = () => {
   const [loadingTokens, setLoadingTokens] = useState(false);
   const [tokenError, setTokenError] = useState<string | null>(null);
   const [refreshTokens, setRefreshTokens] = useState(0);
+
   useEffect(() => {
-    if (authenticated && user?.wallet?.address) {
+    // Check for wallet query parameter first
+    const walletFromQuery = searchParams.get('wallet');
+    if (walletFromQuery) {
+      setViewingAddress(walletFromQuery);
+    } else if (authenticated && user?.wallet?.address) {
       setViewingAddress(user.wallet.address);
     }
-  }, [authenticated, user]);
+  }, [authenticated, user, searchParams]);
+
   useEffect(() => {
     if (!viewingAddress) return;
     setLoadingTokens(true);
@@ -141,6 +150,7 @@ const Index = () => {
       }
     }).finally(() => setLoadingTokens(false));
   }, [viewingAddress, refreshTokens]);
+
   return <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
       {/* Header */}
       <header className="border-b border-purple-800/30 bg-slate-900/50 backdrop-blur-sm">
@@ -162,13 +172,6 @@ const Index = () => {
                   TX Visualizer
                 </Button>
               </Link>
-              {/* Temporarily disabled dApp Analyzer */}
-              {/* <Link to="/dapp-analyzer">
-                <Button variant="outline" className="border-green-500 text-green-400 hover:bg-green-500/10">
-                  <Target className="w-4 h-4 mr-2" />
-                  dApp Analyzer
-                </Button>
-               </Link> */}
               {authenticated && user?.wallet?.address ? <div className="flex items-center space-x-3">
                   <div className="flex items-center space-x-2 bg-slate-800/50 rounded-lg px-3 py-2">
                     <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
@@ -221,11 +224,6 @@ const Index = () => {
                 <TabsTrigger value="portfolio" className="text-white data-[state=active]:bg-purple-600">
                   Portfolio
                 </TabsTrigger>
-                {/* Temporarily disabled stake tab */}
-                {/* <TabsTrigger value="stake" className="text-white data-[state=active]:bg-purple-600">
-                  <Coins className="w-4 h-4 mr-2" />
-                  Stake
-                 </TabsTrigger> */}
                 <TabsTrigger value="nfts" className="text-white data-[state=active]:bg-purple-600">
                   NFTs
                 </TabsTrigger>
@@ -282,11 +280,6 @@ const Index = () => {
                   </Card>
                 </div>
               </TabsContent>
-
-              {/* Temporarily disabled stake tab content */}
-              {/* <TabsContent value="stake">
-                <StakeInfo walletAddress={viewingAddress} />
-               </TabsContent> */}
 
               <TabsContent value="nfts">
                 <NFTCollection walletAddress={viewingAddress} />

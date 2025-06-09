@@ -1,49 +1,64 @@
+
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Wallet, TrendingUp, Shield, Zap, Users, DollarSign, ArrowUpRight, Copy, Star, Check, X } from "lucide-react";
+import { Wallet, TrendingUp, Shield, Zap, Users, DollarSign, Copy, Star, Check, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import SearchBar from "@/components/SearchBar";
-import { X as LucideX } from "lucide-react";
+import { usePrivy } from "@privy-io/react-auth";
+import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
+
+const CopyAddressButton = ({
+  address
+}: {
+  address: string;
+}) => {
+  const [copied, setCopied] = useState(false);
+  const { toast } = useToast();
+  
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(address);
+      setCopied(true);
+      toast({
+        title: "Address Copied",
+        description: "Wallet address copied to clipboard"
+      });
+      setTimeout(() => setCopied(false), 1500);
+    } catch (e) {
+      toast({
+        title: "Copy failed",
+        description: "Could not copy address to clipboard"
+      });
+    }
+  };
+  
+  return (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button variant="ghost" size="sm" onClick={handleCopy} className="h-6 w-6 p-0 text-gray-400 hover:text-white">
+            {copied ? <Check className="w-3 h-3 text-green-400" /> : <Copy className="w-3 h-3" />}
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>
+          {copied ? "Copied!" : "Copy to clipboard"}
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+};
 
 const Lending = () => {
-  const [isConnected, setIsConnected] = useState(false);
-  const [walletAddress, setWalletAddress] = useState("");
+  const { login, logout, authenticated, user, ready } = usePrivy();
   const { toast } = useToast();
   const navigate = useNavigate();
 
-  const connectWallet = () => {
-    const mockAddress = "0x742d35Cc6634C0532925a3b8D48C405BeF8b30Ab";
-    setWalletAddress(mockAddress);
-    setIsConnected(true);
-    toast({
-      title: "Wallet Connected",
-      description: "Successfully connected to Monad Testnet",
-    });
-  };
-
-  const disconnectWallet = () => {
-    setWalletAddress("");
-    setIsConnected(false);
-    toast({
-      title: "Wallet Disconnected",
-      description: "Wallet has been disconnected",
-    });
-  };
-
-  const copyAddress = () => {
-    navigator.clipboard.writeText(walletAddress);
-    toast({
-      title: "Address Copied",
-      description: "Wallet address copied to clipboard",
-    });
-  };
-
   const handleWalletSelect = (address: string) => {
-    // Navigate to home page with the selected wallet
-    navigate('/', { state: { selectedWallet: address } });
+    // Navigate to portfolio page with the selected wallet address as a query parameter
+    navigate(`/portfolio?wallet=${address}`);
   };
 
   return (
@@ -62,25 +77,18 @@ const Lending = () => {
               </Badge>
             </div>
             
-            {isConnected ? (
+            {authenticated && user?.wallet?.address ? (
               <div className="flex items-center space-x-3">
                 <div className="flex items-center space-x-2 bg-slate-800/50 rounded-lg px-3 py-2">
                   <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
                   <span className="text-sm text-gray-300">
-                    {walletAddress.slice(0, 6)}...{walletAddress.slice(-4)}
+                    {user.wallet.address.slice(0, 6)}...{user.wallet.address.slice(-4)}
                   </span>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={copyAddress}
-                    className="h-6 w-6 p-0 text-gray-400 hover:text-white"
-                  >
-                    <Copy className="w-3 h-3" />
-                  </Button>
+                  <CopyAddressButton address={user.wallet.address} />
                 </div>
                 <Button
                   variant="outline"
-                  onClick={disconnectWallet}
+                  onClick={logout}
                   className="border-red-500 text-red-400 hover:bg-red-500/10"
                 >
                   Disconnect
@@ -88,7 +96,7 @@ const Lending = () => {
               </div>
             ) : (
               <Button
-                onClick={connectWallet}
+                onClick={login}
                 className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 animate-scale-in"
               >
                 <Wallet className="w-4 h-4 mr-2" />
