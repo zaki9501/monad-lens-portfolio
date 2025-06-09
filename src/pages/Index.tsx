@@ -19,7 +19,6 @@ import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/comp
 import { Link, useSearchParams } from "react-router-dom";
 import { getAccountTokens } from "@/lib/blockvision";
 import { ethers } from "ethers";
-
 const CopyAddressButton = ({
   address
 }: {
@@ -58,7 +57,6 @@ const CopyAddressButton = ({
       </Tooltip>
     </TooltipProvider>;
 };
-
 const MONAD_RPC_URL = "https://rpc.monad.monadblockchain.com"; // Replace with your Monad RPC URL if needed
 const MULTICALL_ADDRESS = "0xcA11bde05977b3631167028862bE2a173976CA11";
 const ERC20_ABI = ["function balanceOf(address) view returns (uint256)", "function decimals() view returns (uint8)", "function symbol() view returns (string)", "function name() view returns (string)"];
@@ -110,7 +108,6 @@ const Index = () => {
   const [loadingTokens, setLoadingTokens] = useState(false);
   const [tokenError, setTokenError] = useState<string | null>(null);
   const [refreshTokens, setRefreshTokens] = useState(0);
-
   useEffect(() => {
     // Check for wallet query parameter first
     const walletFromQuery = searchParams.get('wallet');
@@ -120,7 +117,6 @@ const Index = () => {
       setViewingAddress(user.wallet.address);
     }
   }, [authenticated, user, searchParams]);
-
   useEffect(() => {
     if (!viewingAddress) return;
     setLoadingTokens(true);
@@ -150,7 +146,6 @@ const Index = () => {
       }
     }).finally(() => setLoadingTokens(false));
   }, [viewingAddress, refreshTokens]);
-
   return <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
       {/* Header */}
       <header className="border-b border-purple-800/30 bg-slate-900/50 backdrop-blur-sm">
@@ -195,7 +190,7 @@ const Index = () => {
       {/* Main Content */}
       <main className="container mx-auto px-4 py-8">
         {!authenticated || !user?.wallet?.address ? <div>
-            <p className="text-white mb-4">Wallet not connected - showing connection page</p>
+            
             <WalletConnection />
           </div> : <div className="space-y-8">
             
