@@ -59,13 +59,13 @@ const Lending = () => {
   // Redirect to portfolio when wallet is connected
   useEffect(() => {
     if (authenticated && user?.wallet?.address) {
-      navigate(`/portfolio?wallet=${user.wallet.address}`);
+      navigate(`/?wallet=${user.wallet.address}`);
     }
   }, [authenticated, user?.wallet?.address, navigate]);
 
   const handleWalletSelect = (address: string) => {
-    // Navigate to portfolio page with the selected wallet address as a query parameter
-    navigate(`/portfolio?wallet=${address}`);
+    // Navigate to home page with the selected wallet address as a query parameter
+    navigate(`/?wallet=${address}`);
   };
 
   return (
