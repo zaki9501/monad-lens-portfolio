@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -7,7 +6,6 @@ import { Search, Brain, Zap, Activity, ArrowRight, Eye, Radio, ArrowLeft, Shield
 import { useNavigate } from "react-router-dom";
 import WalletAvatar from "@/components/WalletAvatar";
 import TransactionTimeline from "@/components/TransactionTimeline";
-import TransactionFlowDiagram from "@/components/TransactionFlowDiagram";
 import TokenMovementGraph from "@/components/TokenMovementGraph";
 import LiveTransactionLogger from "@/components/LiveTransactionLogger";
 import WalletScoreCard from "@/components/WalletScoreCard";
@@ -105,7 +103,6 @@ const TxVisualizer = () => {
 
   const visualizationModes = [
     { id: 'timeline', label: 'Timeline Chart', icon: Activity },
-    { id: 'flow', label: 'Flow Diagram', icon: ArrowRight },
     { id: 'tokens', label: 'Token Movement', icon: Zap },
     { id: 'score', label: 'Wallet Score', icon: Shield },
     { id: 'live', label: 'Live Monitor', icon: Radio }
@@ -303,13 +300,6 @@ const TxVisualizer = () => {
               <CardContent className="p-6">
                 {visualizationMode === 'timeline' && (
                   <TransactionTimeline 
-                    data={transactionData} 
-                    isDarkMode={isDarkMode}
-                    isLoreMode={isLoreMode}
-                  />
-                )}
-                {visualizationMode === 'flow' && (
-                  <TransactionFlowDiagram 
                     data={transactionData} 
                     isDarkMode={isDarkMode}
                     isLoreMode={isLoreMode}
