@@ -16,11 +16,18 @@ interface Eip1193Provider {
   isMetaMask?: boolean;
 }
 
+// Extend the Window interface to include ethereum
+declare global {
+  interface Window {
+    ethereum?: Eip1193Provider;
+  }
+}
+
 // Define the contract interface
 interface ReputationArtNFTContract extends BaseContract {
   hasMinted: {
     (address: string, score: number): Promise<boolean>;
-    call: (address: string, score: number) => Promise<boolean>;
+    call: (address: string, score: number): Promise<boolean>;
   };
   mintArt: {
     (address: string, score: number, totalTransactions: number, diversityScore: number, tokenURI: string, options?: { gasLimit: number }): Promise<ContractTransactionResponse>;
@@ -91,15 +98,33 @@ const EagerMintDialog = ({
     setIsCheckingNetwork(true);
     try {
       if (!window.ethereum) {
+        console.log('No ethereum provider found');
         setCurrentChainId(null);
         return;
       }
 
-      const provider = new BrowserProvider(window.ethereum as unknown as Eip1193Provider);
-      const network = await provider.getNetwork();
-      const chainId = `0x${network.chainId.toString(16)}`;
+      // Try using the provider directly first
+      const chainId = await window.ethereum.request({ method: 'eth_chainId' });
+      console.log('Chain ID from ethereum.request:', chainId);
+      console.log('Expected chain ID:', MONAD_TESTNET.chainId);
+      console.log('Chain IDs match:', chainId === MONAD_TESTNET.chainId);
+      
       setCurrentChainId(chainId);
-      console.log('Current network chain ID:', chainId);
+
+      // Also try using ethers provider as backup
+      try {
+        const provider = new BrowserProvider(window.ethereum);
+        const network = await provider.getNetwork();
+        const ethersChainId = `0x${network.chainId.toString(16)}`;
+        console.log('Chain ID from ethers provider:', ethersChainId);
+        
+        // Use the direct ethereum.request result as it's more reliable
+        setCurrentChainId(chainId);
+      } catch (ethersError) {
+        console.log('Ethers provider failed, using direct ethereum result:', ethersError);
+        // Still use the direct result
+        setCurrentChainId(chainId);
+      }
     } catch (error) {
       console.error('Failed to check network:', error);
       setCurrentChainId(null);
@@ -119,24 +144,30 @@ const EagerMintDialog = ({
 
       // First try to switch to the network
       try {
-        await (window.ethereum as any).request({
+        await window.ethereum.request({
           method: 'wallet_switchEthereumChain',
           params: [{ chainId: MONAD_TESTNET.chainId }],
         });
+        console.log('Successfully switched to existing network');
       } catch (switchError: any) {
+        console.log('Switch error:', switchError);
         // This error code indicates that the chain has not been added to MetaMask
         if (switchError.code === 4902) {
           console.log('Network not found, adding Monad testnet...');
-          await (window.ethereum as any).request({
+          await window.ethereum.request({
             method: 'wallet_addEthereumChain',
             params: [MONAD_TESTNET],
           });
+          console.log('Successfully added and switched to network');
         } else {
           throw switchError;
         }
       }
 
-      await checkCurrentNetwork();
+      // Wait a moment for the network to switch, then recheck
+      setTimeout(() => {
+        checkCurrentNetwork();
+      }, 1000);
       
       toast({
         title: "Network Switched",
@@ -145,11 +176,15 @@ const EagerMintDialog = ({
 
     } catch (error: any) {
       console.error('Failed to switch network:', error);
-      toast({
-        title: "Network Switch Failed",
-        description: error.message || 'Failed to switch to Monad Testnet',
-        variant: "destructive",
-      });
+      
+      // Don't show error for user rejection
+      if (error.code !== 4001) {
+        toast({
+          title: "Network Switch Failed",
+          description: error.message || 'Failed to switch to Monad Testnet',
+          variant: "destructive",
+        });
+      }
     }
   };
 
@@ -166,12 +201,12 @@ const EagerMintDialog = ({
 
       // Ensure we're on the correct network first
       if (currentChainId !== MONAD_TESTNET.chainId) {
-        console.log('Not on Monad testnet, cannot check mint status');
+        console.log('Not on Monad testnet, cannot check mint status. Current:', currentChainId, 'Expected:', MONAD_TESTNET.chainId);
         setHasMinted(false);
         return false;
       }
 
-      const provider = new BrowserProvider(window.ethereum as unknown as Eip1193Provider);
+      const provider = new BrowserProvider(window.ethereum);
       const contract = new Contract(contractAddress, ReputationArtNFT, provider);
       
       console.log('Contract created, calling hasMinted...');
@@ -224,7 +259,7 @@ const EagerMintDialog = ({
         throw new Error('Please switch to Monad Testnet to mint NFTs.');
       }
 
-      const provider = new BrowserProvider(window.ethereum as unknown as Eip1193Provider);
+      const provider = new BrowserProvider(window.ethereum);
       
       // Request account access
       await provider.send("eth_requestAccounts", []);
@@ -339,8 +374,8 @@ const EagerMintDialog = ({
     setTxHash(null);
   };
 
-  const isOnCorrectNetwork =
-    currentChainId?.toLowerCase() === MONAD_TESTNET.chainId.toLowerCase();
+  // Use direct string comparison instead of toLowerCase() since chain IDs should match exactly
+  const isOnCorrectNetwork = currentChainId === MONAD_TESTNET.chainId;
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => {
@@ -372,7 +407,16 @@ const EagerMintDialog = ({
         
         <div className="space-y-6 p-4">
           {/* Network Status */}
-          {!isCheckingNetwork && (
+          {isCheckingNetwork ? (
+            <div className={`p-3 rounded-lg border ${
+              isDarkMode ? 'bg-slate-700/50 border-slate-600 text-gray-300' : 'bg-gray-50 border-gray-300 text-gray-600'
+            }`}>
+              <div className="flex items-center space-x-2">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span className="text-sm font-medium">Checking network...</span>
+              </div>
+            </div>
+          ) : (
             <div className={`p-3 rounded-lg border ${
               isOnCorrectNetwork 
                 ? 'bg-green-500/10 border-green-500/30 text-green-400'
@@ -396,9 +440,11 @@ const EagerMintDialog = ({
                 )}
               </div>
               {!isOnCorrectNetwork && (
-                <p className="text-xs mt-1 opacity-80">
-                  You need to be on Monad Testnet to mint NFTs
-                </p>
+                <div className="text-xs mt-1 opacity-80">
+                  <p>You need to be on Monad Testnet to mint NFTs</p>
+                  <p className="font-mono">Current: {currentChainId || 'Unknown'}</p>
+                  <p className="font-mono">Expected: {MONAD_TESTNET.chainId}</p>
+                </div>
               )}
             </div>
           )}
