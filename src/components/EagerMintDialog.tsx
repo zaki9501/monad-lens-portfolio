@@ -3,21 +3,29 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Sparkles, Loader2, CheckCircle, AlertCircle, Coins, Zap, Network } from "lucide-react";
-import { ethers, BrowserProvider, Contract } from 'ethers';
+import { ethers, BrowserProvider, Contract, ContractTransactionResponse, ContractTransactionReceipt, BaseContract } from 'ethers';
 import { uploadToIPFS } from '@/utils/pinata';
 import ReputationArtNFT from '@/abis/ReputationArtNFT.json';
 import { useToast } from "@/hooks/use-toast";
 
-interface EthereumProvider {
+// Define the EIP-1193 provider interface
+interface Eip1193Provider {
   request: (args: { method: string; params?: any[] }) => Promise<any>;
-  on?: (eventName: string, handler: (...args: any[]) => void) => void;
-  removeListener?: (eventName: string, handler: (...args: any[]) => void) => void;
+  on: (event: string, callback: (...args: any[]) => void) => void;
+  removeListener: (event: string, callback: (...args: any[]) => void) => void;
+  isMetaMask?: boolean;
 }
 
-declare global {
-  interface Window {
-    ethereum?: EthereumProvider;
-  }
+// Define the contract interface
+interface ReputationArtNFTContract extends BaseContract {
+  hasMinted: {
+    (address: string, score: number): Promise<boolean>;
+    call: (address: string, score: number) => Promise<boolean>;
+  };
+  mintArt: {
+    (address: string, score: number, totalTransactions: number, diversityScore: number, tokenURI: string, options?: { gasLimit: number }): Promise<ContractTransactionResponse>;
+    call: (address: string, score: number, totalTransactions: number, diversityScore: number, tokenURI: string, options?: { gasLimit: number }) => Promise<ContractTransactionResponse>;
+  };
 }
 
 interface EagerMintDialogProps {
@@ -87,7 +95,7 @@ const EagerMintDialog = ({
         return;
       }
 
-      const provider = new BrowserProvider(window.ethereum);
+      const provider = new BrowserProvider(window.ethereum as unknown as Eip1193Provider);
       const network = await provider.getNetwork();
       const chainId = `0x${network.chainId.toString(16)}`;
       setCurrentChainId(chainId);
@@ -111,7 +119,7 @@ const EagerMintDialog = ({
 
       // First try to switch to the network
       try {
-        await window.ethereum.request({
+        await (window.ethereum as any).request({
           method: 'wallet_switchEthereumChain',
           params: [{ chainId: MONAD_TESTNET.chainId }],
         });
@@ -119,7 +127,7 @@ const EagerMintDialog = ({
         // This error code indicates that the chain has not been added to MetaMask
         if (switchError.code === 4902) {
           console.log('Network not found, adding Monad testnet...');
-          await window.ethereum.request({
+          await (window.ethereum as any).request({
             method: 'wallet_addEthereumChain',
             params: [MONAD_TESTNET],
           });
@@ -163,13 +171,13 @@ const EagerMintDialog = ({
         return false;
       }
 
-      const provider = new BrowserProvider(window.ethereum);
+      const provider = new BrowserProvider(window.ethereum as unknown as Eip1193Provider);
       const contract = new Contract(contractAddress, ReputationArtNFT, provider);
       
       console.log('Contract created, calling hasMinted...');
       
       try {
-        const minted = await contract.hasMinted(walletAddress, overallScore);
+        const minted = await contract["hasMinted"](walletAddress, overallScore);
         console.log('hasMinted result:', minted);
         setHasMinted(minted);
         return minted;
@@ -216,7 +224,7 @@ const EagerMintDialog = ({
         throw new Error('Please switch to Monad Testnet to mint NFTs.');
       }
 
-      const provider = new BrowserProvider(window.ethereum);
+      const provider = new BrowserProvider(window.ethereum as unknown as Eip1193Provider);
       
       // Request account access
       await provider.send("eth_requestAccounts", []);
@@ -261,13 +269,13 @@ const EagerMintDialog = ({
         description: "Please confirm the transaction in your wallet...",
       });
 
-      const tx = await contract.mintArt(
+      const tx = await contract["mintArt"](
         walletAddress,
         overallScore,
         metrics.totalTransactions,
         metrics.diversityScore,
         `ipfs://${ipfsHash}`,
-        { gasLimit: 300000 }
+        { gasLimit: 5000000 }
       );
       
       console.log('Transaction sent:', tx.hash);
@@ -279,8 +287,10 @@ const EagerMintDialog = ({
       });
 
       const receipt = await tx.wait();
-      console.log('NFT minted successfully! Tx:', receipt.transactionHash);
-      
+      if (receipt) {
+        setTxHash(receipt.hash);
+      }
+
       setMintSuccess(true);
       setHasMinted(true);
 
@@ -329,7 +339,8 @@ const EagerMintDialog = ({
     setTxHash(null);
   };
 
-  const isOnCorrectNetwork = currentChainId === MONAD_TESTNET.chainId;
+  const isOnCorrectNetwork =
+    currentChainId?.toLowerCase() === MONAD_TESTNET.chainId.toLowerCase();
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => {
