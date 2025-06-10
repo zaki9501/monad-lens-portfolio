@@ -321,7 +321,7 @@ const WalletScoreCard = ({
           <CardTitle className={`flex items-center justify-between ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
             <div className="flex items-center space-x-2">
               <Target className="w-6 h-6 text-purple-400" />
-              <span>{isLoreMode ? 'Mind Authenticity Score' : 'Wallet Reputation Score'}</span>
+              <span>{isLoreMode ? 'Mind Authenticity Score' : 'Wallet Stats'}</span>
             </div>
             {!loading && !error && !isEmpty && metrics && <Button variant="outline" size="sm" onClick={() => setShowArtGenerator(!showArtGenerator)} className={`${isDarkMode ? 'border-slate-600 bg-slate-800/50 text-white hover:bg-slate-700/50' : 'border-gray-300 bg-white/80 text-gray-900 hover:bg-gray-50'}`}>
                 <Palette className="w-4 h-4 mr-2" />
