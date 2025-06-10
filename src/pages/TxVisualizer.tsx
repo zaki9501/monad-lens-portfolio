@@ -1,9 +1,11 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Search, Brain, Zap, Activity, ArrowRight, Eye, Radio, ArrowLeft, Shield } from "lucide-react";
+import { Search, Brain, Zap, Activity, ArrowRight, Eye, Radio, ArrowLeft, Shield, Wallet } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { usePrivy } from "@privy-io/react-auth";
 import WalletAvatar from "@/components/WalletAvatar";
 import TransactionTimeline from "@/components/TransactionTimeline";
 import TokenMovementGraph from "@/components/TokenMovementGraph";
@@ -34,13 +36,15 @@ const fetchTotalTransactions = async (address, apiKey) => {
   });
   if (!res.ok) return null;
   const data = await res.json();
-  // BlockVision returns total in data.result.total
   return data?.result?.total || null;
 };
 
 const TxVisualizer = () => {
   const navigate = useNavigate();
+  const { login, ready, authenticated, user } = usePrivy();
+  
   const [walletAddress, setWalletAddress] = useState('');
+  const [connectedWallet, setConnectedWallet] = useState('');
   const [isScanning, setIsScanning] = useState(false);
   const [scanProgress, setScanProgress] = useState(0);
   const [transactionData, setTransactionData] = useState(null);
@@ -50,9 +54,33 @@ const TxVisualizer = () => {
   const [isLoreMode, setIsLoreMode] = useState(false);
   const [totalTxCount, setTotalTxCount] = useState(null);
 
+  // Get connected wallet from Privy
+  useEffect(() => {
+    if (authenticated && user?.wallet?.address) {
+      setConnectedWallet(user.wallet.address);
+      console.log('Connected wallet:', user.wallet.address);
+    } else {
+      setConnectedWallet('');
+    }
+  }, [authenticated, user]);
+
   const handleBackClick = () => {
-    console.log('Back button clicked'); // Debug log
-    navigate('/'); // Navigate to home page instead of -1
+    console.log('Back button clicked');
+    navigate('/');
+  };
+
+  const handleWalletConnect = async () => {
+    if (!ready) return;
+    try {
+      await login();
+    } catch (error) {
+      console.error('Failed to connect wallet:', error);
+    }
+  };
+
+  const isWalletOwner = () => {
+    if (!connectedWallet || !walletAddress) return false;
+    return connectedWallet.toLowerCase() === walletAddress.toLowerCase();
   };
 
   const handleGenerateVisualization = async () => {
@@ -68,12 +96,10 @@ const TxVisualizer = () => {
       }
       const apiKey = import.meta.env.VITE_BLOCKVISION_API_KEY;
       const data = await fetchAccountActivities(walletAddress, apiKey, 50);
-      // Optionally, you can process/transform data here to fit your UI
-      setTransactionData(data); // Passes the real data to TransactionTimeline
-      setAnalysisData(null); // Remove mock analysis for now
+      setTransactionData(data);
+      setAnalysisData(null);
 
       const activities = data?.result?.data || [];
-
       const totalTransactions = activities.length;
       const sentTxs = activities.filter(tx => tx.from?.toLowerCase() === walletAddress.toLowerCase()).length;
       const receivedTxs = activities.filter(
@@ -83,7 +109,6 @@ const TxVisualizer = () => {
         .filter(tx => tx.transactionFee)
         .reduce((sum, tx) => sum + Number(tx.transactionFee), 0);
     } catch (e) {
-      // Optionally handle error
       setTransactionData(null);
       setAnalysisData(null);
     } finally {
@@ -126,8 +151,8 @@ const TxVisualizer = () => {
         : 'bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50'
     }`}>
       <div className="container mx-auto px-4 py-8">
-        {/* Back Button */}
-        <div className="mb-6">
+        {/* Header with Wallet Connection */}
+        <div className="flex justify-between items-center mb-6">
           <Button
             variant="outline"
             size="sm"
@@ -141,6 +166,34 @@ const TxVisualizer = () => {
             <ArrowLeft className="w-4 h-4 mr-2" />
             Back
           </Button>
+
+          {/* Wallet Connection Status */}
+          <div className="flex items-center space-x-4">
+            {authenticated && connectedWallet ? (
+              <div className={`flex items-center space-x-2 px-3 py-2 rounded-lg ${
+                isDarkMode ? 'bg-slate-800/50 border border-slate-700' : 'bg-white/80 border border-gray-200'
+              }`}>
+                <WalletAvatar address={connectedWallet} />
+                <div className="text-sm">
+                  <div className={`font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                    Connected
+                  </div>
+                  <div className={`font-mono text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                    {connectedWallet.slice(0, 6)}...{connectedWallet.slice(-4)}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <Button
+                onClick={handleWalletConnect}
+                className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
+                disabled={!ready}
+              >
+                <Wallet className="w-4 h-4 mr-2" />
+                Connect Wallet
+              </Button>
+            )}
+          </div>
         </div>
 
         {/* Header */}
@@ -223,6 +276,15 @@ const TxVisualizer = () => {
                 <span className={`font-mono text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
                   {walletAddress.slice(0, 6)}...{walletAddress.slice(-4)}
                 </span>
+                {connectedWallet && walletAddress && (
+                  <div className={`text-xs px-2 py-1 rounded-full ${
+                    isWalletOwner() 
+                      ? 'bg-green-500/20 text-green-400 border border-green-500/30' 
+                      : 'bg-orange-500/20 text-orange-400 border border-orange-500/30'
+                  }`}>
+                    {isWalletOwner() ? 'Owner' : 'Viewer'}
+                  </div>
+                )}
               </div>
             )}
           </CardContent>
@@ -315,8 +377,11 @@ const TxVisualizer = () => {
                 {visualizationMode === 'score' && (
                   <WalletScoreCard 
                     walletAddress={walletAddress}
+                    connectedWallet={connectedWallet}
+                    isOwner={isWalletOwner()}
                     isDarkMode={isDarkMode}
                     isLoreMode={isLoreMode}
+                    onWalletConnect={handleWalletConnect}
                   />
                 )}
                 {visualizationMode === 'live' && (
