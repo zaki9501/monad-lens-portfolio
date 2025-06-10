@@ -17,6 +17,32 @@ interface TokenInfo {
   priceUSD?: number;
 }
 
+// Cache for transaction data to persist across navigation
+const TRANSACTION_CACHE_KEY = "portfolio_transaction_cache";
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+function getCachedTransactionData(address: string) {
+  try {
+    const cache = JSON.parse(localStorage.getItem(TRANSACTION_CACHE_KEY) || "{}");
+    const addressData = cache[address.toLowerCase()];
+    if (addressData && Date.now() - addressData.timestamp < CACHE_TTL) {
+      return addressData.data;
+    }
+  } catch {}
+  return null;
+}
+
+function setCachedTransactionData(address: string, data: any) {
+  try {
+    const cache = JSON.parse(localStorage.getItem(TRANSACTION_CACHE_KEY) || "{}");
+    cache[address.toLowerCase()] = {
+      data,
+      timestamp: Date.now()
+    };
+    localStorage.setItem(TRANSACTION_CACHE_KEY, JSON.stringify(cache));
+  } catch {}
+}
+
 const PortfolioOverview = ({ walletAddress }: PortfolioOverviewProps) => {
   const [tokens, setTokens] = useState<TokenInfo[]>([]);
   const [loading, setLoading] = useState(false);
@@ -30,6 +56,14 @@ const PortfolioOverview = ({ walletAddress }: PortfolioOverviewProps) => {
 
   useEffect(() => {
     if (!walletAddress) return;
+    
+    // Try to get cached transaction data first
+    const cachedTxData = getCachedTransactionData(walletAddress);
+    if (cachedTxData) {
+      setTotalTransactions(cachedTxData.totalTransactions || 0);
+      console.log("Loaded cached transaction count:", cachedTxData.totalTransactions);
+    }
+    
     setLoading(true);
     setError(null);
     
@@ -69,32 +103,59 @@ const PortfolioOverview = ({ walletAddress }: PortfolioOverviewProps) => {
           setNftCount(0);
         }
 
-        // Try to fetch transactions and activities
+        // Try to fetch transactions and activities with improved handling
         let txTotal = 0;
         let activityTotal = 0;
         
         try {
           const txData = await getAccountTransactions(walletAddress, 1000);
           console.log("Transaction API response:", txData);
-          txTotal = txData?.result?.total || (txData?.result?.data?.length || 0);
-          console.log("Transaction total:", txTotal);
+          
+          // Handle different response formats
+          if (txData?.result?.total !== undefined) {
+            txTotal = txData.result.total;
+          } else if (txData?.result?.data?.length) {
+            txTotal = txData.result.data.length;
+          }
+          console.log("Transaction total from API:", txTotal);
         } catch (txError) {
           console.error("Transaction fetch failed:", txError);
+          // If API fails, keep the cached value
+          if (cachedTxData?.totalTransactions) {
+            txTotal = cachedTxData.totalTransactions;
+            console.log("Using cached transaction count due to API failure:", txTotal);
+          }
         }
 
         try {
           const activityData = await getAccountActivities(walletAddress, 1000);
           console.log("Activity API response:", activityData);
-          activityTotal = activityData?.result?.total || (activityData?.result?.data?.length || 0);
-          console.log("Activity total:", activityTotal);
+          
+          // Handle different response formats
+          if (activityData?.result?.total !== undefined) {
+            activityTotal = activityData.result.total;
+          } else if (activityData?.result?.data?.length) {
+            activityTotal = activityData.result.data.length;
+          }
+          console.log("Activity total from API:", activityTotal);
         } catch (actError) {
           console.error("Activity fetch failed:", actError);
         }
 
-        // Set total transactions (use the maximum of both sources)
-        const finalTxTotal = Math.max(txTotal, activityTotal, txTotal + activityTotal);
-        setTotalTransactions(finalTxTotal);
-        console.log("Final transaction count:", finalTxTotal);
+        // Use the maximum of both sources, but ensure we don't go to 0 if we had cached data
+        const finalTxTotal = Math.max(txTotal, activityTotal);
+        const resultingTotal = cachedTxData?.totalTransactions && finalTxTotal === 0 
+          ? cachedTxData.totalTransactions 
+          : Math.max(finalTxTotal, cachedTxData?.totalTransactions || 0);
+        
+        setTotalTransactions(resultingTotal);
+        console.log("Final transaction count set to:", resultingTotal);
+
+        // Cache the transaction data for future use
+        setCachedTransactionData(walletAddress, {
+          totalTransactions: resultingTotal,
+          timestamp: Date.now()
+        });
 
         // Calculate USD value if token data is available
         if (tokenData?.result?.data) {
@@ -253,7 +314,7 @@ const PortfolioOverview = ({ walletAddress }: PortfolioOverviewProps) => {
           </CardContent>
         </Card>
 
-        {/* Transaction Volume - Now shows actual count */}
+        {/* Transaction Volume - Now shows actual count with persistence */}
         <Card className="bg-slate-800/50 border-slate-700">
           <CardContent className="p-6 text-center">
             <div className="w-12 h-12 bg-gradient-to-r from-cyan-500 to-blue-500 rounded-lg flex items-center justify-center mx-auto mb-4">
