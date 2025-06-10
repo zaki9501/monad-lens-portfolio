@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -5,7 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Sparkles, Loader2, CheckCircle, AlertCircle, Coins, Zap } from "lucide-react";
 import { ethers, BrowserProvider, Contract } from 'ethers';
 import { uploadToIPFS } from '@/utils/pinata';
-import ReputationArtNFT from '@/abis/ReputationArtNFT.json'; // Ensure this matches your deployed ABI
+import ReputationArtNFT from '@/abis/ReputationArtNFT.json';
+import { useToast } from "@/hooks/use-toast";
 
 interface EagerMintDialogProps {
   walletAddress: string;
@@ -37,10 +39,11 @@ const EagerMintDialog = ({
   const [nftDescription, setNftDescription] = useState('');
   const [hasMinted, setHasMinted] = useState(false);
   const [txHash, setTxHash] = useState<string | null>(null);
+  const [isCheckingMintStatus, setIsCheckingMintStatus] = useState(false);
+  const { toast } = useToast();
 
-  const contractAddress = "0x4ba16060a00d0e0939cb69e46846fbee30f7c847"; // Deployed contract address
+  const contractAddress = "0x4ba16060a00d0e0939cb69e46846fbee30f7c847";
 
-  // Calculate mint price and rarity based on overall score
   const getRarityAndPrice = () => {
     if (overallScore >= 80) return { rarity: 'Legendary', price: '0.1', color: 'text-yellow-400' };
     if (overallScore >= 60) return { rarity: 'Epic', price: '0.05', color: 'text-purple-400' };
@@ -51,17 +54,43 @@ const EagerMintDialog = ({
   const { rarity, price, color } = getRarityAndPrice();
 
   const checkMintedStatus = async () => {
+    setIsCheckingMintStatus(true);
     try {
-      if (!window.ethereum) throw new Error('Please install MetaMask or connect a wallet.');
+      console.log('Checking mint status for wallet:', walletAddress, 'score:', overallScore);
+      
+      if (!window.ethereum) {
+        console.log('No ethereum provider found');
+        setHasMinted(false);
+        return false;
+      }
+
       const provider = new BrowserProvider(window.ethereum as unknown as { request: (args: { method: string; params?: any[] }) => Promise<any> });
       const contract = new Contract(contractAddress, ReputationArtNFT, provider);
-      const minted = await contract.hasMinted(walletAddress, overallScore);
-      setHasMinted(minted);
-      return minted;
-    } catch (err) {
+      
+      console.log('Contract created, calling hasMinted...');
+      
+      // Try the contract call with better error handling
+      try {
+        const minted = await contract.hasMinted(walletAddress, overallScore);
+        console.log('hasMinted result:', minted);
+        setHasMinted(minted);
+        return minted;
+      } catch (contractError: any) {
+        console.log('Contract call failed, this might be normal if the method doesnt exist:', contractError);
+        
+        // If the contract call fails, assume not minted and allow the user to try
+        // This could happen if the contract doesn't have the hasMinted method
+        setHasMinted(false);
+        return false;
+      }
+    } catch (err: any) {
       console.error('Failed to check minted status:', err);
-      setMintError('Failed to check mint status. Ensure wallet is connected.');
+      
+      // Don't show error for mint status check failure, just assume not minted
+      setHasMinted(false);
       return false;
+    } finally {
+      setIsCheckingMintStatus(false);
     }
   };
 
@@ -77,25 +106,57 @@ const EagerMintDialog = ({
     setTxHash(null);
 
     try {
-      if (hasMinted) {
-        setMintError('You have already minted an NFT for this score.');
-        return;
+      console.log('Starting mint process...');
+      
+      if (!window.ethereum) {
+        throw new Error('Please install MetaMask or connect a wallet.');
       }
 
-      if (!window.ethereum) throw new Error('Please install MetaMask or connect a wallet.');
       const provider = new BrowserProvider(window.ethereum as unknown as { request: (args: { method: string; params?: any[] }) => Promise<any> });
+      
+      // Request account access
       await provider.send("eth_requestAccounts", []);
       const signer = await provider.getSigner();
+      const signerAddress = await signer.getAddress();
+      
+      console.log('Signer address:', signerAddress);
+      console.log('Target wallet address:', walletAddress);
+      
+      // Verify the signer is the same as the wallet address being analyzed
+      if (signerAddress.toLowerCase() !== walletAddress.toLowerCase()) {
+        throw new Error('You can only mint NFTs for your own wallet address.');
+      }
 
       const svgElement = document.getElementById('reputation-art-svg');
-      if (!svgElement) throw new Error('SVG element not found for minting.');
+      if (!svgElement) {
+        throw new Error('SVG element not found for minting.');
+      }
 
       console.log('Uploading to IPFS...');
+      toast({
+        title: "Uploading to IPFS",
+        description: "Please wait while we upload your art...",
+      });
+
       const ipfsHash = await uploadToIPFS(walletAddress, overallScore, metrics, artData, svgElement);
       console.log('IPFS Hash:', ipfsHash);
 
+      console.log('Creating contract instance for minting...');
       const contract = new Contract(contractAddress, ReputationArtNFT, signer);
-      console.log('Minting NFT...');
+      
+      console.log('Calling mintArt with params:', {
+        recipient: walletAddress,
+        score: overallScore,
+        totalTransactions: metrics.totalTransactions,
+        diversityScore: metrics.diversityScore,
+        ipfsHash: `ipfs://${ipfsHash}`
+      });
+
+      toast({
+        title: "Minting NFT",
+        description: "Please confirm the transaction in your wallet...",
+      });
+
       const tx = await contract.mintArt(
         walletAddress,
         overallScore,
@@ -104,16 +165,51 @@ const EagerMintDialog = ({
         `ipfs://${ipfsHash}`,
         { gasLimit: 300000 }
       );
+      
       console.log('Transaction sent:', tx.hash);
+      setTxHash(tx.hash);
+
+      toast({
+        title: "Transaction Sent",
+        description: "Waiting for confirmation...",
+      });
+
       const receipt = await tx.wait();
-      setTxHash(receipt.transactionHash);
-      setMintSuccess(true);
       console.log('NFT minted successfully! Tx:', receipt.transactionHash);
+      
+      setMintSuccess(true);
+      setHasMinted(true);
+
+      toast({
+        title: "NFT Minted Successfully!",
+        description: "Your reputation art has been minted as an NFT.",
+      });
+
     } catch (err: any) {
       console.error('Mint failed:', err);
-      setMintError(err.message.includes('Score already minted')
-        ? 'You have already minted an NFT for this score.'
-        : `Minting failed: ${err.message || 'Please try again. Ensure sufficient MON and gas.'}`);
+      
+      let errorMessage = 'Minting failed. Please try again.';
+      
+      if (err.message?.includes('Score already minted')) {
+        errorMessage = 'You have already minted an NFT for this score.';
+        setHasMinted(true);
+      } else if (err.message?.includes('user rejected')) {
+        errorMessage = 'Transaction was rejected by user.';
+      } else if (err.message?.includes('insufficient funds')) {
+        errorMessage = 'Insufficient funds for gas fees.';
+      } else if (err.message?.includes('You can only mint NFTs for your own wallet')) {
+        errorMessage = err.message;
+      } else if (err.message) {
+        errorMessage = err.message;
+      }
+      
+      setMintError(errorMessage);
+      
+      toast({
+        title: "Minting Failed",
+        description: errorMessage,
+        variant: "destructive",
+      });
     } finally {
       setIsMinting(false);
     }
@@ -124,7 +220,6 @@ const EagerMintDialog = ({
     setMintError('');
     setIsMinting(false);
     setNftDescription('');
-    setHasMinted(false); // Reset for next check
     setTxHash(null);
   };
 
@@ -226,16 +321,29 @@ const EagerMintDialog = ({
                   </div>
                 </div>
 
+                {/* Mint Status */}
+                {isCheckingMintStatus && (
+                  <div className={`text-center text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                    <Loader2 className="w-4 h-4 animate-spin inline-block mr-2" />
+                    Checking mint status...
+                  </div>
+                )}
+
                 {/* Mint Button */}
                 <Button
                   onClick={handleEagerMint}
-                  disabled={isMinting || hasMinted || !nftName.trim()}
+                  disabled={isMinting || hasMinted || !nftName.trim() || isCheckingMintStatus}
                   className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed disabled:opacity-70 transition-all duration-200"
                 >
                   {isMinting ? (
                     <>
                       <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                       Minting...
+                    </>
+                  ) : hasMinted ? (
+                    <>
+                      <CheckCircle className="w-4 h-4 mr-2" />
+                      Already Minted
                     </>
                   ) : (
                     <>
@@ -244,6 +352,7 @@ const EagerMintDialog = ({
                     </>
                   )}
                 </Button>
+                
                 {hasMinted && (
                   <p className={`text-sm text-center ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
                     You have already minted an NFT for this score.
