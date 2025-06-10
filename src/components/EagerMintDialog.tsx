@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -8,6 +7,18 @@ import { ethers, BrowserProvider, Contract } from 'ethers';
 import { uploadToIPFS } from '@/utils/pinata';
 import ReputationArtNFT from '@/abis/ReputationArtNFT.json';
 import { useToast } from "@/hooks/use-toast";
+
+interface EthereumProvider {
+  request: (args: { method: string; params?: any[] }) => Promise<any>;
+  on?: (eventName: string, handler: (...args: any[]) => void) => void;
+  removeListener?: (eventName: string, handler: (...args: any[]) => void) => void;
+}
+
+declare global {
+  interface Window {
+    ethereum?: EthereumProvider;
+  }
+}
 
 interface EagerMintDialogProps {
   walletAddress: string;
@@ -76,7 +87,7 @@ const EagerMintDialog = ({
         return;
       }
 
-      const provider = new BrowserProvider(window.ethereum as unknown as { request: (args: { method: string; params?: any[] }) => Promise<any> });
+      const provider = new BrowserProvider(window.ethereum);
       const network = await provider.getNetwork();
       const chainId = `0x${network.chainId.toString(16)}`;
       setCurrentChainId(chainId);
@@ -152,7 +163,7 @@ const EagerMintDialog = ({
         return false;
       }
 
-      const provider = new BrowserProvider(window.ethereum as unknown as { request: (args: { method: string; params?: any[] }) => Promise<any> });
+      const provider = new BrowserProvider(window.ethereum);
       const contract = new Contract(contractAddress, ReputationArtNFT, provider);
       
       console.log('Contract created, calling hasMinted...');
@@ -205,7 +216,7 @@ const EagerMintDialog = ({
         throw new Error('Please switch to Monad Testnet to mint NFTs.');
       }
 
-      const provider = new BrowserProvider(window.ethereum as unknown as { request: (args: { method: string; params?: any[] }) => Promise<any> });
+      const provider = new BrowserProvider(window.ethereum);
       
       // Request account access
       await provider.send("eth_requestAccounts", []);
