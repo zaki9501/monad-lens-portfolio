@@ -280,25 +280,9 @@ const PortfolioOverview = ({ walletAddress }: PortfolioOverviewProps) => {
             </div>
           </CardContent>
         </Card>
-
-        {/* Portfolio Performance */}
-        <Card className="bg-slate-800/50 border-slate-700">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-gray-400 text-sm font-medium">Performance</p>
-                <p className="text-2xl font-bold text-green-400">+24.5%</p>
-                <p className="text-gray-400 text-sm mt-1">Since testnet</p>
-              </div>
-              <div className="w-10 h-10 bg-gradient-to-r from-orange-500 to-red-500 rounded-lg flex items-center justify-center">
-                <BarChart3 className="w-5 h-5 text-white" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
       </div>
 
-      {/* Second row with additional metrics */}
+      {/* Second row with additional metrics - removed Performance card */}
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
         {/* Wallet Health */}
         <Card className="bg-slate-800/50 border-slate-700">
