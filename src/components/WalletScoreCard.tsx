@@ -346,15 +346,12 @@ const WalletScoreCard = ({
 
   const handleArtGeneratorToggle = () => {
     if (!connectedWallet && onWalletConnect) {
+      // If no wallet is connected, trigger wallet connection
       onWalletConnect();
       return;
     }
     
-    if (!isOwner) {
-      alert('You can only mint NFTs for wallets you own. Please connect the wallet you want to mint for.');
-      return;
-    }
-    
+    // Allow viewing the art regardless of ownership
     setShowArtGenerator(!showArtGenerator);
   };
 
@@ -382,17 +379,12 @@ const WalletScoreCard = ({
                 {!connectedWallet ? (
                   <>
                     <Wallet className="w-4 h-4 mr-2" />
-                    Connect to Mint
-                  </>
-                ) : !isOwner ? (
-                  <>
-                    <AlertTriangle className="w-4 h-4 mr-2" />
-                    Owner Only
+                    Connect to View Art
                   </>
                 ) : (
                   <>
                     <Palette className="w-4 h-4 mr-2" />
-                    {showArtGenerator ? 'Hide Art' : 'Generate Art'}
+                    {showArtGenerator ? 'Hide Art' : 'View Reputation Art'}
                   </>
                 )}
               </Button>
@@ -574,8 +566,8 @@ const WalletScoreCard = ({
         </CardContent>
       </Card>
 
-      {/* Art Generator - Only show for wallet owners */}
-      {showArtGenerator && !loading && !error && !isEmpty && metrics && scoreBreakdown && isOwner && connectedWallet && (
+      {/* Art Generator - Show for anyone, but only allow minting for owners */}
+      {showArtGenerator && !loading && !error && !isEmpty && metrics && scoreBreakdown && (
         <ReputationArtGenerator 
           walletAddress={walletAddress}
           overallScore={overallScore}
@@ -583,6 +575,9 @@ const WalletScoreCard = ({
           scoreBreakdown={scoreBreakdown}
           isDarkMode={isDarkMode}
           isLoreMode={isLoreMode}
+          isOwner={isOwner} // Pass isOwner prop to ReputationArtGenerator
+          connectedWallet={connectedWallet} // Pass connectedWallet prop
+          onWalletConnect={onWalletConnect} // Pass wallet connect function
         />
       )}
     </div>

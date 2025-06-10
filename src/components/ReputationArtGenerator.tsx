@@ -2,7 +2,7 @@
 import React, { useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Download, Palette, Sparkles } from "lucide-react";
+import { Download, Palette, Sparkles, AlertTriangle, Wallet } from "lucide-react";
 
 import EagerMintDialog from "@/components/EagerMintDialog";
 
@@ -29,6 +29,9 @@ interface ReputationArtProps {
   };
   isDarkMode?: boolean;
   isLoreMode?: boolean;
+  isOwner?: boolean;  // New prop
+  connectedWallet?: string;  // New prop
+  onWalletConnect?: () => void;  // New prop
 }
 
 const ReputationArtGenerator = ({ 
@@ -37,7 +40,10 @@ const ReputationArtGenerator = ({
   metrics, 
   scoreBreakdown, 
   isDarkMode = true,
-  isLoreMode = false 
+  isLoreMode = false,
+  isOwner = false,
+  connectedWallet,
+  onWalletConnect
 }: ReputationArtProps) => {
 
   const artData = useMemo(() => {
@@ -182,6 +188,12 @@ const ReputationArtGenerator = ({
     link.click();
     
     URL.revokeObjectURL(url);
+  };
+
+  const handleConnectWallet = () => {
+    if (onWalletConnect) {
+      onWalletConnect();
+    }
   };
 
   return (
@@ -440,14 +452,41 @@ const ReputationArtGenerator = ({
                 Download Masterpiece
               </Button>
               
-              <EagerMintDialog
-                walletAddress={walletAddress}
-                overallScore={overallScore}
-                artData={artData}
-                isDarkMode={isDarkMode}
-                isLoreMode={isLoreMode}
-              />
+              {!connectedWallet ? (
+                <Button
+                  onClick={handleConnectWallet}
+                  className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white"
+                >
+                  <Wallet className="w-4 h-4 mr-2" />
+                  Connect to Mint NFT
+                </Button>
+              ) : !isOwner ? (
+                <Button
+                  disabled
+                  variant="outline"
+                  className="bg-gradient-to-r from-gray-600 to-gray-700 cursor-not-allowed"
+                >
+                  <AlertTriangle className="w-4 h-4 mr-2" />
+                  Owner Only Minting
+                </Button>
+              ) : (
+                <EagerMintDialog
+                  walletAddress={walletAddress}
+                  overallScore={overallScore}
+                  artData={artData}
+                  isDarkMode={isDarkMode}
+                  isLoreMode={isLoreMode}
+                />
+              )}
             </div>
+
+            {/* Ownership Notice */}
+            {connectedWallet && !isOwner && (
+              <div className={`text-center text-sm ${isDarkMode ? 'text-amber-400' : 'text-amber-600'} p-2 rounded-lg bg-amber-500/10 border border-amber-500/20 max-w-md`}>
+                <AlertTriangle className="w-4 h-4 inline-block mr-1 mb-1" />
+                Only the owner of this wallet can mint this art as an NFT
+              </div>
+            )}
 
             {/* Enhanced Art Description */}
             <div className={`text-center max-w-lg text-sm ${
