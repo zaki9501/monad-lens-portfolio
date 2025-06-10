@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { TrendingUp, TrendingDown, DollarSign, PieChart, Activity, Wallet, Target, BarChart3 } from "lucide-react";
@@ -34,67 +33,92 @@ const PortfolioOverview = ({ walletAddress }: PortfolioOverviewProps) => {
     setLoading(true);
     setError(null);
     
-    Promise.all([
-      getAccountTokens(walletAddress),
-      getAccountNFTs(walletAddress, 1),
-      getAccountTransactions(walletAddress, 1000),
-      getAccountActivities(walletAddress, 1000)
-    ])
-      .then(async ([tokenData, nftData, txData, activityData]) => {
-        console.log("Token API response:", tokenData);
-        console.log("Transaction API response:", txData);
-        console.log("Activity API response:", activityData);
+    // Fetch data with proper error handling for each API call
+    const fetchData = async () => {
+      try {
+        console.log("Starting data fetch for wallet:", walletAddress);
         
-        // Process tokens
-        const tokensList = (tokenData?.result?.data || []).map(token => ({
-          ...token,
-          decimals: token.decimal,
-          token_address: token.contractAddress,
-          logo_url: token.imageURL,
-        }));
-        setTokens(tokensList);
+        // Try to fetch tokens first (most reliable)
+        let tokenData = null;
+        try {
+          tokenData = await getAccountTokens(walletAddress);
+          console.log("Token API response:", tokenData);
+          
+          if (tokenData?.result?.data) {
+            const tokensList = tokenData.result.data.map(token => ({
+              ...token,
+              decimals: token.decimal,
+              token_address: token.contractAddress,
+              logo_url: token.imageURL,
+            }));
+            setTokens(tokensList);
+            console.log("Processed tokens:", tokensList);
+          }
+        } catch (tokenError) {
+          console.error("Token fetch failed:", tokenError);
+        }
+
+        // Try to fetch NFTs
+        try {
+          const nftData = await getAccountNFTs(walletAddress, 1);
+          console.log("NFT API response:", nftData);
+          const nfts = nftData?.result?.data || [];
+          setNftCount(nfts.length);
+        } catch (nftError) {
+          console.error("NFT fetch failed:", nftError);
+          setNftCount(0);
+        }
+
+        // Try to fetch transactions and activities
+        let txTotal = 0;
+        let activityTotal = 0;
         
-        // Calculate total transactions from both sources
-        const transactions = txData?.result?.data || [];
-        const activities = activityData?.result?.data || [];
-        const txTotal = txData?.result?.total || transactions.length;
-        const activityTotal = activityData?.result?.total || activities.length;
-        const totalTx = Math.max(txTotal + activityTotal, transactions.length + activities.length);
-        setTotalTransactions(totalTx);
-        console.log("Total transactions calculated:", totalTx);
-        
-        // Process NFTs
-        const nfts = nftData?.result?.data || [];
-        setNftCount(nfts.length);
-        
-        // Calculate USD value (placeholder logic)
-        let total = 0;
-        for (const token of tokensList) {
-          let price = 0;
-          try {
-            if (token.priceUSD !== undefined) {
-              price = Number(token.priceUSD);
+        try {
+          const txData = await getAccountTransactions(walletAddress, 1000);
+          console.log("Transaction API response:", txData);
+          txTotal = txData?.result?.total || (txData?.result?.data?.length || 0);
+          console.log("Transaction total:", txTotal);
+        } catch (txError) {
+          console.error("Transaction fetch failed:", txError);
+        }
+
+        try {
+          const activityData = await getAccountActivities(walletAddress, 1000);
+          console.log("Activity API response:", activityData);
+          activityTotal = activityData?.result?.total || (activityData?.result?.data?.length || 0);
+          console.log("Activity total:", activityTotal);
+        } catch (actError) {
+          console.error("Activity fetch failed:", actError);
+        }
+
+        // Set total transactions (use the maximum of both sources)
+        const finalTxTotal = Math.max(txTotal, activityTotal, txTotal + activityTotal);
+        setTotalTransactions(finalTxTotal);
+        console.log("Final transaction count:", finalTxTotal);
+
+        // Calculate USD value if token data is available
+        if (tokenData?.result?.data) {
+          let total = 0;
+          tokenData.result.data.forEach(token => {
+            const price = Number(token.priceUSD || 0);
+            const balance = Number(token.balance || 0);
+            const decimals = Number(token.decimal || 18);
+            if (!isNaN(balance) && !isNaN(decimals)) {
+              total += (balance / 10 ** decimals) * price;
             }
-          } catch (e) {
-            price = 0;
-          }
-          const balance = Number(token.balance ?? 0);
-          const decimals = Number(token.decimals ?? 18);
-          if (!isNaN(balance) && !isNaN(decimals)) {
-            total += (balance / 10 ** decimals) * price;
-          }
+          });
+          setUsdValue(total);
         }
-        setUsdValue(total);
-      })
-      .catch((err) => {
-        console.error("API error:", err);
-        if (err.message && err.message.includes("429")) {
-          setError("Rate limit exceeded. Please try again later.");
-        } else {
-          setError("Failed to load portfolio data");
-        }
-      })
-      .finally(() => setLoading(false));
+
+      } catch (generalError) {
+        console.error("General API error:", generalError);
+        setError("Failed to load some portfolio data. Some features may show partial information.");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
   }, [walletAddress]);
 
   const totalBalance = typeof usdValue === 'number' && !isNaN(usdValue)
@@ -107,18 +131,15 @@ const PortfolioOverview = ({ walletAddress }: PortfolioOverviewProps) => {
         return sum + (balance / 10 ** decimals) * price;
       }, 0);
 
-  // Sort tokens by USD value (or balance if price is missing)
   const sortedTokens = [...tokens].sort((a, b) => {
-    // Priority sort
     const aPriority = PRIORITY_TOKENS.indexOf(a.symbol);
     const bPriority = PRIORITY_TOKENS.indexOf(b.symbol);
     if (aPriority !== -1 && bPriority !== -1) {
-      return aPriority - bPriority; // both are priority, keep their order
+      return aPriority - bPriority;
     }
-    if (aPriority !== -1) return -1; // a is priority, comes first
-    if (bPriority !== -1) return 1;  // b is priority, comes first
+    if (aPriority !== -1) return -1;
+    if (bPriority !== -1) return 1;
 
-    // Otherwise, sort by USD value
     const aValue = (Number(a.balance) / 10 ** Number(a.decimals)) * (a.priceUSD ? Number(a.priceUSD) : 1);
     const bValue = (Number(b.balance) / 10 ** Number(b.decimals)) * (b.priceUSD ? Number(b.priceUSD) : 1);
     return bValue - aValue;
@@ -148,7 +169,7 @@ const PortfolioOverview = ({ walletAddress }: PortfolioOverviewProps) => {
           </CardContent>
         </Card>
 
-        {/* Active Tokens */}
+        {/* Active Tokens - Fixed to show actual count */}
         <Card className="bg-slate-800/50 border-slate-700">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
@@ -232,7 +253,7 @@ const PortfolioOverview = ({ walletAddress }: PortfolioOverviewProps) => {
           </CardContent>
         </Card>
 
-        {/* Transaction Volume - Now uses real data */}
+        {/* Transaction Volume - Now shows actual count */}
         <Card className="bg-slate-800/50 border-slate-700">
           <CardContent className="p-6 text-center">
             <div className="w-12 h-12 bg-gradient-to-r from-cyan-500 to-blue-500 rounded-lg flex items-center justify-center mx-auto mb-4">
@@ -241,10 +262,11 @@ const PortfolioOverview = ({ walletAddress }: PortfolioOverviewProps) => {
             <p className="text-2xl font-bold text-white">{totalTransactions}</p>
             <p className="text-gray-400 text-sm">Total Transactions</p>
             <p className="text-cyan-400 text-xs mt-1">On Monad</p>
+            {error && <p className="text-red-400 text-xs mt-1">Partial data</p>}
           </CardContent>
         </Card>
 
-        {/* DeFi Positions - Removed the hardcoded number */}
+        {/* DeFi Positions */}
         <Card className="bg-slate-800/50 border-slate-700">
           <CardContent className="p-6 text-center">
             <div className="w-12 h-12 bg-gradient-to-r from-violet-500 to-purple-500 rounded-lg flex items-center justify-center mx-auto mb-4">
