@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Sparkles, Loader2, CheckCircle, AlertCircle, Coins, Zap } from "lucide-react";
+import { Sparkles, Loader2, CheckCircle, AlertCircle, Coins, Zap, Network } from "lucide-react";
 import { ethers, BrowserProvider, Contract } from 'ethers';
 import { uploadToIPFS } from '@/utils/pinata';
 import ReputationArtNFT from '@/abis/ReputationArtNFT.json';
@@ -23,6 +23,18 @@ interface EagerMintDialogProps {
   isLoreMode?: boolean;
 }
 
+const MONAD_TESTNET = {
+  chainId: '0x278F', // 10143 in hex
+  chainName: 'Monad Testnet',
+  rpcUrls: ['https://testnet-rpc.monad.xyz'],
+  nativeCurrency: {
+    name: 'MON',
+    symbol: 'MON',
+    decimals: 18,
+  },
+  blockExplorerUrls: ['https://testnet-explorer.monad.xyz'],
+};
+
 const EagerMintDialog = ({ 
   walletAddress, 
   overallScore, 
@@ -40,6 +52,8 @@ const EagerMintDialog = ({
   const [hasMinted, setHasMinted] = useState(false);
   const [txHash, setTxHash] = useState<string | null>(null);
   const [isCheckingMintStatus, setIsCheckingMintStatus] = useState(false);
+  const [currentChainId, setCurrentChainId] = useState<string | null>(null);
+  const [isCheckingNetwork, setIsCheckingNetwork] = useState(false);
   const { toast } = useToast();
 
   const contractAddress = "0x4ba16060a00d0e0939cb69e46846fbee30f7c847";
@@ -53,6 +67,73 @@ const EagerMintDialog = ({
 
   const { rarity, price, color } = getRarityAndPrice();
 
+  // Check current network
+  const checkCurrentNetwork = async () => {
+    setIsCheckingNetwork(true);
+    try {
+      if (!window.ethereum) {
+        setCurrentChainId(null);
+        return;
+      }
+
+      const provider = new BrowserProvider(window.ethereum as unknown as { request: (args: { method: string; params?: any[] }) => Promise<any> });
+      const network = await provider.getNetwork();
+      const chainId = `0x${network.chainId.toString(16)}`;
+      setCurrentChainId(chainId);
+      console.log('Current network chain ID:', chainId);
+    } catch (error) {
+      console.error('Failed to check network:', error);
+      setCurrentChainId(null);
+    } finally {
+      setIsCheckingNetwork(false);
+    }
+  };
+
+  // Switch to Monad testnet
+  const switchToMonadTestnet = async () => {
+    try {
+      if (!window.ethereum) {
+        throw new Error('Please install MetaMask or connect a wallet.');
+      }
+
+      console.log('Attempting to switch to Monad testnet...');
+
+      // First try to switch to the network
+      try {
+        await window.ethereum.request({
+          method: 'wallet_switchEthereumChain',
+          params: [{ chainId: MONAD_TESTNET.chainId }],
+        });
+      } catch (switchError: any) {
+        // This error code indicates that the chain has not been added to MetaMask
+        if (switchError.code === 4902) {
+          console.log('Network not found, adding Monad testnet...');
+          await window.ethereum.request({
+            method: 'wallet_addEthereumChain',
+            params: [MONAD_TESTNET],
+          });
+        } else {
+          throw switchError;
+        }
+      }
+
+      await checkCurrentNetwork();
+      
+      toast({
+        title: "Network Switched",
+        description: "Successfully switched to Monad Testnet",
+      });
+
+    } catch (error: any) {
+      console.error('Failed to switch network:', error);
+      toast({
+        title: "Network Switch Failed",
+        description: error.message || 'Failed to switch to Monad Testnet',
+        variant: "destructive",
+      });
+    }
+  };
+
   const checkMintedStatus = async () => {
     setIsCheckingMintStatus(true);
     try {
@@ -64,12 +145,18 @@ const EagerMintDialog = ({
         return false;
       }
 
+      // Ensure we're on the correct network first
+      if (currentChainId !== MONAD_TESTNET.chainId) {
+        console.log('Not on Monad testnet, cannot check mint status');
+        setHasMinted(false);
+        return false;
+      }
+
       const provider = new BrowserProvider(window.ethereum as unknown as { request: (args: { method: string; params?: any[] }) => Promise<any> });
       const contract = new Contract(contractAddress, ReputationArtNFT, provider);
       
       console.log('Contract created, calling hasMinted...');
       
-      // Try the contract call with better error handling
       try {
         const minted = await contract.hasMinted(walletAddress, overallScore);
         console.log('hasMinted result:', minted);
@@ -77,16 +164,11 @@ const EagerMintDialog = ({
         return minted;
       } catch (contractError: any) {
         console.log('Contract call failed, this might be normal if the method doesnt exist:', contractError);
-        
-        // If the contract call fails, assume not minted and allow the user to try
-        // This could happen if the contract doesn't have the hasMinted method
         setHasMinted(false);
         return false;
       }
     } catch (err: any) {
       console.error('Failed to check minted status:', err);
-      
-      // Don't show error for mint status check failure, just assume not minted
       setHasMinted(false);
       return false;
     } finally {
@@ -96,9 +178,15 @@ const EagerMintDialog = ({
 
   useEffect(() => {
     if (isOpen) {
+      checkCurrentNetwork();
+    }
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (isOpen && currentChainId === MONAD_TESTNET.chainId) {
       checkMintedStatus();
     }
-  }, [isOpen, walletAddress, overallScore]);
+  }, [isOpen, walletAddress, overallScore, currentChainId]);
 
   const handleEagerMint = async () => {
     setIsMinting(true);
@@ -110,6 +198,11 @@ const EagerMintDialog = ({
       
       if (!window.ethereum) {
         throw new Error('Please install MetaMask or connect a wallet.');
+      }
+
+      // Check if we're on the correct network
+      if (currentChainId !== MONAD_TESTNET.chainId) {
+        throw new Error('Please switch to Monad Testnet to mint NFTs.');
       }
 
       const provider = new BrowserProvider(window.ethereum as unknown as { request: (args: { method: string; params?: any[] }) => Promise<any> });
@@ -199,6 +292,8 @@ const EagerMintDialog = ({
         errorMessage = 'Insufficient funds for gas fees.';
       } else if (err.message?.includes('You can only mint NFTs for your own wallet')) {
         errorMessage = err.message;
+      } else if (err.message?.includes('Please switch to Monad Testnet')) {
+        errorMessage = err.message;
       } else if (err.message) {
         errorMessage = err.message;
       }
@@ -222,6 +317,8 @@ const EagerMintDialog = ({
     setNftDescription('');
     setTxHash(null);
   };
+
+  const isOnCorrectNetwork = currentChainId === MONAD_TESTNET.chainId;
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => {
@@ -252,6 +349,38 @@ const EagerMintDialog = ({
         </DialogHeader>
         
         <div className="space-y-6 p-4">
+          {/* Network Status */}
+          {!isCheckingNetwork && (
+            <div className={`p-3 rounded-lg border ${
+              isOnCorrectNetwork 
+                ? 'bg-green-500/10 border-green-500/30 text-green-400'
+                : 'bg-orange-500/10 border-orange-500/30 text-orange-400'
+            }`}>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                  <Network className="w-4 h-4" />
+                  <span className="text-sm font-medium">
+                    {isOnCorrectNetwork ? 'Monad Testnet' : 'Wrong Network'}
+                  </span>
+                </div>
+                {!isOnCorrectNetwork && (
+                  <Button
+                    size="sm"
+                    onClick={switchToMonadTestnet}
+                    className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
+                  >
+                    Switch Network
+                  </Button>
+                )}
+              </div>
+              {!isOnCorrectNetwork && (
+                <p className="text-xs mt-1 opacity-80">
+                  You need to be on Monad Testnet to mint NFTs
+                </p>
+              )}
+            </div>
+          )}
+
           {!mintSuccess && !mintError && (
             <>
               {/* NFT Preview */}
@@ -332,7 +461,7 @@ const EagerMintDialog = ({
                 {/* Mint Button */}
                 <Button
                   onClick={handleEagerMint}
-                  disabled={isMinting || hasMinted || !nftName.trim() || isCheckingMintStatus}
+                  disabled={isMinting || hasMinted || !nftName.trim() || isCheckingMintStatus || !isOnCorrectNetwork}
                   className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed disabled:opacity-70 transition-all duration-200"
                 >
                   {isMinting ? (
@@ -344,6 +473,11 @@ const EagerMintDialog = ({
                     <>
                       <CheckCircle className="w-4 h-4 mr-2" />
                       Already Minted
+                    </>
+                  ) : !isOnCorrectNetwork ? (
+                    <>
+                      <Network className="w-4 h-4 mr-2" />
+                      Switch to Monad Testnet
                     </>
                   ) : (
                     <>
