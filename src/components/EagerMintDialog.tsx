@@ -224,6 +224,36 @@ const EagerMintDialog = ({
     }
   }, [isOpen, walletAddress, overallScore, currentChainId]);
 
+  const checkTokenMetadata = async (contract: Contract, tokenId: number) => {
+    try {
+      // Check if contract supports ERC721Metadata
+      const supportsInterface = await contract.supportsInterface('0x5b5e139f');
+      console.log('Supports ERC721Metadata:', supportsInterface);
+
+      // Get token URI
+      const tokenURI = await contract.tokenURI(tokenId);
+      console.log('Token URI:', tokenURI);
+
+      // Get art metadata
+      const metadata = await contract.artMetadata(tokenId);
+      console.log('Stored Art Metadata:', {
+        score: metadata.score.toString(),
+        totalTransactions: metadata.totalTransactions.toString(),
+        diversityScore: metadata.diversityScore.toString(),
+        ipfsHash: metadata.ipfsHash
+      });
+
+      return {
+        supportsInterface,
+        tokenURI,
+        metadata
+      };
+    } catch (error) {
+      console.error('Error checking token metadata:', error);
+      return null;
+    }
+  };
+
   const handleEagerMint = async () => {
     setIsMinting(true);
     setMintError('');
@@ -273,15 +303,12 @@ const EagerMintDialog = ({
       console.log('Creating contract instance for minting...');
       const contract = new Contract(contractAddress, ReputationArtNFT, signer);
       
-      // Use just the hash without duplicate ipfs:// prefix
-      const tokenURI = `ipfs://${ipfsHash}`;
-      
       console.log('Calling mintArt with params:', {
         recipient: walletAddress,
         score: overallScore,
         totalTransactions: metrics.totalTransactions,
         diversityScore: metrics.diversityScore,
-        tokenURI: tokenURI
+        ipfsHash: ipfsHash,
       });
 
       toast({
@@ -294,7 +321,7 @@ const EagerMintDialog = ({
         overallScore,
         metrics.totalTransactions,
         metrics.diversityScore,
-        tokenURI,
+        ipfsHash,
         { gasLimit: 5000000 }
       );
       
@@ -310,31 +337,18 @@ const EagerMintDialog = ({
       if (receipt) {
         setTxHash(receipt.hash);
         
-        // Extract token ID from logs for better tracking
-        const transferLog = receipt.logs.find(log => log.topics[0] === '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef');
-        if (transferLog) {
-          const tokenId = parseInt(transferLog.topics[3], 16);
-          console.log('Minted Token ID:', tokenId);
+        // Get the token ID from the Transfer event
+        const transferEvent = receipt.logs.find(
+          (log: any) => log.fragment?.name === 'Transfer'
+        );
+        
+        if (transferEvent) {
+          const tokenId = transferEvent.args[2];
+          console.log('Minted Token ID:', tokenId.toString());
           
-          // Test the tokenURI and metadata
-          try {
-            const supportsInterface = await contract["supportsInterface"]('0x5b5e139f');
-            console.log('Supports ERC721Metadata:', supportsInterface);
-            
-            const tokenURIResult = await contract["tokenURI"](tokenId);
-            console.log('Token URI:', tokenURIResult);
-            
-            const metadata = await contract["getArtMetadata"](walletAddress, overallScore);
-            console.log('Stored Art Metadata:', metadata);
-            
-            console.log('Token Metadata Check:', {
-              supportsInterface,
-              tokenURI: tokenURIResult,
-              metadata
-            });
-          } catch (metadataError) {
-            console.error('Error checking metadata:', metadataError);
-          }
+          // Check token metadata
+          const metadataCheck = await checkTokenMetadata(contract, tokenId);
+          console.log('Token Metadata Check:', metadataCheck);
         }
       }
 
