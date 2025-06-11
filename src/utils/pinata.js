@@ -1,6 +1,30 @@
 
 import axios from 'axios';
 
+// Function to convert SVG to PNG
+const svgToPng = (svgElement, width = 800, height = 800) => {
+  return new Promise((resolve) => {
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    canvas.width = width;
+    canvas.height = height;
+    
+    const svgData = new XMLSerializer().serializeToString(svgElement);
+    const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
+    const url = URL.createObjectURL(svgBlob);
+    
+    const img = new Image();
+    img.onload = () => {
+      ctx.drawImage(img, 0, 0, width, height);
+      canvas.toBlob((blob) => {
+        URL.revokeObjectURL(url);
+        resolve(blob);
+      }, 'image/png', 1.0);
+    };
+    img.src = url;
+  });
+};
+
 export const uploadToIPFS = async (walletAddress, overallScore, metrics, artData, svgElement) => {
   try {
     console.log('Starting IPFS upload process...');
@@ -12,10 +36,10 @@ export const uploadToIPFS = async (walletAddress, overallScore, metrics, artData
       throw new Error('Pinata JWT token not found in environment variables');
     }
     
-    console.log('JWT token found, preparing SVG data...');
+    console.log('JWT token found, converting SVG to PNG...');
     
-    // Get SVG content
-    const svgData = new XMLSerializer().serializeToString(svgElement);
+    // Convert SVG to PNG
+    const pngBlob = await svgToPng(svgElement, 800, 800);
     
     // Create metadata
     const metadata = {
@@ -29,30 +53,30 @@ export const uploadToIPFS = async (walletAddress, overallScore, metrics, artData
         { trait_type: "First Transaction Age", value: metrics.firstTransactionAge },
         { trait_type: "Wallet Address", value: walletAddress }
       ],
-      image: "", // Will be filled after SVG upload
+      image: "", // Will be filled after PNG upload
       external_url: `https://monadmindscope.com/wallet/${walletAddress}`
     };
     
-    // Create FormData for SVG upload
-    const svgFormData = new FormData();
-    const svgBlob = new Blob([svgData], { type: 'image/svg+xml' });
-    svgFormData.append('file', svgBlob, `reputation-art-${walletAddress.slice(0, 8)}.svg`);
+    // Create FormData for PNG upload
+    const imageFormData = new FormData();
+    imageFormData.append('file', pngBlob, `reputation-art-${walletAddress.slice(0, 8)}.png`);
     
-    const svgPinataMetadata = JSON.stringify({
-      name: `reputation-art-${walletAddress.slice(0, 8)}.svg`,
+    const imagePinataMetadata = JSON.stringify({
+      name: `reputation-art-${walletAddress.slice(0, 8)}.png`,
       keyvalues: {
         walletAddress: walletAddress,
-        score: overallScore.toString()
+        score: overallScore.toString(),
+        type: 'image'
       }
     });
-    svgFormData.append('pinataMetadata', svgPinataMetadata);
+    imageFormData.append('pinataMetadata', imagePinataMetadata);
     
-    console.log('Uploading SVG to IPFS...');
+    console.log('Uploading PNG image to IPFS...');
     
-    // Upload SVG to IPFS
-    const svgResponse = await axios.post(
+    // Upload PNG to IPFS
+    const imageResponse = await axios.post(
       'https://api.pinata.cloud/pinning/pinFileToIPFS',
-      svgFormData,
+      imageFormData,
       {
         headers: {
           'Content-Type': 'multipart/form-data',
@@ -61,11 +85,11 @@ export const uploadToIPFS = async (walletAddress, overallScore, metrics, artData
       }
     );
     
-    const svgHash = svgResponse.data.IpfsHash;
-    console.log('SVG uploaded successfully:', svgHash);
+    const imageHash = imageResponse.data.IpfsHash;
+    console.log('PNG uploaded successfully:', imageHash);
     
     // Update metadata with image URL
-    metadata.image = `ipfs://${svgHash}`;
+    metadata.image = `ipfs://${imageHash}`;
     
     // Create FormData for metadata upload
     const metadataFormData = new FormData();
