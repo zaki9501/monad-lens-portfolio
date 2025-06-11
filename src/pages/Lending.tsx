@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,15 +8,15 @@ import { useNavigate } from "react-router-dom";
 import SearchBar from "@/components/SearchBar";
 import { usePrivy } from "@privy-io/react-auth";
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
-
 const CopyAddressButton = ({
   address
 }: {
   address: string;
 }) => {
   const [copied, setCopied] = useState(false);
-  const { toast } = useToast();
-  
+  const {
+    toast
+  } = useToast();
   const handleCopy = async () => {
     try {
       await navigator.clipboard.writeText(address);
@@ -34,9 +33,7 @@ const CopyAddressButton = ({
       });
     }
   };
-  
-  return (
-    <TooltipProvider>
+  return <TooltipProvider>
       <Tooltip>
         <TooltipTrigger asChild>
           <Button variant="ghost" size="sm" onClick={handleCopy} className="h-6 w-6 p-0 text-gray-400 hover:text-white">
@@ -47,13 +44,19 @@ const CopyAddressButton = ({
           {copied ? "Copied!" : "Copy to clipboard"}
         </TooltipContent>
       </Tooltip>
-    </TooltipProvider>
-  );
+    </TooltipProvider>;
 };
-
 const Lending = () => {
-  const { login, logout, authenticated, user, ready } = usePrivy();
-  const { toast } = useToast();
+  const {
+    login,
+    logout,
+    authenticated,
+    user,
+    ready
+  } = usePrivy();
+  const {
+    toast
+  } = useToast();
   const navigate = useNavigate();
 
   // Redirect to portfolio when wallet is connected
@@ -62,14 +65,11 @@ const Lending = () => {
       navigate(`/?wallet=${user.wallet.address}`);
     }
   }, [authenticated, user?.wallet?.address, navigate]);
-
   const handleWalletSelect = (address: string) => {
     // Navigate to home page with the selected wallet address as a query parameter
     navigate(`/?wallet=${address}`);
   };
-
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
+  return <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
       {/* Header */}
       <header className="border-b border-purple-800/30 bg-slate-900/50 backdrop-blur-sm">
         <div className="container mx-auto px-4 py-4">
@@ -78,14 +78,13 @@ const Lending = () => {
               <div className="w-8 h-8 bg-gradient-to-r from-purple-500 to-blue-500 rounded-lg flex items-center justify-center animate-pulse">
                 <DollarSign className="w-5 h-5 text-white" />
               </div>
-              <h1 className="text-2xl font-bold text-white">Monad Explorer</h1>
+              <h1 className="text-2xl font-bold text-white">Monad lens</h1>
               <Badge variant="outline" className="border-purple-500 text-purple-300">
                 Testnet
               </Badge>
             </div>
             
-            {authenticated && user?.wallet?.address ? (
-              <div className="flex items-center space-x-3">
+            {authenticated && user?.wallet?.address ? <div className="flex items-center space-x-3">
                 <div className="flex items-center space-x-2 bg-slate-800/50 rounded-lg px-3 py-2">
                   <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
                   <span className="text-sm text-gray-300">
@@ -93,23 +92,13 @@ const Lending = () => {
                   </span>
                   <CopyAddressButton address={user.wallet.address} />
                 </div>
-                <Button
-                  variant="outline"
-                  onClick={logout}
-                  className="border-red-500 text-red-400 hover:bg-red-500/10"
-                >
+                <Button variant="outline" onClick={logout} className="border-red-500 text-red-400 hover:bg-red-500/10">
                   Disconnect
                 </Button>
-              </div>
-            ) : (
-              <Button
-                onClick={login}
-                className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 animate-scale-in"
-              >
+              </div> : <Button onClick={login} className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 animate-scale-in">
                 <Wallet className="w-4 h-4 mr-2" />
                 Connect Wallet
-              </Button>
-            )}
+              </Button>}
           </div>
         </div>
       </header>
@@ -118,7 +107,7 @@ const Lending = () => {
       <section className="container mx-auto px-4 py-20">
         <div className="text-center mb-16 animate-fade-in">
           <h1 className="text-7xl font-bold text-white mb-6">
-            Welcome to <span className="bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent">Monad Explorer</span>
+            Welcome to <span className="bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent">Monad Lens</span>
           </h1>
           <p className="text-2xl text-gray-300 mb-12 max-w-4xl mx-auto">
             The ultimate tool for exploring wallets, analyzing DApps, and visualizing transactions on the Monad Testnet. 
@@ -145,7 +134,9 @@ const Lending = () => {
             </CardHeader>
           </Card>
 
-          <Card className="bg-slate-800/50 border-slate-700 hover:border-purple-500/50 transition-all duration-300 group hover-scale animate-fade-in" style={{ animationDelay: '150ms' }}>
+          <Card className="bg-slate-800/50 border-slate-700 hover:border-purple-500/50 transition-all duration-300 group hover-scale animate-fade-in" style={{
+          animationDelay: '150ms'
+        }}>
             <CardHeader>
               <div className="w-16 h-16 bg-gradient-to-r from-green-500 to-teal-500 rounded-lg flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
                 <TrendingUp className="w-8 h-8 text-white" />
@@ -157,7 +148,9 @@ const Lending = () => {
             </CardHeader>
           </Card>
 
-          <Card className="bg-slate-800/50 border-slate-700 hover:border-purple-500/50 transition-all duration-300 group hover-scale animate-fade-in" style={{ animationDelay: '300ms' }}>
+          <Card className="bg-slate-800/50 border-slate-700 hover:border-purple-500/50 transition-all duration-300 group hover-scale animate-fade-in" style={{
+          animationDelay: '300ms'
+        }}>
             <CardHeader>
               <div className="w-16 h-16 bg-gradient-to-r from-orange-500 to-red-500 rounded-lg flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
                 <Zap className="w-8 h-8 text-white" />
@@ -172,13 +165,29 @@ const Lending = () => {
 
         {/* Stats Section */}
         <div className="grid gap-6 md:grid-cols-4 mb-20">
-          {[
-            { label: "Wallets Analyzed", value: "15,847", icon: Users, color: "from-blue-500 to-purple-500" },
-            { label: "Transactions Tracked", value: "2.3M", icon: TrendingUp, color: "from-green-500 to-teal-500" },
-            { label: "DApps Monitored", value: "124", icon: Shield, color: "from-orange-500 to-red-500" },
-            { label: "Active Users", value: "3,291", icon: DollarSign, color: "from-purple-500 to-pink-500" }
-          ].map((stat, index) => (
-            <Card key={stat.label} className="bg-slate-800/50 border-slate-700 hover:border-purple-500/50 transition-all duration-300 animate-fade-in hover-scale" style={{ animationDelay: `${index * 100}ms` }}>
+          {[{
+          label: "Wallets Analyzed",
+          value: "15,847",
+          icon: Users,
+          color: "from-blue-500 to-purple-500"
+        }, {
+          label: "Transactions Tracked",
+          value: "2.3M",
+          icon: TrendingUp,
+          color: "from-green-500 to-teal-500"
+        }, {
+          label: "DApps Monitored",
+          value: "124",
+          icon: Shield,
+          color: "from-orange-500 to-red-500"
+        }, {
+          label: "Active Users",
+          value: "3,291",
+          icon: DollarSign,
+          color: "from-purple-500 to-pink-500"
+        }].map((stat, index) => <Card key={stat.label} className="bg-slate-800/50 border-slate-700 hover:border-purple-500/50 transition-all duration-300 animate-fade-in hover-scale" style={{
+          animationDelay: `${index * 100}ms`
+        }}>
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
                   <div>
@@ -190,8 +199,7 @@ const Lending = () => {
                   </div>
                 </div>
               </CardContent>
-            </Card>
-          ))}
+            </Card>)}
         </div>
 
         {/* Key Features Section */}
@@ -205,34 +213,24 @@ const Lending = () => {
           <CardContent>
             <div className="grid gap-8 md:grid-cols-2">
               <div className="space-y-6">
-                {[
-                  "Comprehensive wallet reputation scoring",
-                  "Real-time transaction monitoring",
-                  "Advanced DApp interaction analytics",
-                  "Beautiful data visualizations"
-                ].map((feature, index) => (
-                  <div key={index} className="flex items-center space-x-3 animate-scale-in" style={{ animationDelay: `${index * 100}ms` }}>
+                {["Comprehensive wallet reputation scoring", "Real-time transaction monitoring", "Advanced DApp interaction analytics", "Beautiful data visualizations"].map((feature, index) => <div key={index} className="flex items-center space-x-3 animate-scale-in" style={{
+                animationDelay: `${index * 100}ms`
+              }}>
                     <div className="w-6 h-6 bg-gradient-to-r from-green-500 to-teal-500 rounded-full flex items-center justify-center">
                       <Check className="w-4 h-4 text-white" />
                     </div>
                     <span className="text-gray-300 text-lg">{feature}</span>
-                  </div>
-                ))}
+                  </div>)}
               </div>
               <div className="space-y-6">
-                {[
-                  "Lightning-fast Monad blockchain integration",
-                  "User-friendly interface design",
-                  "Detailed portfolio insights",
-                  "Export and sharing capabilities"
-                ].map((feature, index) => (
-                  <div key={index} className="flex items-center space-x-3 animate-scale-in" style={{ animationDelay: `${(index + 4) * 100}ms` }}>
+                {["Lightning-fast Monad blockchain integration", "User-friendly interface design", "Detailed portfolio insights", "Export and sharing capabilities"].map((feature, index) => <div key={index} className="flex items-center space-x-3 animate-scale-in" style={{
+                animationDelay: `${(index + 4) * 100}ms`
+              }}>
                     <div className="w-6 h-6 bg-gradient-to-r from-purple-500 to-blue-500 rounded-full flex items-center justify-center">
                       <Check className="w-4 h-4 text-white" />
                     </div>
                     <span className="text-gray-300 text-lg">{feature}</span>
-                  </div>
-                ))}
+                  </div>)}
               </div>
             </div>
           </CardContent>
@@ -242,20 +240,13 @@ const Lending = () => {
         <div className="mt-20 text-center">
           <div className="flex items-center justify-center space-x-3">
             <span className="text-gray-400 text-lg">Built by</span>
-            <a
-              href="https://x.com/Piki_eth"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center space-x-2 text-purple-400 hover:text-purple-300 transition-colors group"
-            >
+            <a href="https://x.com/Piki_eth" target="_blank" rel="noopener noreferrer" className="flex items-center space-x-2 text-purple-400 hover:text-purple-300 transition-colors group">
               <span className="text-xl font-bold">Piki</span>
               <X className="w-5 h-5 group-hover:scale-110 transition-transform" />
             </a>
           </div>
         </div>
       </section>
-    </div>
-  );
+    </div>;
 };
-
 export default Lending;
