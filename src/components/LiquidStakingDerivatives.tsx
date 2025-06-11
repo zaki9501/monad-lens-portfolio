@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Coins, TrendingUp, ExternalLink, RefreshCw } from "lucide-react";
-import { getTokenGating } from "@/lib/blockvision";
+import { getAccountTokens } from "@/lib/blockvision";
 import { Button } from "@/components/ui/button";
 
 interface LSDProps {
@@ -73,20 +73,39 @@ const LiquidStakingDerivatives = ({ walletAddress }: LSDProps) => {
     setError(null);
     
     try {
-      const stakingPromises = STAKING_PLATFORMS.map(async (platform) => {
-        try {
-          const response = await getTokenGating(walletAddress, platform.contractAddress);
-          const balance = response?.balance || "0";
-          const balanceFormatted = parseFloat(balance) / 1e18;
+      console.log("Fetching account tokens for LSD analysis...");
+      
+      // Get all tokens for the wallet
+      const response = await getAccountTokens(walletAddress);
+      const tokens = response?.result?.data || [];
+      
+      console.log("Account tokens:", tokens);
+      
+      // Map each platform to check if user has their LST
+      const stakingResults = STAKING_PLATFORMS.map((platform) => {
+        // Find the token that matches this platform's contract address
+        const token = tokens.find(t => 
+          t.contractAddress.toLowerCase() === platform.contractAddress.toLowerCase()
+        );
+        
+        if (token) {
+          const balance = token.balance || "0";
+          const balanceFormatted = parseFloat(balance);
+          
+          console.log(`Found ${platform.tokenSymbol}:`, {
+            balance,
+            balanceFormatted,
+            token
+          });
           
           return {
             platform,
-            hasToken: response?.hasToken || false,
+            hasToken: balanceFormatted > 0,
             balance,
             balanceFormatted
           };
-        } catch (err) {
-          console.error(`Error fetching ${platform.name} data:`, err);
+        } else {
+          console.log(`No ${platform.tokenSymbol} found for ${platform.name}`);
           return {
             platform,
             hasToken: false,
@@ -96,8 +115,7 @@ const LiquidStakingDerivatives = ({ walletAddress }: LSDProps) => {
         }
       });
 
-      const results = await Promise.all(stakingPromises);
-      setStakingData(results);
+      setStakingData(stakingResults);
     } catch (err) {
       console.error("Error fetching staking data:", err);
       setError("Failed to load staking data");
