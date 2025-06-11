@@ -3,25 +3,54 @@ import axios from 'axios';
 
 // Function to convert SVG to PNG
 const svgToPng = (svgElement, width = 800, height = 800) => {
-  return new Promise((resolve) => {
-    const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d');
-    canvas.width = width;
-    canvas.height = height;
-    
-    const svgData = new XMLSerializer().serializeToString(svgElement);
-    const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
-    const url = URL.createObjectURL(svgBlob);
-    
-    const img = new Image();
-    img.onload = () => {
-      ctx.drawImage(img, 0, 0, width, height);
-      canvas.toBlob((blob) => {
+  return new Promise((resolve, reject) => {
+    try {
+      console.log('Starting SVG to PNG conversion...');
+      
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      canvas.width = width;
+      canvas.height = height;
+      
+      // Set white background
+      ctx.fillStyle = 'white';
+      ctx.fillRect(0, 0, width, height);
+      
+      const svgData = new XMLSerializer().serializeToString(svgElement);
+      console.log('SVG data serialized, length:', svgData.length);
+      
+      const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
+      const url = URL.createObjectURL(svgBlob);
+      
+      const img = new Image();
+      img.onload = () => {
+        console.log('SVG image loaded, drawing to canvas...');
+        ctx.drawImage(img, 0, 0, width, height);
+        
+        canvas.toBlob((blob) => {
+          console.log('PNG blob created, size:', blob?.size);
+          URL.revokeObjectURL(url);
+          if (blob) {
+            resolve(blob);
+          } else {
+            reject(new Error('Failed to create PNG blob'));
+          }
+        }, 'image/png', 1.0);
+      };
+      
+      img.onerror = () => {
+        console.error('Failed to load SVG image');
         URL.revokeObjectURL(url);
-        resolve(blob);
-      }, 'image/png', 1.0);
-    };
-    img.src = url;
+        reject(new Error('Failed to load SVG image'));
+      };
+      
+      console.log('Setting image source...');
+      img.src = url;
+      
+    } catch (error) {
+      console.error('Error in SVG to PNG conversion:', error);
+      reject(error);
+    }
   });
 };
 
@@ -37,9 +66,15 @@ export const uploadToIPFS = async (walletAddress, overallScore, metrics, artData
     }
     
     console.log('JWT token found, converting SVG to PNG...');
+    console.log('SVG element:', svgElement);
+    
+    if (!svgElement) {
+      throw new Error('SVG element not found for conversion');
+    }
     
     // Convert SVG to PNG
     const pngBlob = await svgToPng(svgElement, 800, 800);
+    console.log('PNG conversion completed, blob size:', pngBlob.size);
     
     // Create metadata
     const metadata = {
