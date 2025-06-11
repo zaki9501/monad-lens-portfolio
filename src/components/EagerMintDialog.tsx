@@ -1,668 +1,388 @@
 import React, { useState, useEffect } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogFooter
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Sparkles, Loader2, CheckCircle, AlertCircle, Coins, Zap, Network } from "lucide-react";
-import { ethers, BrowserProvider, Contract, ContractTransactionResponse, ContractTransactionReceipt, BaseContract } from 'ethers';
-import { uploadToIPFS } from '@/utils/pinata';
-import ReputationArtNFT from '@/abis/ReputationArtNFT.json';
-import { useToast } from "@/hooks/use-toast";
+import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
+import { uploadToPinata } from "@/utils/pinata";
+import { Sparkles, Loader2, ExternalLink, CheckCircle, AlertTriangle, Zap, Star } from "lucide-react";
+import { ethers } from 'ethers';
+import ReputationArtNFTABI from '@/abis/ReputationArtNFT.json';
 
-// Define the EIP-1193 provider interface
-interface Eip1193Provider {
-  request: (args: { method: string; params?: any[] }) => Promise<any>;
-  on: (event: string, callback: (...args: any[]) => void) => void;
-  removeListener: (event: string, callback: (...args: any[]) => void) => void;
-  isMetaMask?: boolean;
-}
-
-// Define the contract interface
-interface ReputationArtNFTContract extends BaseContract {
-  hasMinted: (address: string, score: number) => Promise<boolean>;
-  mintArt: (address: string, score: number, totalTransactions: number, diversityScore: number, tokenURI: string, options?: { gasLimit: number }) => Promise<ContractTransactionResponse>;
-}
-
-interface EagerMintDialogProps {
-  walletAddress: string;
-  overallScore: number;
-  artData: any;
-  metrics?: {
-    totalTransactions: number;
-    diversityScore: number;
-    transactionFrequency: number;
-    firstTransactionAge: number;
-  };
-  isDarkMode?: boolean;
-  isLoreMode?: boolean;
-}
-
-const MONAD_TESTNET = {
-  chainId: '0x278F', // 10143 in hex
-  chainName: 'Monad Testnet',
-  rpcUrls: ['https://testnet-rpc.monad.xyz'],
-  nativeCurrency: {
-    name: 'MON',
-    symbol: 'MON',
-    decimals: 18,
-  },
-  blockExplorerUrls: ['https://testnet-explorer.monad.xyz'],
-};
-
-const EagerMintDialog = ({ 
-  walletAddress, 
-  overallScore, 
-  artData, 
-  metrics = { totalTransactions: 0, diversityScore: 0, transactionFrequency: 0, firstTransactionAge: 0 },
-  isDarkMode = true,
-  isLoreMode = false 
-}: EagerMintDialogProps) => {
+const EagerMintDialog = ({ walletAddress, overallScore, artData, isDarkMode, isLoreMode }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [isMinting, setIsMinting] = useState(false);
+  const [mintingStep, setMintingStep] = useState('');
   const [mintSuccess, setMintSuccess] = useState(false);
   const [mintError, setMintError] = useState('');
-  const [nftName, setNftName] = useState(`${isLoreMode ? 'Mind Essence' : 'Reputation Art'} #${overallScore}`);
-  const [nftDescription, setNftDescription] = useState('');
-  const [hasMinted, setHasMinted] = useState(false);
-  const [txHash, setTxHash] = useState<string | null>(null);
-  const [isCheckingMintStatus, setIsCheckingMintStatus] = useState(false);
-  const [currentChainId, setCurrentChainId] = useState<string | null>(null);
-  const [isCheckingNetwork, setIsCheckingNetwork] = useState(false);
-  const { toast } = useToast();
+  const [txHash, setTxHash] = useState('');
+  const [tokenId, setTokenId] = useState(null);
+  const [tokenMetadata, setTokenMetadata] = useState(null);
+  const [contractAddress, setContractAddress] = useState('');
+  const [networkInfo, setNetworkInfo] = useState(null);
+  const [hasBeenMinted, setHasBeenMinted] = useState(false);
 
-  const contractAddress = "0x4ba16060a00d0e0939cb69e46846fbee30f7c847";
-
-  const getRarityAndPrice = () => {
-    if (overallScore >= 80) return { rarity: 'Legendary', price: '0.1', color: 'text-yellow-400' };
-    if (overallScore >= 60) return { rarity: 'Epic', price: '0.05', color: 'text-purple-400' };
-    if (overallScore >= 40) return { rarity: 'Rare', price: '0.025', color: 'text-blue-400' };
-    return { rarity: 'Common', price: '0.01', color: 'text-gray-400' };
-  };
-
-  const { rarity, price, color } = getRarityAndPrice();
-
-  // Check current network with detailed logging
-  const checkCurrentNetwork = async () => {
-    setIsCheckingNetwork(true);
-    console.log('Starting network check...');
-    
-    try {
-      if (!window.ethereum) {
-        console.log('No ethereum provider found');
-        setCurrentChainId(null);
-        return;
-      }
-
-      // Get chain ID directly from ethereum provider
-      const netVersion = await (window.ethereum as any).request({ method: 'net_version' });
-      console.log('net_version', netVersion);
-      const isOnCorrectNetwork = netVersion === '10143';
-      
-      setCurrentChainId(netVersion);
-
-      console.log('net_version', netVersion);
-
-    } catch (error) {
-      console.error('Failed to check network:', error);
-      setCurrentChainId(null);
-    } finally {
-      setIsCheckingNetwork(false);
+  // Check if this wallet has already minted an NFT
+  useEffect(() => {
+    const mintedWallets = JSON.parse(localStorage.getItem('mintedWallets') || '{}');
+    if (mintedWallets[walletAddress.toLowerCase()]) {
+      setHasBeenMinted(true);
     }
-  };
-
-  // Switch to Monad testnet
-  const switchToMonadTestnet = async () => {
-    try {
-      if (!window.ethereum) {
-        throw new Error('Please install MetaMask or connect a wallet.');
-      }
-
-      console.log('Attempting to switch to Monad testnet...');
-
-      // First try to switch to the network
-      try {
-        await (window.ethereum as any).request({
-          method: 'wallet_switchEthereumChain',
-          params: [{ chainId: MONAD_TESTNET.chainId }],
-        });
-        console.log('Successfully switched to existing network');
-      } catch (switchError: any) {
-        console.log('Switch error:', switchError);
-        // This error code indicates that the chain has not been added to MetaMask
-        if (switchError.code === 4902) {
-          console.log('Network not found, adding Monad testnet...');
-          await (window.ethereum as any).request({
-            method: 'wallet_addEthereumChain',
-            params: [MONAD_TESTNET],
-          });
-          console.log('Successfully added and switched to network');
-        } else {
-          throw switchError;
-        }
-      }
-
-      // Wait a moment for the network to switch, then recheck
-      setTimeout(() => {
-        checkCurrentNetwork();
-      }, 1000);
-      
-      toast({
-        title: "Network Switched",
-        description: "Successfully switched to Monad Testnet",
-      });
-
-    } catch (error: any) {
-      console.error('Failed to switch network:', error);
-      
-      // Don't show error for user rejection
-      if (error.code !== 4001) {
-        toast({
-          title: "Network Switch Failed",
-          description: error.message || 'Failed to switch to Monad Testnet',
-          variant: "destructive",
-        });
-      }
-    }
-  };
-
-  const checkMintedStatus = async () => {
-    setIsCheckingMintStatus(true);
-    try {
-      console.log('Checking mint status for wallet:', walletAddress, 'score:', overallScore);
-      
-      if (!window.ethereum) {
-        console.log('No ethereum provider found');
-        setHasMinted(false);
-        return false;
-      }
-
-      // Ensure we're on the correct network first
-      const normalizedCurrent = currentChainId?.toLowerCase();
-      const normalizedExpected = MONAD_TESTNET.chainId.toLowerCase();
-      
-      if (normalizedCurrent !== normalizedExpected) {
-        console.log('Not on Monad testnet, cannot check mint status. Current:', currentChainId, 'Expected:', MONAD_TESTNET.chainId);
-        setHasMinted(false);
-        return false;
-      }
-
-      const provider = new BrowserProvider(window.ethereum as any);
-      const contract = new Contract(contractAddress, ReputationArtNFT, provider);
-      
-      console.log('Contract created, calling hasMinted...');
-      
-      try {
-        const minted = await contract.hasMinted(walletAddress, overallScore);
-        console.log('hasMinted result:', minted);
-        setHasMinted(minted);
-        return minted;
-      } catch (contractError: any) {
-        console.log('Contract call failed, this might be normal if the method doesnt exist:', contractError);
-        setHasMinted(false);
-        return false;
-      }
-    } catch (err: any) {
-      console.error('Failed to check minted status:', err);
-      setHasMinted(false);
-      return false;
-    } finally {
-      setIsCheckingMintStatus(false);
-    }
-  };
+  }, [walletAddress]);
 
   useEffect(() => {
+    const checkNetwork = async () => {
+      if (window.ethereum) {
+        try {
+          const networkVersion = (window.ethereum as any).networkVersion;
+          console.log('window.ethereum.networkVersion', networkVersion);
+          
+          if (networkVersion === '10143') {
+            setContractAddress('0x4Ba16060A00d0e0939cB69e46846FBee30F7c847');
+            setNetworkInfo({
+              name: 'Monad Testnet',
+              chainId: '10143',
+              explorer: 'https://explorer.monad.xyz'
+            });
+          } else {
+            setMintError('Please connect to Monad Testnet (Chain ID: 10143)');
+          }
+        } catch (error) {
+          console.error('Error checking network:', error);
+          setMintError('Failed to detect network');
+        }
+      }
+    };
+
     if (isOpen) {
-      checkCurrentNetwork();
+      checkNetwork();
     }
   }, [isOpen]);
 
-  useEffect(() => {
-    const normalizedCurrent = currentChainId?.toLowerCase();
-    const normalizedExpected = MONAD_TESTNET.chainId.toLowerCase();
-    
-    if (isOpen && normalizedCurrent === normalizedExpected) {
-      checkMintedStatus();
+  const handleMint = async () => {
+    if (!window.ethereum) {
+      setMintError('MetaMask not found');
+      return;
     }
-  }, [isOpen, walletAddress, overallScore, currentChainId]);
 
-  const checkTokenMetadata = async (contract: Contract, tokenId: number) => {
-    try {
-      // Check if contract supports ERC721Metadata
-      const supportsInterface = await contract.supportsInterface('0x5b5e139f');
-      console.log('Supports ERC721Metadata:', supportsInterface);
-
-      // Get token URI
-      const tokenURI = await contract.tokenURI(tokenId);
-      console.log('Token URI:', tokenURI);
-
-      // Get art metadata
-      const metadata = await contract.artMetadata(tokenId);
-      console.log('Stored Art Metadata:', {
-        score: metadata.score.toString(),
-        totalTransactions: metadata.totalTransactions.toString(),
-        diversityScore: metadata.diversityScore.toString(),
-        ipfsHash: metadata.ipfsHash
-      });
-
-      return {
-        supportsInterface,
-        tokenURI,
-        metadata
-      };
-    } catch (error) {
-      console.error('Error checking token metadata:', error);
-      return null;
-    }
-  };
-
-  const handleEagerMint = async () => {
     setIsMinting(true);
     setMintError('');
-    setTxHash(null);
+    setMintingStep('Preparing artwork...');
 
     try {
-      console.log('Starting mint process...');
-      
-      if (!window.ethereum) {
-        throw new Error('Please install MetaMask or connect a wallet.');
-      }
-
-      // Check if we're on the correct network
-      if (currentChainId !== '10143') {
-        throw new Error('Please switch to Monad Testnet to mint NFTs.');
-      }
-
-      const provider = new BrowserProvider(window.ethereum as any);
-      
-      // Request account access
-      await provider.send("eth_requestAccounts", []);
+      const provider = new ethers.BrowserProvider(window.ethereum as any);
       const signer = await provider.getSigner();
       const signerAddress = await signer.getAddress();
       
       console.log('Signer address:', signerAddress);
       console.log('Target wallet address:', walletAddress);
-      
-      // Verify the signer is the same as the wallet address being analyzed
+
       if (signerAddress.toLowerCase() !== walletAddress.toLowerCase()) {
-        throw new Error('You can only mint NFTs for your own wallet address.');
+        throw new Error('Connected wallet does not match the analyzed wallet');
       }
 
-      const svgElement = document.getElementById('reputation-art-svg');
-      if (!svgElement) {
-        throw new Error('SVG element not found for minting.');
-      }
-
+      setMintingStep('Uploading to IPFS...');
       console.log('Uploading to IPFS...');
-      toast({
-        title: "Uploading to IPFS",
-        description: "Please wait while we upload your art...",
-      });
-
-      const ipfsHash = await uploadToIPFS(walletAddress, overallScore, metrics, artData, svgElement);
+      const ipfsHash = await uploadToPinata(walletAddress, overallScore, artData);
       console.log('IPFS Hash:', ipfsHash);
 
+      setMintingStep('Creating contract instance for minting...');
       console.log('Creating contract instance for minting...');
-      const contract = new Contract(contractAddress, ReputationArtNFT, signer);
       
+      const contract = new ethers.Contract(contractAddress, ReputationArtNFTABI, signer);
       console.log('Calling mintArt with params:', {
         recipient: walletAddress,
         score: overallScore,
-        totalTransactions: metrics.totalTransactions,
-        diversityScore: metrics.diversityScore,
-        ipfsHash: ipfsHash,
+        totalTransactions: artData.patterns?.length || 0,
+        diversityScore: artData.mandalaRings?.length || 0,
+        ipfsHash: ipfsHash
       });
 
-      toast({
-        title: "Minting NFT",
-        description: "Please confirm the transaction in your wallet...",
-      });
-
-      const tx = await contract["mintArt"](
+      setMintingStep('Minting NFT...');
+      const transaction = await contract.mintArt(
         walletAddress,
         overallScore,
-        metrics.totalTransactions,
-        metrics.diversityScore,
-        ipfsHash,
-        { gasLimit: 5000000 }
+        artData.patterns?.length || 0,
+        artData.mandalaRings?.length || 0,
+        ipfsHash
       );
-      
-      console.log('Transaction sent:', tx.hash);
-      setTxHash(tx.hash);
 
-      toast({
-        title: "Transaction Sent",
-        description: "Waiting for confirmation...",
+      console.log('Transaction sent:', transaction.hash);
+      setTxHash(transaction.hash);
+      setMintingStep('Confirming transaction...');
+
+      const receipt = await transaction.wait();
+      console.log('Transaction confirmed:', receipt);
+
+      // Extract token ID from logs
+      const transferEvent = receipt.logs.find(log => {
+        try {
+          const parsed = contract.interface.parseLog(log);
+          return parsed.name === 'Transfer';
+        } catch {
+          return false;
+        }
       });
 
-      const receipt = await tx.wait();
-      if (receipt) {
-        setTxHash(receipt.hash);
-        
-        // Get the token ID from the Transfer event
-        const transferEvent = receipt.logs.find(
-          (log: any) => log.fragment?.name === 'Transfer'
-        );
-        
-        if (transferEvent) {
-          const tokenId = transferEvent.args[2];
-          console.log('Minted Token ID:', tokenId.toString());
+      if (transferEvent) {
+        const parsedLog = contract.interface.parseLog(transferEvent);
+        const newTokenId = parsedLog.args.tokenId.toString();
+        console.log('Minted Token ID:', newTokenId);
+        setTokenId(newTokenId);
+
+        // Verify metadata
+        try {
+          const supportsInterface = await contract.supportsInterface('0x5b5e139f');
+          console.log('Supports ERC721Metadata:', supportsInterface);
           
-          // Check token metadata
-          const metadataCheck = await checkTokenMetadata(contract, tokenId);
-          console.log('Token Metadata Check:', metadataCheck);
+          if (supportsInterface) {
+            const tokenURI = await contract.tokenURI(newTokenId);
+            console.log('Token URI:', tokenURI);
+            
+            const storedMetadata = await contract.getArtMetadata(newTokenId);
+            console.log('Stored Art Metadata:', storedMetadata);
+            
+            setTokenMetadata({
+              supportsInterface,
+              tokenURI,
+              metadata: storedMetadata
+            });
+          }
+        } catch (metadataError) {
+          console.warn('Could not fetch metadata:', metadataError);
         }
       }
 
       setMintSuccess(true);
-      setHasMinted(true);
-
-      toast({
-        title: "NFT Minted Successfully!",
-        description: "Your reputation art has been minted as an NFT.",
-      });
-
-    } catch (err: any) {
-      console.error('Mint failed:', err);
+      setMintingStep('NFT minted successfully!');
       
-      let errorMessage = 'Minting failed. Please try again.';
-      
-      if (err.message?.includes('Score already minted')) {
-        errorMessage = 'You have already minted an NFT for this score.';
-        setHasMinted(true);
-      } else if (err.message?.includes('user rejected')) {
-        errorMessage = 'Transaction was rejected by user.';
-      } else if (err.message?.includes('insufficient funds')) {
-        errorMessage = 'Insufficient funds for gas fees.';
-      } else if (err.message?.includes('You can only mint NFTs for your own wallet')) {
-        errorMessage = err.message;
-      } else if (err.message?.includes('Please switch to Monad Testnet')) {
-        errorMessage = err.message;
-      } else if (err.message) {
-        errorMessage = err.message;
-      }
-      
-      setMintError(errorMessage);
-      
-      toast({
-        title: "Minting Failed",
-        description: errorMessage,
-        variant: "destructive",
-      });
+      // Store minted status in localStorage
+      const mintedWallets = JSON.parse(localStorage.getItem('mintedWallets') || '{}');
+      mintedWallets[walletAddress.toLowerCase()] = {
+        tokenId: tokenId,
+        txHash: transaction.hash,
+        timestamp: new Date().toISOString()
+      };
+      localStorage.setItem('mintedWallets', JSON.stringify(mintedWallets));
+      setHasBeenMinted(true);
+    } catch (error) {
+      console.error('Minting error:', error);
+      setMintError(error.message || 'Failed to mint NFT');
     } finally {
       setIsMinting(false);
     }
   };
 
-  const resetDialog = () => {
-    setMintSuccess(false);
-    setMintError('');
-    setIsMinting(false);
-    setNftDescription('');
-    setTxHash(null);
+  const calculateAdditionalTraits = () => {
+    const visualElements = (artData.patterns?.length || 0) + (artData.particles?.length || 0);
+    const complexityScore = artData.mandalaRings?.length || 0;
+    const energyFlows = (artData.connections?.length || 0) + (artData.waves?.length || 0);
+    const geometricHarmony = artData.geometricHarmony || 0;
+    const chromaticSignature = artData.chromaticSignature || 0;
+    
+    return {
+      visualElements,
+      complexityScore,
+      energyFlows,
+      geometricHarmony,
+      chromaticSignature
+    };
   };
 
-  // Check if we're on the correct network (case-insensitive comparison)
-  const isOnCorrectNetwork = currentChainId === '10143';
-
-  console.log('window.ethereum.networkVersion', (window.ethereum as any).networkVersion);
+  const additionalTraits = calculateAdditionalTraits();
 
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => {
-      setIsOpen(open);
-      if (!open) resetDialog();
-    }}>
+    <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
-        <div className="relative">
-          <Button
-            className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 transition-all duration-200"
-          >
-            <Sparkles className="w-4 h-4 mr-2" />
-            {isLoreMode ? 'Eager Mint Mind Essence' : 'Eager Mint NFT'}
-          </Button>
-        </div>
+        <Button 
+          disabled={hasBeenMinted}
+          className={`${hasBeenMinted 
+            ? 'bg-gray-500 cursor-not-allowed opacity-50' 
+            : 'bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700'
+          } text-white`}
+        >
+          <Sparkles className="w-4 h-4 mr-2" />
+          {hasBeenMinted ? 'Already Minted' : 'Mint as NFT'}
+        </Button>
       </DialogTrigger>
-      
-      <DialogContent className={`max-w-md ${
-        isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-gray-200'
-      } rounded-lg shadow-xl`}>
+      <DialogContent className={`max-w-md ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-gray-200'}`}>
         <DialogHeader>
-          <DialogTitle className={`flex items-center space-x-2 ${
-            isDarkMode ? 'text-white' : 'text-gray-900'
-          }`}>
-            <Zap className="w-5 h-5 text-purple-400 animate-pulse" />
-            <span>{isLoreMode ? 'Mint Mind Essence' : 'Eager Mint NFT'}</span>
+          <DialogTitle className={`flex items-center space-x-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+            <Sparkles className="w-5 h-5 text-purple-400" />
+            <span>{isLoreMode ? 'Crystallize Mind Essence' : 'Mint Reputation Art'}</span>
           </DialogTitle>
+          <DialogDescription className={isDarkMode ? 'text-gray-300' : 'text-gray-600'}>
+            {hasBeenMinted 
+              ? 'This wallet has already minted its reputation art NFT.'
+              : isLoreMode 
+                ? 'Transform your digital consciousness into an eternal NFT artifact on the Monad blockchain.'
+                : 'Create a permanent NFT of your unique reputation artwork on the Monad blockchain.'
+            }
+          </DialogDescription>
         </DialogHeader>
-        
-        <div className="space-y-6 p-4">
-          {/* Network Status */}
-          {isCheckingNetwork ? (
-            <div className={`p-3 rounded-lg border ${
-              isDarkMode ? 'bg-slate-700/50 border-slate-600 text-gray-300' : 'bg-gray-50 border-gray-300 text-gray-600'
-            }`}>
-              <div className="flex items-center space-x-2">
-                <Loader2 className="w-4 h-4 animate-spin" />
-                <span className="text-sm font-medium">Checking network...</span>
+
+        <div className="space-y-4">
+          {/* Already Minted Notice */}
+          {hasBeenMinted && (
+            <div className={`p-4 rounded-lg border ${isDarkMode ? 'bg-green-900/20 border-green-700' : 'bg-green-50 border-green-200'}`}>
+              <div className="flex items-center space-x-3 mb-2">
+                <CheckCircle className="w-5 h-5 text-green-400" />
+                <span className={`font-medium ${isDarkMode ? 'text-green-300' : 'text-green-700'}`}>NFT Already Minted</span>
               </div>
+              <p className={`text-sm ${isDarkMode ? 'text-green-200' : 'text-green-600'}`}>
+                This wallet has already minted its unique reputation art NFT.
+              </p>
             </div>
-          ) : (
-            <div className={`p-3 rounded-lg border ${
-              isOnCorrectNetwork 
-                ? 'bg-green-500/10 border-green-500/30 text-green-400'
-                : 'bg-orange-500/10 border-orange-500/30 text-orange-400'
-            }`}>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-2">
-                  <Network className="w-4 h-4" />
-                  <span className="text-sm font-medium">
-                    {isOnCorrectNetwork ? 'Monad Testnet' : 'Wrong Network'}
-                  </span>
-                </div>
-                {!isOnCorrectNetwork && (
-                  <Button
-                    size="sm"
-                    onClick={switchToMonadTestnet}
-                    className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
-                  >
-                    Switch Network
-                  </Button>
-                )}
-              </div>
-              <div className="text-xs mt-1 opacity-80">
-                <p className="font-mono">Current: {currentChainId || 'Unknown'}</p>
-                <p className="font-mono">Expected: {MONAD_TESTNET.chainId}</p>
-                <p className="font-mono">Match: {isOnCorrectNetwork ? 'Yes' : 'No'}</p>
+          )}
+
+          {/* Network Info */}
+          {networkInfo && (
+            <div className={`p-3 rounded-lg border ${isDarkMode ? 'bg-slate-700/50 border-slate-600' : 'bg-gray-50 border-gray-200'}`}>
+              <div className="flex items-center justify-between text-sm">
+                <span className={isDarkMode ? 'text-gray-300' : 'text-gray-600'}>Network:</span>
+                <span className={`font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{networkInfo.name}</span>
               </div>
             </div>
           )}
 
-          {/* Rest of the component remains the same */}
-          {!mintSuccess && !mintError && (
-            <>
-              {/* NFT Preview */}
-              <div className="text-center">
-                <div className={`w-24 h-24 mx-auto rounded-lg ${
-                  isDarkMode ? 'bg-slate-700 border-slate-600' : 'bg-gray-100 border-gray-300'
-                } flex items-center justify-center mb-3 border-2 overflow-hidden`}>
-                  {artData && artData.patterns && artData.patterns.length > 0 ? (
-                    <svg width="96" height="96" viewBox="0 0 400 400">
-                      <rect width="96" height="96" fill={artData.background || '#1E293B'} />
-                      <circle cx="48" cy="48" r="20" fill="hsl(270, 60%, 50%)" />
-                    </svg>
-                  ) : (
-                    <Sparkles className="w-8 h-8 text-purple-400" />
-                  )}
-                </div>
-                <h3 className={`font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                  {nftName}
-                </h3>
-                <p className={`text-sm ${color} font-medium`}>
-                  {rarity} • Score: {overallScore}
-                </p>
+          {/* NFT Preview Stats with new traits */}
+          <div className={`p-4 rounded-lg border ${isDarkMode ? 'bg-slate-700/30 border-slate-600' : 'bg-gray-50 border-gray-200'}`}>
+            <h4 className={`font-medium mb-3 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>NFT Traits Preview</h4>
+            <div className="grid grid-cols-2 gap-3 text-sm">
+              <div className="flex justify-between">
+                <span className={isDarkMode ? 'text-gray-400' : 'text-gray-600'}>Score:</span>
+                <span className={`font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{overallScore}</span>
               </div>
-
-              {/* Mint Details */}
-              <div className="space-y-4">
-                <div>
-                  <label className={`block text-sm font-medium mb-2 ${
-                    isDarkMode ? 'text-gray-300' : 'text-gray-700'
-                  }`}>
-                    NFT Name
-                  </label>
-                  <Input
-                    value={nftName}
-                    onChange={(e) => setNftName(e.target.value)}
-                    className={`w-full ${isDarkMode ? 'bg-slate-700 border-slate-600 text-white placeholder-gray-400' : 'bg-white border-gray-300'}`}
-                    placeholder={isLoreMode ? 'Enter Mind Essence name...' : 'Enter Reputation Art name...'}
-                  />
-                </div>
-                
-                <div>
-                  <label className={`block text-sm font-medium mb-2 ${
-                    isDarkMode ? 'text-gray-300' : 'text-gray-700'
-                  }`}>
-                    Description (Optional)
-                  </label>
-                  <Input
-                    value={nftDescription}
-                    onChange={(e) => setNftDescription(e.target.value)}
-                    placeholder={isLoreMode ? 'Describe this mind essence...' : 'Describe your reputation art...'}
-                    className={`w-full ${isDarkMode ? 'bg-slate-700 border-slate-600 text-white placeholder-gray-400' : 'bg-white border-gray-300'}`}
-                  />
-                </div>
-
-                {/* Price Display */}
-                <div className={`flex items-center justify-between p-3 rounded-lg ${
-                  isDarkMode ? 'bg-slate-700 border-slate-600' : 'bg-gray-50 border-gray-200'
-                }`}>
-                  <span className={`text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
-                    Mint Price:
-                  </span>
-                  <div className="flex items-center space-x-1">
-                    <Coins className="w-4 h-4 text-purple-400" />
-                    <span className={`font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                      {price} MON
-                    </span>
-                  </div>
-                </div>
-
-                {/* Mint Status */}
-                {isCheckingMintStatus && (
-                  <div className={`text-center text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                    <Loader2 className="w-4 h-4 animate-spin inline-block mr-2" />
-                    Checking mint status...
-                  </div>
-                )}
-
-                {/* Mint Button */}
-                <Button
-                  onClick={handleEagerMint}
-                  disabled={isMinting || hasMinted || !nftName.trim() || isCheckingMintStatus || !isOnCorrectNetwork}
-                  className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed disabled:opacity-70 transition-all duration-200"
-                >
-                  {isMinting ? (
-                    <>
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      Minting...
-                    </>
-                  ) : hasMinted ? (
-                    <>
-                      <CheckCircle className="w-4 h-4 mr-2" />
-                      Already Minted
-                    </>
-                  ) : !isOnCorrectNetwork ? (
-                    <>
-                      <Network className="w-4 h-4 mr-2" />
-                      Switch to Monad Testnet
-                    </>
-                  ) : (
-                    <>
-                      <Sparkles className="w-4 h-4 mr-2" />
-                      Mint Now for {price} MON
-                    </>
-                  )}
-                </Button>
-                
-                {hasMinted && (
-                  <p className={`text-sm text-center ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                    You have already minted an NFT for this score.
-                  </p>
-                )}
+              <div className="flex justify-between">
+                <span className={isDarkMode ? 'text-gray-400' : 'text-gray-600'}>Visual Elements:</span>
+                <span className={`font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{additionalTraits.visualElements}</span>
               </div>
-            </>
+              <div className="flex justify-between">
+                <span className={isDarkMode ? 'text-gray-400' : 'text-gray-600'}>Complexity:</span>
+                <span className={`font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{additionalTraits.complexityScore}x</span>
+              </div>
+              <div className="flex justify-between">
+                <span className={isDarkMode ? 'text-gray-400' : 'text-gray-600'}>Energy Flows:</span>
+                <span className={`font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{additionalTraits.energyFlows}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className={isDarkMode ? 'text-gray-400' : 'text-gray-600'}>Geometric Harmony:</span>
+                <span className={`font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{additionalTraits.geometricHarmony}°</span>
+              </div>
+              <div className="flex justify-between">
+                <span className={isDarkMode ? 'text-gray-400' : 'text-gray-600'}>Chromatic Signature:</span>
+                <span className={`font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{additionalTraits.chromaticSignature}°</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Minting Progress */}
+          {isMinting && (
+            <div className={`p-4 rounded-lg border ${isDarkMode ? 'bg-blue-900/20 border-blue-700' : 'bg-blue-50 border-blue-200'}`}>
+              <div className="flex items-center space-x-3 mb-3">
+                <Loader2 className="w-5 h-5 animate-spin text-blue-400" />
+                <span className={`font-medium ${isDarkMode ? 'text-blue-300' : 'text-blue-700'}`}>Minting in Progress</span>
+              </div>
+              <p className={`text-sm mb-3 ${isDarkMode ? 'text-blue-200' : 'text-blue-600'}`}>{mintingStep}</p>
+              <Progress value={
+                mintingStep.includes('Preparing') ? 20 :
+                mintingStep.includes('Uploading') ? 40 :
+                mintingStep.includes('Creating') ? 60 :
+                mintingStep.includes('Minting') ? 80 :
+                mintingStep.includes('Confirming') ? 90 : 100
+              } className="h-2" />
+            </div>
           )}
 
           {/* Success State */}
           {mintSuccess && (
-            <div className="text-center space-y-4">
-              <div className={`w-16 h-16 mx-auto bg-green-100 rounded-full flex items-center justify-center ${
-                isDarkMode ? 'bg-green-900/50' : ''
-              }`}>
-                <CheckCircle className="w-8 h-8 text-green-600" />
+            <div className={`p-4 rounded-lg border ${isDarkMode ? 'bg-green-900/20 border-green-700' : 'bg-green-50 border-green-200'}`}>
+              <div className="flex items-center space-x-3 mb-3">
+                <CheckCircle className="w-5 h-5 text-green-400" />
+                <span className={`font-medium ${isDarkMode ? 'text-green-300' : 'text-green-700'}`}>NFT Minted Successfully!</span>
               </div>
-              <div>
-                <h3 className={`text-lg font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                  NFT Minted Successfully!
-                </h3>
-                <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'} mt-2`}>
-                  Your {isLoreMode ? 'mind essence' : 'reputation art'} has been minted and added to your collection.
-                </p>
-              </div>
-              <div className={`p-3 rounded-lg ${isDarkMode ? 'bg-slate-700 border-slate-600' : 'bg-gray-50 border-gray-200'}`}>
-                <p className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                  Transaction Hash:
-                </p>
-                <p className="font-mono text-xs text-purple-400 break-all">
-                  {txHash ? txHash.slice(0, 20) + '...' : 'Processing...'}
-                </p>
-              </div>
-              <Button
-                onClick={() => setIsOpen(false)}
-                variant="outline"
-                className={`w-full ${isDarkMode ? 'border-gray-600 text-gray-300 hover:bg-gray-700' : 'border-gray-300'}`}
-              >
-                Close
-              </Button>
+              
+              {tokenId && (
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className={isDarkMode ? 'text-green-200' : 'text-green-600'}>Token ID:</span>
+                    <span className={`font-mono ${isDarkMode ? 'text-green-300' : 'text-green-700'}`}>#{tokenId}</span>
+                  </div>
+                  {txHash && (
+                    <div className="flex justify-between items-center">
+                      <span className={isDarkMode ? 'text-green-200' : 'text-green-600'}>Transaction:</span>
+                      <a 
+                        href={`${networkInfo?.explorer}/tx/${txHash}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className={`font-mono text-xs hover:underline flex items-center space-x-1 ${isDarkMode ? 'text-green-300' : 'text-green-700'}`}
+                      >
+                        <span>{txHash.slice(0, 8)}...{txHash.slice(-6)}</span>
+                        <ExternalLink className="w-3 h-3" />
+                      </a>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
 
           {/* Error State */}
           {mintError && (
-            <div className="text-center space-y-4">
-              <div className={`w-16 h-16 mx-auto bg-red-100 rounded-full flex items-center justify-center ${
-                isDarkMode ? 'bg-red-900/50' : ''
-              }`}>
-                <AlertCircle className="w-8 h-8 text-red-600" />
+            <div className={`p-4 rounded-lg border ${isDarkMode ? 'bg-red-900/20 border-red-700' : 'bg-red-50 border-red-200'}`}>
+              <div className="flex items-center space-x-3 mb-2">
+                <AlertTriangle className="w-5 h-5 text-red-400" />
+                <span className={`font-medium ${isDarkMode ? 'text-red-300' : 'text-red-700'}`}>Minting Failed</span>
               </div>
-              <div>
-                <h3 className={`text-lg font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                  Minting Failed
-                </h3>
-                <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'} mt-2`}>
-                  {mintError}
-                </p>
-              </div>
-              <div className="space-y-2">
-                <Button
-                  onClick={() => {
-                    setMintError('');
-                    handleEagerMint();
-                  }}
-                  className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 disabled:bg-gray-400"
-                  disabled={isMinting}
-                >
-                  Try Again
-                </Button>
-                <Button
-                  onClick={() => setIsOpen(false)}
-                  variant="outline"
-                  className={`w-full ${isDarkMode ? 'border-gray-600 text-gray-300 hover:bg-gray-700' : 'border-gray-300'}`}
-                >
-                  Cancel
-                </Button>
-              </div>
+              <p className={`text-sm ${isDarkMode ? 'text-red-200' : 'text-red-600'}`}>{mintError}</p>
             </div>
           )}
         </div>
+
+        <DialogFooter>
+          {hasBeenMinted ? (
+            <Button 
+              onClick={() => setIsOpen(false)}
+              className="w-full bg-gradient-to-r from-gray-600 to-gray-700 hover:from-gray-700 hover:to-gray-800"
+            >
+              <CheckCircle className="w-4 h-4 mr-2" />
+              Close
+            </Button>
+          ) : !mintSuccess ? (
+            <Button 
+              onClick={handleMint} 
+              disabled={isMinting || !networkInfo}
+              className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 disabled:opacity-50"
+            >
+              {isMinting ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Minting...
+                </>
+              ) : (
+                <>
+                  <Zap className="w-4 h-4 mr-2" />
+                  {isLoreMode ? 'Crystallize Essence' : 'Mint NFT'}
+                </>
+              )}
+            </Button>
+          ) : (
+            <Button 
+              onClick={() => setIsOpen(false)}
+              className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700"
+            >
+              <Star className="w-4 h-4 mr-2" />
+              Close
+            </Button>
+          )}
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );

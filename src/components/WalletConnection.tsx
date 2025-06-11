@@ -12,7 +12,7 @@ const WalletConnection = () => {
   return <div className="max-w-4xl mx-auto">
       <div className="text-center mb-12">
         <h1 className="text-5xl font-bold text-white mb-4">
-          Welcome to <span className="bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent">Monad Portfolio</span>
+          Welcome to <span className="bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent">Monad lens</span>
         </h1>
         <p className="text-xl text-gray-300 mb-8">
           Track your Monad Testnet assets, explore DeFi protocols, and discover the latest dApps
@@ -59,7 +59,7 @@ const WalletConnection = () => {
         <CardHeader className="text-center">
           <CardTitle className="text-white text-2xl">Connect Your Wallet</CardTitle>
           <CardDescription className="text-gray-400">
-            Connect your EVM-compatible wallet to get started with Monad Portfolio
+            Connect your EVM-compatible wallet to get started with Monad lens
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">

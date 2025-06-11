@@ -1,57 +1,46 @@
-import axios from 'axios';
 
-// Function to convert SVG to PNG
-const svgToPng = (svgElement, width = 800, height = 800) => {
+const convertSVGToPNG = (svgElement) => {
   return new Promise((resolve, reject) => {
+    console.log('Starting SVG to PNG conversion...');
+    
     try {
-      console.log('Starting SVG to PNG conversion...');
-      
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d');
-      canvas.width = width;
-      canvas.height = height;
-      
-      // Set white background
-      ctx.fillStyle = 'white';
-      ctx.fillRect(0, 0, width, height);
-      
-      // Clone the SVG and ensure it has proper attributes
-      const svgClone = svgElement.cloneNode(true);
-      svgClone.setAttribute('width', width);
-      svgClone.setAttribute('height', height);
-      svgClone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
-      
-      const svgData = new XMLSerializer().serializeToString(svgClone);
+      // Serialize the SVG
+      const svgData = new XMLSerializer().serializeToString(svgElement);
       console.log('SVG data serialized, length:', svgData.length);
       
-      const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
-      const url = URL.createObjectURL(svgBlob);
-      
+      // Create canvas
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
       const img = new Image();
-      img.onload = () => {
+      
+      // Set canvas size
+      canvas.width = 800;  // 2x for better quality
+      canvas.height = 800;
+      
+      img.onload = function() {
         console.log('SVG image loaded, drawing to canvas...');
-        ctx.drawImage(img, 0, 0, width, height);
+        ctx.drawImage(img, 0, 0, 800, 800);
         
         canvas.toBlob((blob) => {
-          console.log('PNG blob created, size:', blob?.size);
-          URL.revokeObjectURL(url);
-          
-          if (blob && blob.size > 0) {
-            resolve(blob);
-          } else {
-            reject(new Error('Failed to create PNG blob or blob is empty'));
-          }
-        }, 'image/png', 1.0);
+          console.log('PNG blob created, size:', blob.size);
+          resolve(blob);
+        }, 'image/png', 0.95);
       };
       
-      img.onerror = (error) => {
-        console.error('Failed to load SVG image:', error);
-        URL.revokeObjectURL(url);
+      img.onerror = function(error) {
+        console.error('Error loading SVG image:', error);
         reject(new Error('Failed to load SVG image'));
       };
       
+      // Create blob URL and set as image source
+      const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
+      const url = URL.createObjectURL(svgBlob);
+      
       console.log('Setting image source...');
       img.src = url;
+      
+      // Clean up URL after some time
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
       
     } catch (error) {
       console.error('Error in SVG to PNG conversion:', error);
@@ -60,139 +49,155 @@ const svgToPng = (svgElement, width = 800, height = 800) => {
   });
 };
 
-// Helper function to upload with retry logic
-const uploadWithRetry = async (url, formData, headers, maxRetries = 3) => {
-  for (let attempt = 1; attempt <= maxRetries; attempt++) {
-    try {
-      console.log(`Upload attempt ${attempt} of ${maxRetries}...`);
-      const response = await axios.post(url, formData, { headers });
-      return response;
-    } catch (error) {
-      console.error(`Upload attempt ${attempt} failed:`, error.message);
-      if (attempt === maxRetries) {
-        throw error;
-      }
-      // Wait before retrying (exponential backoff)
-      await new Promise(resolve => setTimeout(resolve, Math.pow(2, attempt) * 1000));
-    }
+const uploadToIPFS = async (file, metadata, maxRetries = 3) => {
+  console.log('Upload attempt 1 of', maxRetries, '...');
+  
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('pinataOptions', JSON.stringify({ cidVersion: 1 }));
+  formData.append('pinataMetadata', JSON.stringify(metadata));
+
+  const response = await fetch('https://api.pinata.cloud/pinning/pinFileToIPFS', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${import.meta.env.VITE_PINATA_JWT}`
+    },
+    body: formData
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Upload failed: ${response.status} ${errorText}`);
   }
+
+  const result = await response.json();
+  return result.IpfsHash;
 };
 
-export const uploadToIPFS = async (walletAddress, overallScore, metrics, artData, svgElement) => {
+export const uploadToPinata = async (walletAddress, overallScore, artData) => {
+  const JWT = import.meta.env.VITE_PINATA_JWT;
+  
+  if (!JWT) {
+    throw new Error('Pinata JWT token not found in environment variables');
+  }
+
+  console.log('Starting IPFS upload process...');
+
   try {
-    console.log('Starting IPFS upload process...');
-    
-    // Get the JWT token
-    const jwtToken = import.meta.env.VITE_PINATA_JWT || import.meta.env.REACT_APP_PINATA_JWT;
-    
-    if (!jwtToken) {
-      throw new Error('Pinata JWT token not found in environment variables');
+    // Get the SVG element
+    const svgElement = document.getElementById('reputation-art-svg');
+    if (!svgElement) {
+      throw new Error('SVG element not found');
     }
-    
+
     console.log('JWT token found, converting SVG to PNG...');
     console.log('SVG element:', svgElement);
-    
-    if (!svgElement) {
-      throw new Error('SVG element not found for conversion');
-    }
-    
+
     // Convert SVG to PNG
-    const pngBlob = await svgToPng(svgElement, 800, 800);
+    const pngBlob = await convertSVGToPNG(svgElement);
     console.log('PNG conversion completed, blob size:', pngBlob.size);
-    
-    // Create metadata first (without image URL)
+
+    // Calculate traits based on artData
+    const visualElements = (artData.patterns?.length || 0) + (artData.particles?.length || 0);
+    const complexityScore = artData.mandalaRings?.length || 0;
+    const energyFlows = (artData.connections?.length || 0) + (artData.waves?.length || 0);
+    const geometricHarmony = artData.geometricHarmony || 0;
+    const chromaticSignature = artData.chromaticSignature || 0;
+
+    // Determine rarity tier
+    const getRarityTier = (score) => {
+      if (score >= 80) return 'Legendary';
+      if (score >= 60) return 'Epic';
+      if (score >= 40) return 'Rare';
+      return 'Common';
+    };
+
+    // Upload PNG image
+    console.log('Uploading PNG image to IPFS...');
+    const imageHash = await uploadToIPFS(
+      pngBlob,
+      {
+        name: `reputation-art-${walletAddress.slice(0, 8)}.png`,
+        keyvalues: {
+          type: 'reputation-art-image',
+          wallet: walletAddress,
+          score: overallScore.toString()
+        }
+      }
+    );
+
+    console.log('PNG uploaded successfully:', imageHash);
+
+    // Create metadata with the new trait structure
     const metadata = {
       name: `Reputation Art #${overallScore}`,
       description: `Unique reputation art generated for wallet ${walletAddress} with score ${overallScore}`,
       attributes: [
-        { trait_type: "Overall Score", value: overallScore },
-        { trait_type: "Total Transactions", value: metrics.totalTransactions },
-        { trait_type: "Diversity Score", value: metrics.diversityScore },
-        { trait_type: "Transaction Frequency", value: metrics.transactionFrequency },
-        { trait_type: "First Transaction Age", value: metrics.firstTransactionAge },
-        { trait_type: "Wallet Address", value: walletAddress }
+        {
+          trait_type: "Overall Score",
+          value: overallScore
+        },
+        {
+          trait_type: "Visual Elements", 
+          value: `${visualElements} pieces`
+        },
+        {
+          trait_type: "Complexity Score",
+          value: `${complexityScore}x mandala layers`
+        },
+        {
+          trait_type: "Energy Flows",
+          value: `${energyFlows} paths`
+        },
+        {
+          trait_type: "Geometric Harmony",
+          value: `${geometricHarmony}° resonance`
+        },
+        {
+          trait_type: "Chromatic Signature", 
+          value: `${chromaticSignature}° spectrum`
+        },
+        {
+          trait_type: "Rarity Tier",
+          value: getRarityTier(overallScore)
+        },
+        {
+          trait_type: "Wallet Address",
+          value: walletAddress
+        }
       ],
-      external_url: `https://monadmindscope.com/wallet/${walletAddress}`
+      external_url: `https://monadmindscope.com/wallet/${walletAddress}`,
+      image: `https://gateway.pinata.cloud/ipfs/${imageHash}`,
+      image_url: `https://gateway.pinata.cloud/ipfs/${imageHash}`
     };
-    
-    // Create FormData for PNG upload - use a simple name without extension
-    const imageFormData = new FormData();
-    imageFormData.append('file', pngBlob, `reputation-art-${walletAddress.slice(0, 8)}`);
-    
-    const imagePinataMetadata = JSON.stringify({
-      name: `reputation-art-${walletAddress.slice(0, 8)}`,
-      keyvalues: {
-        walletAddress: walletAddress,
-        score: overallScore.toString(),
-        type: 'image'
-      }
-    });
-    imageFormData.append('pinataMetadata', imagePinataMetadata);
-    
-    console.log('Uploading PNG image to IPFS...');
-    
-    // Upload PNG to IPFS with retry logic
-    const imageResponse = await uploadWithRetry(
-      'https://api.pinata.cloud/pinning/pinFileToIPFS',
-      imageFormData,
-      {
-        'Content-Type': 'multipart/form-data',
-        'Authorization': `Bearer ${jwtToken}`
-      }
-    );
-    
-    const imageHash = imageResponse.data.IpfsHash;
-    console.log('PNG uploaded successfully:', imageHash);
-    
-    // Update metadata with image URL - use gateway.pinata.cloud for better accessibility
-    metadata.image = `https://gateway.pinata.cloud/ipfs/${imageHash}`;
+
     console.log('Updated metadata with image URL:', metadata.image);
-    
-    // Create FormData for metadata upload - use a simple name without extension
-    const metadataFormData = new FormData();
-    const metadataBlob = new Blob([JSON.stringify(metadata, null, 2)], { type: 'application/json' });
-    metadataFormData.append('file', metadataBlob, `metadata-${walletAddress.slice(0, 8)}`);
-    
-    const metadataPinataMetadata = JSON.stringify({
-      name: `metadata-${walletAddress.slice(0, 8)}`,
-      keyvalues: {
-        walletAddress: walletAddress,
-        score: overallScore.toString(),
-        type: 'metadata'
-      }
-    });
-    metadataFormData.append('pinataMetadata', metadataPinataMetadata);
-    
+
+    // Upload metadata
     console.log('Uploading metadata to IPFS...');
-    
-    // Upload metadata to IPFS with retry logic
-    const metadataResponse = await uploadWithRetry(
-      'https://api.pinata.cloud/pinning/pinFileToIPFS',
-      metadataFormData,
+    const metadataBlob = new Blob([JSON.stringify(metadata, null, 2)], {
+      type: 'application/json'
+    });
+
+    const metadataHash = await uploadToIPFS(
+      metadataBlob,
       {
-        'Content-Type': 'multipart/form-data',
-        'Authorization': `Bearer ${jwtToken}`
+        name: `reputation-art-metadata-${walletAddress.slice(0, 8)}.json`,
+        keyvalues: {
+          type: 'reputation-art-metadata',
+          wallet: walletAddress,
+          score: overallScore.toString()
+        }
       }
     );
-    
-    const metadataHash = metadataResponse.data.IpfsHash;
+
     console.log('Metadata uploaded successfully:', metadataHash);
     console.log('Final metadata structure:', metadata);
-    
+
     return metadataHash;
-    
+
   } catch (error) {
-    console.error('IPFS upload failed:', error);
-    console.error('Error details:', {
-      message: error.message,
-      response: error.response?.data,
-      status: error.response?.status
-    });
-    
-    if (error.response?.status === 401) {
-      throw new Error('Invalid Pinata API credentials. Please check your JWT token.');
-    }
-    
-    throw new Error(`Failed to upload to IPFS: ${error.message}`);
+    console.error('Error uploading to Pinata:', error);
+    throw error;
   }
 };
