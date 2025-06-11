@@ -16,13 +16,6 @@ interface Eip1193Provider {
   isMetaMask?: boolean;
 }
 
-// Extend the Window interface to include ethereum
-declare global {
-  interface Window {
-    ethereum?: Eip1193Provider;
-  }
-}
-
 // Define the contract interface
 interface ReputationArtNFTContract extends BaseContract {
   hasMinted: (address: string, score: number) => Promise<boolean>;
@@ -100,19 +93,13 @@ const EagerMintDialog = ({
       }
 
       // Get chain ID directly from ethereum provider
-      const chainId = await window.ethereum.request({ method: 'eth_chainId' });
-      console.log('Raw chain ID from provider:', chainId);
-      console.log('Expected chain ID:', MONAD_TESTNET.chainId);
-      console.log('Types - Received:', typeof chainId, 'Expected:', typeof MONAD_TESTNET.chainId);
+      const netVersion = await (window.ethereum as any).request({ method: 'net_version' });
+      console.log('net_version', netVersion);
+      const isOnCorrectNetwork = netVersion === '10143';
       
-      // Convert to consistent format (lowercase hex string)
-      const normalizedChainId = chainId.toLowerCase();
-      const normalizedExpected = MONAD_TESTNET.chainId.toLowerCase();
-      
-      console.log('Normalized - Received:', normalizedChainId, 'Expected:', normalizedExpected);
-      console.log('Do they match?', normalizedChainId === normalizedExpected);
-      
-      setCurrentChainId(chainId);
+      setCurrentChainId(netVersion);
+
+      console.log('net_version', netVersion);
 
     } catch (error) {
       console.error('Failed to check network:', error);
@@ -133,7 +120,7 @@ const EagerMintDialog = ({
 
       // First try to switch to the network
       try {
-        await window.ethereum.request({
+        await (window.ethereum as any).request({
           method: 'wallet_switchEthereumChain',
           params: [{ chainId: MONAD_TESTNET.chainId }],
         });
@@ -143,7 +130,7 @@ const EagerMintDialog = ({
         // This error code indicates that the chain has not been added to MetaMask
         if (switchError.code === 4902) {
           console.log('Network not found, adding Monad testnet...');
-          await window.ethereum.request({
+          await (window.ethereum as any).request({
             method: 'wallet_addEthereumChain',
             params: [MONAD_TESTNET],
           });
@@ -198,7 +185,7 @@ const EagerMintDialog = ({
         return false;
       }
 
-      const provider = new BrowserProvider(window.ethereum);
+      const provider = new BrowserProvider(window.ethereum as any);
       const contract = new Contract(contractAddress, ReputationArtNFT, provider);
       
       console.log('Contract created, calling hasMinted...');
@@ -250,11 +237,11 @@ const EagerMintDialog = ({
       }
 
       // Check if we're on the correct network
-      if (currentChainId !== MONAD_TESTNET.chainId) {
+      if (currentChainId !== '10143') {
         throw new Error('Please switch to Monad Testnet to mint NFTs.');
       }
 
-      const provider = new BrowserProvider(window.ethereum);
+      const provider = new BrowserProvider(window.ethereum as any);
       
       // Request account access
       await provider.send("eth_requestAccounts", []);
@@ -370,7 +357,9 @@ const EagerMintDialog = ({
   };
 
   // Check if we're on the correct network (case-insensitive comparison)
-  const isOnCorrectNetwork = currentChainId?.toLowerCase() === MONAD_TESTNET.chainId.toLowerCase();
+  const isOnCorrectNetwork = currentChainId === '10143';
+
+  console.log('window.ethereum.networkVersion', (window.ethereum as any).networkVersion);
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => {
