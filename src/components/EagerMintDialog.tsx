@@ -273,12 +273,15 @@ const EagerMintDialog = ({
       console.log('Creating contract instance for minting...');
       const contract = new Contract(contractAddress, ReputationArtNFT, signer);
       
+      // Use just the hash without duplicate ipfs:// prefix
+      const tokenURI = `ipfs://${ipfsHash}`;
+      
       console.log('Calling mintArt with params:', {
         recipient: walletAddress,
         score: overallScore,
         totalTransactions: metrics.totalTransactions,
         diversityScore: metrics.diversityScore,
-        ipfsHash: `ipfs://${ipfsHash}`
+        tokenURI: tokenURI
       });
 
       toast({
@@ -291,7 +294,7 @@ const EagerMintDialog = ({
         overallScore,
         metrics.totalTransactions,
         metrics.diversityScore,
-        `ipfs://${ipfsHash}`,
+        tokenURI,
         { gasLimit: 5000000 }
       );
       
@@ -306,6 +309,33 @@ const EagerMintDialog = ({
       const receipt = await tx.wait();
       if (receipt) {
         setTxHash(receipt.hash);
+        
+        // Extract token ID from logs for better tracking
+        const transferLog = receipt.logs.find(log => log.topics[0] === '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef');
+        if (transferLog) {
+          const tokenId = parseInt(transferLog.topics[3], 16);
+          console.log('Minted Token ID:', tokenId);
+          
+          // Test the tokenURI and metadata
+          try {
+            const supportsInterface = await contract["supportsInterface"]('0x5b5e139f');
+            console.log('Supports ERC721Metadata:', supportsInterface);
+            
+            const tokenURIResult = await contract["tokenURI"](tokenId);
+            console.log('Token URI:', tokenURIResult);
+            
+            const metadata = await contract["getArtMetadata"](walletAddress, overallScore);
+            console.log('Stored Art Metadata:', metadata);
+            
+            console.log('Token Metadata Check:', {
+              supportsInterface,
+              tokenURI: tokenURIResult,
+              metadata
+            });
+          } catch (metadataError) {
+            console.error('Error checking metadata:', metadataError);
+          }
+        }
       }
 
       setMintSuccess(true);
