@@ -1,4 +1,3 @@
-
 import axios from 'axios';
 
 // Function to convert SVG to PNG
@@ -101,12 +100,27 @@ export const uploadToIPFS = async (walletAddress, overallScore, metrics, artData
     const pngBlob = await svgToPng(svgElement, 800, 800);
     console.log('PNG conversion completed, blob size:', pngBlob.size);
     
-    // Create FormData for PNG upload
+    // Create metadata first (without image URL)
+    const metadata = {
+      name: `Reputation Art #${overallScore}`,
+      description: `Unique reputation art generated for wallet ${walletAddress} with score ${overallScore}`,
+      attributes: [
+        { trait_type: "Overall Score", value: overallScore },
+        { trait_type: "Total Transactions", value: metrics.totalTransactions },
+        { trait_type: "Diversity Score", value: metrics.diversityScore },
+        { trait_type: "Transaction Frequency", value: metrics.transactionFrequency },
+        { trait_type: "First Transaction Age", value: metrics.firstTransactionAge },
+        { trait_type: "Wallet Address", value: walletAddress }
+      ],
+      external_url: `https://monadmindscope.com/wallet/${walletAddress}`
+    };
+    
+    // Create FormData for PNG upload - use a simple name without extension
     const imageFormData = new FormData();
-    imageFormData.append('file', pngBlob, `reputation-art-${walletAddress.slice(0, 8)}.png`);
+    imageFormData.append('file', pngBlob, `reputation-art-${walletAddress.slice(0, 8)}`);
     
     const imagePinataMetadata = JSON.stringify({
-      name: `reputation-art-${walletAddress.slice(0, 8)}.png`,
+      name: `reputation-art-${walletAddress.slice(0, 8)}`,
       keyvalues: {
         walletAddress: walletAddress,
         score: overallScore.toString(),
@@ -130,50 +144,17 @@ export const uploadToIPFS = async (walletAddress, overallScore, metrics, artData
     const imageHash = imageResponse.data.IpfsHash;
     console.log('PNG uploaded successfully:', imageHash);
     
-    // Get rarity tier for better metadata
-    const getRarityTier = (score) => {
-      if (score >= 80) return 'Legendary';
-      if (score >= 60) return 'Epic';
-      if (score >= 40) return 'Rare';
-      return 'Common';
-    };
-    
-    // Create enhanced metadata with multiple image formats for better compatibility
-    const metadata = {
-      name: `Reputation Art #${overallScore}`,
-      description: `Unique reputation art generated for wallet ${walletAddress} with score ${overallScore}. This generative NFT represents the on-chain reputation and activity patterns of the wallet holder.`,
-      image: `https://gateway.pinata.cloud/ipfs/${imageHash}`,
-      image_url: `https://gateway.pinata.cloud/ipfs/${imageHash}`, // OpenSea compatibility
-      image_data: null, // Standard field
-      external_url: `https://monadmindscope.com/wallet/${walletAddress}`,
-      animation_url: null,
-      attributes: [
-        { trait_type: "Overall Score", value: overallScore },
-        { trait_type: "Rarity Tier", value: getRarityTier(overallScore) },
-        { trait_type: "Total Transactions", value: metrics.totalTransactions },
-        { trait_type: "Diversity Score", value: metrics.diversityScore },
-        { trait_type: "Transaction Frequency", value: metrics.transactionFrequency },
-        { trait_type: "First Transaction Age", value: metrics.firstTransactionAge },
-        { trait_type: "Wallet Address", value: walletAddress },
-        { trait_type: "Generation Date", value: new Date().toISOString().split('T')[0] }
-      ],
-      properties: {
-        category: "Art",
-        collection: "Reputation Art Collection",
-        rarity: getRarityTier(overallScore),
-        score: overallScore
-      }
-    };
-    
+    // Update metadata with image URL - use gateway.pinata.cloud for better accessibility
+    metadata.image = `https://gateway.pinata.cloud/ipfs/${imageHash}`;
     console.log('Updated metadata with image URL:', metadata.image);
     
-    // Create FormData for metadata upload
+    // Create FormData for metadata upload - use a simple name without extension
     const metadataFormData = new FormData();
     const metadataBlob = new Blob([JSON.stringify(metadata, null, 2)], { type: 'application/json' });
-    metadataFormData.append('file', metadataBlob, `metadata-${walletAddress.slice(0, 8)}.json`);
+    metadataFormData.append('file', metadataBlob, `metadata-${walletAddress.slice(0, 8)}`);
     
     const metadataPinataMetadata = JSON.stringify({
-      name: `metadata-${walletAddress.slice(0, 8)}.json`,
+      name: `metadata-${walletAddress.slice(0, 8)}`,
       keyvalues: {
         walletAddress: walletAddress,
         score: overallScore.toString(),
@@ -198,7 +179,6 @@ export const uploadToIPFS = async (walletAddress, overallScore, metrics, artData
     console.log('Metadata uploaded successfully:', metadataHash);
     console.log('Final metadata structure:', metadata);
     
-    // Return just the hash without the ipfs:// prefix to avoid duplication
     return metadataHash;
     
   } catch (error) {
