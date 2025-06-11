@@ -53,10 +53,10 @@ const STAKING_PLATFORMS: StakingPlatform[] = [
   },
   {
     name: "Magma",
-    contractAddress: "0x2c9C959516e9AAEdB2C748224a41249202ca8BE7",
-    tokenSymbol: "magmaMON",
+    contractAddress: "0xaEef2f6B429Cb59C9B2D7bB2141ADa993E8571c3",
+    tokenSymbol: "gMON",
     description: "Liquid staking platform integrated with Monad ecosystem",
-    website: "#",
+    website: "https://magmastaking.xyz",
     color: "bg-orange-500"
   }
 ];
