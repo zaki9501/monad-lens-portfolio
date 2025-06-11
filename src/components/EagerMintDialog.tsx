@@ -224,6 +224,36 @@ const EagerMintDialog = ({
     }
   }, [isOpen, walletAddress, overallScore, currentChainId]);
 
+  const checkTokenMetadata = async (contract: Contract, tokenId: number) => {
+    try {
+      // Check if contract supports ERC721Metadata
+      const supportsInterface = await contract.supportsInterface('0x5b5e139f');
+      console.log('Supports ERC721Metadata:', supportsInterface);
+
+      // Get token URI
+      const tokenURI = await contract.tokenURI(tokenId);
+      console.log('Token URI:', tokenURI);
+
+      // Get art metadata
+      const metadata = await contract.artMetadata(tokenId);
+      console.log('Stored Art Metadata:', {
+        score: metadata.score.toString(),
+        totalTransactions: metadata.totalTransactions.toString(),
+        diversityScore: metadata.diversityScore.toString(),
+        ipfsHash: metadata.ipfsHash
+      });
+
+      return {
+        supportsInterface,
+        tokenURI,
+        metadata
+      };
+    } catch (error) {
+      console.error('Error checking token metadata:', error);
+      return null;
+    }
+  };
+
   const handleEagerMint = async () => {
     setIsMinting(true);
     setMintError('');
@@ -278,7 +308,7 @@ const EagerMintDialog = ({
         score: overallScore,
         totalTransactions: metrics.totalTransactions,
         diversityScore: metrics.diversityScore,
-        ipfsHash: `ipfs://${ipfsHash}`
+        ipfsHash: ipfsHash,
       });
 
       toast({
@@ -291,7 +321,7 @@ const EagerMintDialog = ({
         overallScore,
         metrics.totalTransactions,
         metrics.diversityScore,
-        `ipfs://${ipfsHash}`,
+        ipfsHash,
         { gasLimit: 5000000 }
       );
       
@@ -306,6 +336,20 @@ const EagerMintDialog = ({
       const receipt = await tx.wait();
       if (receipt) {
         setTxHash(receipt.hash);
+        
+        // Get the token ID from the Transfer event
+        const transferEvent = receipt.logs.find(
+          (log: any) => log.fragment?.name === 'Transfer'
+        );
+        
+        if (transferEvent) {
+          const tokenId = transferEvent.args[2];
+          console.log('Minted Token ID:', tokenId.toString());
+          
+          // Check token metadata
+          const metadataCheck = await checkTokenMetadata(contract, tokenId);
+          console.log('Token Metadata Check:', metadataCheck);
+        }
       }
 
       setMintSuccess(true);
