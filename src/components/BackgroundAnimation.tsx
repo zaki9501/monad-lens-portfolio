@@ -82,7 +82,8 @@ const BackgroundAnimation = () => {
         />
       </div>
 
-      <style>{`
+      <style>
+        {`
         @keyframes float {
           0%, 100% { transform: translateY(0px); }
           50% { transform: translateY(-20px); }
@@ -111,7 +112,8 @@ const BackgroundAnimation = () => {
           50% { transform: translateY(-100%); }
           100% { transform: translateY(100%); }
         }
-      `}</style>
+        `}
+      </style>
     </div>
   );
 };

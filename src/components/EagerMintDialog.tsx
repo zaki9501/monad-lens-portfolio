@@ -166,7 +166,7 @@ const EagerMintDialog = ({ walletAddress, overallScore, artData, isDarkMode, isL
       // Store minted status in localStorage
       const mintedWallets = JSON.parse(localStorage.getItem('mintedWallets') || '{}');
       mintedWallets[walletAddress.toLowerCase()] = {
-        tokenId: newTokenId,
+        tokenId: tokenId,
         txHash: transaction.hash,
         timestamp: new Date().toISOString()
       };
