@@ -1,4 +1,3 @@
-
 import React, { useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -158,6 +157,17 @@ const ReputationArtGenerator = ({
       });
     }
 
+    // Calculate new traits
+    const geometricHarmony = Math.round(
+      (patterns.reduce((sum, p) => sum + p.complexity, 0) / patterns.length) * 10 +
+      (mandalaRings.length * 2) +
+      Math.abs(Math.sin(seed / 1000)) * 20
+    );
+
+    const chromaticSignature = Math.round(
+      ((primaryHue + secondaryHue + tertiaryHue + accentHue) / 4) % 360
+    );
+
     return {
       patterns,
       connections,
@@ -168,6 +178,8 @@ const ReputationArtGenerator = ({
       secondaryHue,
       tertiaryHue,
       accentHue,
+      geometricHarmony,
+      chromaticSignature,
       background: isDarkMode 
         ? `radial-gradient(circle at 30% 70%, hsl(${primaryHue}, 25%, 8%) 0%, hsl(${secondaryHue}, 20%, 5%) 50%, hsl(${tertiaryHue}, 15%, 3%) 100%)`
         : `radial-gradient(circle at 30% 70%, hsl(${primaryHue}, 30%, 95%) 0%, hsl(${secondaryHue}, 25%, 97%) 50%, hsl(${tertiaryHue}, 20%, 99%) 100%)`
@@ -411,8 +423,8 @@ const ReputationArtGenerator = ({
               </svg>
             </div>
 
-            {/* Enhanced Art Metadata */}
-            <div className={`grid grid-cols-2 gap-4 w-full max-w-md text-sm ${
+            {/* Enhanced Art Metadata with new traits */}
+            <div className={`grid grid-cols-3 gap-4 w-full max-w-2xl text-sm ${
               isDarkMode ? 'text-gray-300' : 'text-gray-600'
             }`}>
               <div className="text-center p-3 rounded-lg bg-gradient-to-r from-purple-500/10 to-blue-500/10">
@@ -426,6 +438,14 @@ const ReputationArtGenerator = ({
               <div className="text-center p-3 rounded-lg bg-gradient-to-r from-blue-500/10 to-cyan-500/10">
                 <div className="font-semibold">Energy Flows</div>
                 <div>{artData.connections.length + artData.waves.length} paths</div>
+              </div>
+              <div className="text-center p-3 rounded-lg bg-gradient-to-r from-green-500/10 to-teal-500/10">
+                <div className="font-semibold">Geometric Harmony</div>
+                <div>{artData.geometricHarmony}° resonance</div>
+              </div>
+              <div className="text-center p-3 rounded-lg bg-gradient-to-r from-indigo-500/10 to-purple-500/10">
+                <div className="font-semibold">Chromatic Signature</div>
+                <div>{artData.chromaticSignature}° spectrum</div>
               </div>
               <div className="text-center p-3 rounded-lg bg-gradient-to-r from-yellow-500/10 to-orange-500/10">
                 <div className="font-semibold">Rarity Tier</div>
