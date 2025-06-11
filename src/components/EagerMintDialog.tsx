@@ -25,14 +25,8 @@ declare global {
 
 // Define the contract interface
 interface ReputationArtNFTContract extends BaseContract {
-  hasMinted: {
-    (address: string, score: number): Promise<boolean>;
-    call: (address: string, score: number): Promise<boolean>;
-  };
-  mintArt: {
-    (address: string, score: number, totalTransactions: number, diversityScore: number, tokenURI: string, options?: { gasLimit: number }): Promise<ContractTransactionResponse>;
-    call: (address: string, score: number, totalTransactions: number, diversityScore: number, tokenURI: string, options?: { gasLimit: number }) => Promise<ContractTransactionResponse>;
-  };
+  hasMinted: (address: string, score: number) => Promise<boolean>;
+  mintArt: (address: string, score: number, totalTransactions: number, diversityScore: number, tokenURI: string, options?: { gasLimit: number }) => Promise<ContractTransactionResponse>;
 }
 
 interface EagerMintDialogProps {
@@ -93,9 +87,11 @@ const EagerMintDialog = ({
 
   const { rarity, price, color } = getRarityAndPrice();
 
-  // Check current network
+  // Check current network with detailed logging
   const checkCurrentNetwork = async () => {
     setIsCheckingNetwork(true);
+    console.log('Starting network check...');
+    
     try {
       if (!window.ethereum) {
         console.log('No ethereum provider found');
@@ -103,28 +99,21 @@ const EagerMintDialog = ({
         return;
       }
 
-      // Try using the provider directly first
+      // Get chain ID directly from ethereum provider
       const chainId = await window.ethereum.request({ method: 'eth_chainId' });
-      console.log('Chain ID from ethereum.request:', chainId);
+      console.log('Raw chain ID from provider:', chainId);
       console.log('Expected chain ID:', MONAD_TESTNET.chainId);
-      console.log('Chain IDs match:', chainId === MONAD_TESTNET.chainId);
+      console.log('Types - Received:', typeof chainId, 'Expected:', typeof MONAD_TESTNET.chainId);
+      
+      // Convert to consistent format (lowercase hex string)
+      const normalizedChainId = chainId.toLowerCase();
+      const normalizedExpected = MONAD_TESTNET.chainId.toLowerCase();
+      
+      console.log('Normalized - Received:', normalizedChainId, 'Expected:', normalizedExpected);
+      console.log('Do they match?', normalizedChainId === normalizedExpected);
       
       setCurrentChainId(chainId);
 
-      // Also try using ethers provider as backup
-      try {
-        const provider = new BrowserProvider(window.ethereum);
-        const network = await provider.getNetwork();
-        const ethersChainId = `0x${network.chainId.toString(16)}`;
-        console.log('Chain ID from ethers provider:', ethersChainId);
-        
-        // Use the direct ethereum.request result as it's more reliable
-        setCurrentChainId(chainId);
-      } catch (ethersError) {
-        console.log('Ethers provider failed, using direct ethereum result:', ethersError);
-        // Still use the direct result
-        setCurrentChainId(chainId);
-      }
     } catch (error) {
       console.error('Failed to check network:', error);
       setCurrentChainId(null);
@@ -200,7 +189,10 @@ const EagerMintDialog = ({
       }
 
       // Ensure we're on the correct network first
-      if (currentChainId !== MONAD_TESTNET.chainId) {
+      const normalizedCurrent = currentChainId?.toLowerCase();
+      const normalizedExpected = MONAD_TESTNET.chainId.toLowerCase();
+      
+      if (normalizedCurrent !== normalizedExpected) {
         console.log('Not on Monad testnet, cannot check mint status. Current:', currentChainId, 'Expected:', MONAD_TESTNET.chainId);
         setHasMinted(false);
         return false;
@@ -212,7 +204,7 @@ const EagerMintDialog = ({
       console.log('Contract created, calling hasMinted...');
       
       try {
-        const minted = await contract["hasMinted"](walletAddress, overallScore);
+        const minted = await contract.hasMinted(walletAddress, overallScore);
         console.log('hasMinted result:', minted);
         setHasMinted(minted);
         return minted;
@@ -237,7 +229,10 @@ const EagerMintDialog = ({
   }, [isOpen]);
 
   useEffect(() => {
-    if (isOpen && currentChainId === MONAD_TESTNET.chainId) {
+    const normalizedCurrent = currentChainId?.toLowerCase();
+    const normalizedExpected = MONAD_TESTNET.chainId.toLowerCase();
+    
+    if (isOpen && normalizedCurrent === normalizedExpected) {
       checkMintedStatus();
     }
   }, [isOpen, walletAddress, overallScore, currentChainId]);
@@ -374,8 +369,8 @@ const EagerMintDialog = ({
     setTxHash(null);
   };
 
-  // Use direct string comparison instead of toLowerCase() since chain IDs should match exactly
-  const isOnCorrectNetwork = currentChainId === MONAD_TESTNET.chainId;
+  // Check if we're on the correct network (case-insensitive comparison)
+  const isOnCorrectNetwork = currentChainId?.toLowerCase() === MONAD_TESTNET.chainId.toLowerCase();
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => {
@@ -439,16 +434,15 @@ const EagerMintDialog = ({
                   </Button>
                 )}
               </div>
-              {!isOnCorrectNetwork && (
-                <div className="text-xs mt-1 opacity-80">
-                  <p>You need to be on Monad Testnet to mint NFTs</p>
-                  <p className="font-mono">Current: {currentChainId || 'Unknown'}</p>
-                  <p className="font-mono">Expected: {MONAD_TESTNET.chainId}</p>
-                </div>
-              )}
+              <div className="text-xs mt-1 opacity-80">
+                <p className="font-mono">Current: {currentChainId || 'Unknown'}</p>
+                <p className="font-mono">Expected: {MONAD_TESTNET.chainId}</p>
+                <p className="font-mono">Match: {isOnCorrectNetwork ? 'Yes' : 'No'}</p>
+              </div>
             </div>
           )}
 
+          {/* Rest of the component remains the same */}
           {!mintSuccess && !mintError && (
             <>
               {/* NFT Preview */}
@@ -456,7 +450,7 @@ const EagerMintDialog = ({
                 <div className={`w-24 h-24 mx-auto rounded-lg ${
                   isDarkMode ? 'bg-slate-700 border-slate-600' : 'bg-gray-100 border-gray-300'
                 } flex items-center justify-center mb-3 border-2 overflow-hidden`}>
-                  {artData && artData.patterns.length > 0 ? (
+                  {artData && artData.patterns && artData.patterns.length > 0 ? (
                     <svg width="96" height="96" viewBox="0 0 400 400">
                       <rect width="96" height="96" fill={artData.background || '#1E293B'} />
                       <circle cx="48" cy="48" r="20" fill="hsl(270, 60%, 50%)" />
