@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import {
   Dialog,
@@ -32,7 +33,7 @@ const EagerMintDialog = ({ walletAddress, overallScore, artData, isDarkMode, isL
     const checkNetwork = async () => {
       if (window.ethereum) {
         try {
-          const networkVersion = window.ethereum.networkVersion;
+          const networkVersion = (window.ethereum as any).networkVersion;
           console.log('window.ethereum.networkVersion', networkVersion);
           
           if (networkVersion === '10143') {
@@ -68,7 +69,7 @@ const EagerMintDialog = ({ walletAddress, overallScore, artData, isDarkMode, isL
     setMintingStep('Preparing artwork...');
 
     try {
-      const provider = new ethers.BrowserProvider(window.ethereum);
+      const provider = new ethers.BrowserProvider(window.ethereum as any);
       const signer = await provider.getSigner();
       const signerAddress = await signer.getAddress();
       

@@ -1,3 +1,4 @@
+
 const convertSVGToPNG = (svgElement) => {
   return new Promise((resolve, reject) => {
     console.log('Starting SVG to PNG conversion...');
@@ -96,12 +97,20 @@ export const uploadToPinata = async (walletAddress, overallScore, artData) => {
     const pngBlob = await convertSVGToPNG(svgElement);
     console.log('PNG conversion completed, blob size:', pngBlob.size);
 
-    // Calculate additional traits
+    // Calculate traits based on artData
     const visualElements = (artData.patterns?.length || 0) + (artData.particles?.length || 0);
     const complexityScore = artData.mandalaRings?.length || 0;
     const energyFlows = (artData.connections?.length || 0) + (artData.waves?.length || 0);
     const geometricHarmony = artData.geometricHarmony || 0;
     const chromaticSignature = artData.chromaticSignature || 0;
+
+    // Determine rarity tier
+    const getRarityTier = (score) => {
+      if (score >= 80) return 'Legendary';
+      if (score >= 60) return 'Epic';
+      if (score >= 40) return 'Rare';
+      return 'Common';
+    };
 
     // Upload PNG image
     console.log('Uploading PNG image to IPFS...');
@@ -119,7 +128,7 @@ export const uploadToPinata = async (walletAddress, overallScore, artData) => {
 
     console.log('PNG uploaded successfully:', imageHash);
 
-    // Create metadata with enhanced traits
+    // Create metadata with the new trait structure
     const metadata = {
       name: `Reputation Art #${overallScore}`,
       description: `Unique reputation art generated for wallet ${walletAddress} with score ${overallScore}`,
@@ -130,23 +139,27 @@ export const uploadToPinata = async (walletAddress, overallScore, artData) => {
         },
         {
           trait_type: "Visual Elements", 
-          value: visualElements
+          value: `${visualElements} pieces`
         },
         {
           trait_type: "Complexity Score",
-          value: complexityScore
+          value: `${complexityScore}x mandala layers`
         },
         {
           trait_type: "Energy Flows",
-          value: energyFlows
+          value: `${energyFlows} paths`
         },
         {
           trait_type: "Geometric Harmony",
-          value: geometricHarmony
+          value: `${geometricHarmony}° resonance`
         },
         {
           trait_type: "Chromatic Signature", 
-          value: chromaticSignature
+          value: `${chromaticSignature}° spectrum`
+        },
+        {
+          trait_type: "Rarity Tier",
+          value: getRarityTier(overallScore)
         },
         {
           trait_type: "Wallet Address",
