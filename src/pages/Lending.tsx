@@ -113,7 +113,7 @@ const Lending = () => {
 
         {/* Hero Section */}
         <section className="container mx-auto px-4 py-20">
-          <div className="text-center mb-16 animate-fade-in">
+          <div className="text-center mb-16">
             <h1 className="text-7xl font-bold text-white mb-6">
               Welcome to <span className="bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent">Monad Lens</span>
             </h1>
@@ -130,7 +130,7 @@ const Lending = () => {
 
           {/* Features Grid */}
           <div className="grid gap-8 md:grid-cols-3 mb-20">
-            <Card className="bg-slate-800/50 border-slate-700 hover:border-purple-500/50 transition-all duration-300 group hover-scale animate-fade-in">
+            <Card className="bg-slate-800/50 border-slate-700 hover:border-purple-500/50 transition-all duration-300 group hover-scale">
               <CardHeader>
                 <div className="w-16 h-16 bg-gradient-to-r from-blue-500 to-purple-500 rounded-lg flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
                   <Shield className="w-8 h-8 text-white" />
@@ -142,9 +142,7 @@ const Lending = () => {
               </CardHeader>
             </Card>
 
-            <Card className="bg-slate-800/50 border-slate-700 hover:border-purple-500/50 transition-all duration-300 group hover-scale animate-fade-in" style={{
-            animationDelay: '150ms'
-          }}>
+            <Card className="bg-slate-800/50 border-slate-700 hover:border-purple-500/50 transition-all duration-300 group hover-scale">
               <CardHeader>
                 <div className="w-16 h-16 bg-gradient-to-r from-green-500 to-teal-500 rounded-lg flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
                   <TrendingUp className="w-8 h-8 text-white" />
@@ -156,9 +154,7 @@ const Lending = () => {
               </CardHeader>
             </Card>
 
-            <Card className="bg-slate-800/50 border-slate-700 hover:border-purple-500/50 transition-all duration-300 group hover-scale animate-fade-in" style={{
-            animationDelay: '300ms'
-          }}>
+            <Card className="bg-slate-800/50 border-slate-700 hover:border-purple-500/50 transition-all duration-300 group hover-scale">
               <CardHeader>
                 <div className="w-16 h-16 bg-gradient-to-r from-orange-500 to-red-500 rounded-lg flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
                   <Zap className="w-8 h-8 text-white" />
@@ -193,9 +189,7 @@ const Lending = () => {
             value: "3,291",
             icon: DollarSign,
             color: "from-purple-500 to-pink-500"
-          }].map((stat, index) => <Card key={stat.label} className="bg-slate-800/50 border-slate-700 hover:border-purple-500/50 transition-all duration-300 animate-fade-in hover-scale" style={{
-            animationDelay: `${index * 100}ms`
-          }}>
+          }].map((stat, index) => <Card key={stat.label} className="bg-slate-800/50 border-slate-700 hover:border-purple-500/50 transition-all duration-300 hover-scale">
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between">
                     <div>
@@ -211,7 +205,7 @@ const Lending = () => {
           </div>
 
           {/* Key Features Section */}
-          <Card className="bg-slate-800/50 border-slate-700 animate-fade-in">
+          <Card className="bg-slate-800/50 border-slate-700">
             <CardHeader>
               <CardTitle className="text-white text-3xl text-center flex items-center justify-center">
                 <Star className="w-8 h-8 mr-3 text-purple-500" />
@@ -221,9 +215,7 @@ const Lending = () => {
             <CardContent>
               <div className="grid gap-8 md:grid-cols-2">
                 <div className="space-y-6">
-                  {["Comprehensive wallet reputation scoring", "Real-time transaction monitoring", "Advanced DApp interaction analytics", "Beautiful data visualizations"].map((feature, index) => <div key={index} className="flex items-center space-x-3 animate-scale-in" style={{
-                  animationDelay: `${index * 100}ms`
-                }}>
+                  {["Comprehensive wallet reputation scoring", "Real-time transaction monitoring", "Advanced DApp interaction analytics", "Beautiful data visualizations"].map((feature, index) => <div key={index} className="flex items-center space-x-3">
                       <div className="w-6 h-6 bg-gradient-to-r from-green-500 to-teal-500 rounded-full flex items-center justify-center">
                         <Check className="w-4 h-4 text-white" />
                       </div>
@@ -231,9 +223,7 @@ const Lending = () => {
                     </div>)}
                 </div>
                 <div className="space-y-6">
-                  {["Lightning-fast Monad blockchain integration", "User-friendly interface design", "Detailed portfolio insights", "Export and sharing capabilities"].map((feature, index) => <div key={index} className="flex items-center space-x-3 animate-scale-in" style={{
-                  animationDelay: `${(index + 4) * 100}ms`
-                }}>
+                  {["Lightning-fast Monad blockchain integration", "User-friendly interface design", "Detailed portfolio insights", "Export and sharing capabilities"].map((feature, index) => <div key={index} className="flex items-center space-x-3">
                       <div className="w-6 h-6 bg-gradient-to-r from-purple-500 to-blue-500 rounded-full flex items-center justify-center">
                         <Check className="w-4 h-4 text-white" />
                       </div>
