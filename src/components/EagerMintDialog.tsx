@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import {
   Dialog,
@@ -28,6 +27,15 @@ const EagerMintDialog = ({ walletAddress, overallScore, artData, isDarkMode, isL
   const [tokenMetadata, setTokenMetadata] = useState(null);
   const [contractAddress, setContractAddress] = useState('');
   const [networkInfo, setNetworkInfo] = useState(null);
+  const [hasBeenMinted, setHasBeenMinted] = useState(false);
+
+  // Check if this wallet has already minted an NFT
+  useEffect(() => {
+    const mintedWallets = JSON.parse(localStorage.getItem('mintedWallets') || '{}');
+    if (mintedWallets[walletAddress.toLowerCase()]) {
+      setHasBeenMinted(true);
+    }
+  }, [walletAddress]);
 
   useEffect(() => {
     const checkNetwork = async () => {
@@ -154,6 +162,16 @@ const EagerMintDialog = ({ walletAddress, overallScore, artData, isDarkMode, isL
 
       setMintSuccess(true);
       setMintingStep('NFT minted successfully!');
+      
+      // Store minted status in localStorage
+      const mintedWallets = JSON.parse(localStorage.getItem('mintedWallets') || '{}');
+      mintedWallets[walletAddress.toLowerCase()] = {
+        tokenId: newTokenId,
+        txHash: transaction.hash,
+        timestamp: new Date().toISOString()
+      };
+      localStorage.setItem('mintedWallets', JSON.stringify(mintedWallets));
+      setHasBeenMinted(true);
     } catch (error) {
       console.error('Minting error:', error);
       setMintError(error.message || 'Failed to mint NFT');
@@ -183,9 +201,15 @@ const EagerMintDialog = ({ walletAddress, overallScore, artData, isDarkMode, isL
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
-        <Button className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white">
+        <Button 
+          disabled={hasBeenMinted}
+          className={`${hasBeenMinted 
+            ? 'bg-gray-500 cursor-not-allowed opacity-50' 
+            : 'bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700'
+          } text-white`}
+        >
           <Sparkles className="w-4 h-4 mr-2" />
-          Mint as NFT
+          {hasBeenMinted ? 'Already Minted' : 'Mint as NFT'}
         </Button>
       </DialogTrigger>
       <DialogContent className={`max-w-md ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-gray-200'}`}>
@@ -195,14 +219,29 @@ const EagerMintDialog = ({ walletAddress, overallScore, artData, isDarkMode, isL
             <span>{isLoreMode ? 'Crystallize Mind Essence' : 'Mint Reputation Art'}</span>
           </DialogTitle>
           <DialogDescription className={isDarkMode ? 'text-gray-300' : 'text-gray-600'}>
-            {isLoreMode 
-              ? 'Transform your digital consciousness into an eternal NFT artifact on the Monad blockchain.'
-              : 'Create a permanent NFT of your unique reputation artwork on the Monad blockchain.'
+            {hasBeenMinted 
+              ? 'This wallet has already minted its reputation art NFT.'
+              : isLoreMode 
+                ? 'Transform your digital consciousness into an eternal NFT artifact on the Monad blockchain.'
+                : 'Create a permanent NFT of your unique reputation artwork on the Monad blockchain.'
             }
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
+          {/* Already Minted Notice */}
+          {hasBeenMinted && (
+            <div className={`p-4 rounded-lg border ${isDarkMode ? 'bg-green-900/20 border-green-700' : 'bg-green-50 border-green-200'}`}>
+              <div className="flex items-center space-x-3 mb-2">
+                <CheckCircle className="w-5 h-5 text-green-400" />
+                <span className={`font-medium ${isDarkMode ? 'text-green-300' : 'text-green-700'}`}>NFT Already Minted</span>
+              </div>
+              <p className={`text-sm ${isDarkMode ? 'text-green-200' : 'text-green-600'}`}>
+                This wallet has already minted its unique reputation art NFT.
+              </p>
+            </div>
+          )}
+
           {/* Network Info */}
           {networkInfo && (
             <div className={`p-3 rounded-lg border ${isDarkMode ? 'bg-slate-700/50 border-slate-600' : 'bg-gray-50 border-gray-200'}`}>
@@ -308,7 +347,15 @@ const EagerMintDialog = ({ walletAddress, overallScore, artData, isDarkMode, isL
         </div>
 
         <DialogFooter>
-          {!mintSuccess ? (
+          {hasBeenMinted ? (
+            <Button 
+              onClick={() => setIsOpen(false)}
+              className="w-full bg-gradient-to-r from-gray-600 to-gray-700 hover:from-gray-700 hover:to-gray-800"
+            >
+              <CheckCircle className="w-4 h-4 mr-2" />
+              Close
+            </Button>
+          ) : !mintSuccess ? (
             <Button 
               onClick={handleMint} 
               disabled={isMinting || !networkInfo}
