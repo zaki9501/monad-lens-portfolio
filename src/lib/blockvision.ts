@@ -1,3 +1,4 @@
+
 const API_BASE = "https://api.blockvision.org/v2/monad";
 const API_KEY = import.meta.env.VITE_BLOCKVISION_API_KEY;
 
@@ -36,6 +37,10 @@ export async function getAccountInternalTransactions(address: string, filter = "
   return fetchBlockvision("account/internal/transactions", { address, filter, limit });
 }
 
+export async function getTokenGating(account: string, contractAddress: string) {
+  return fetchBlockvision("token/gating", { account, contractAddress });
+}
+
 export async function fetchAccountActivities(address: string, apiKey: string, limit = 20) {
   const url = `https://api.blockvision.org/v2/monad/account/activities?address=${address}&limit=${limit}`;
   const res = await fetch(url, {
@@ -46,4 +51,4 @@ export async function fetchAccountActivities(address: string, apiKey: string, li
   });
   if (!res.ok) throw new Error('Failed to fetch activities');
   return res.json();
-} 
+}
