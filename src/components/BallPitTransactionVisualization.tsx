@@ -62,85 +62,71 @@ const TransactionBall: React.FC<{
   onClick: (tx: Transaction) => void;
   isDarkMode: boolean;
   isLoreMode: boolean;
-  mousePosition: THREE.Vector3;
-}> = ({ transaction, position, onClick, isDarkMode, isLoreMode, mousePosition }) => {
+  index: number;
+}> = ({ transaction, position, onClick, isDarkMode, isLoreMode, index }) => {
   const meshRef = useRef<THREE.Mesh>(null);
-  const velocityRef = useRef(new THREE.Vector3(0, 0, 0));
-  const [currentPosition, setCurrentPosition] = useState(new THREE.Vector3(...position));
   const [isHovered, setIsHovered] = useState(false);
+  const [currentY, setCurrentY] = useState(position[1]);
+  const [settled, setSettled] = useState(false);
+  const velocityRef = useRef(0);
+  const bounceHeightRef = useRef(0);
   
   const ballSize = useMemo(() => {
-    // Size based on transaction amount
-    const baseSize = 0.3;
-    const sizeMultiplier = Math.min(transaction.amount / 1000, 2);
-    return baseSize + sizeMultiplier * 0.2;
+    const baseSize = 0.2;
+    const sizeMultiplier = Math.min(transaction.amount / 1000, 1.5);
+    return baseSize + sizeMultiplier * 0.15;
   }, [transaction.amount]);
+
+  // Calculate settling position based on ball pit physics
+  const settleY = useMemo(() => {
+    const floorY = -2;
+    const layers = Math.floor(index / 8); // 8 balls per layer roughly
+    const layerHeight = ballSize * 2;
+    return floorY + ballSize + (layers * layerHeight) + Math.random() * 0.1;
+  }, [ballSize, index]);
 
   useFrame((state, delta) => {
     if (!meshRef.current) return;
 
     const mesh = meshRef.current;
-    const gravity = -9.8;
-    const bounce = 0.7;
-    const friction = 0.98;
-    const repelForce = 5;
-    const repelDistance = 2;
 
-    // Mouse repulsion effect
-    const mouseWorldPos = mousePosition.clone();
-    const distance = mesh.position.distanceTo(mouseWorldPos);
-    
-    if (distance < repelDistance) {
-      const direction = new THREE.Vector3()
-        .subVectors(mesh.position, mouseWorldPos)
-        .normalize();
-      const force = (repelDistance - distance) / repelDistance * repelForce;
-      velocityRef.current.add(direction.multiplyScalar(force * delta));
+    // Settling physics - balls fall and settle at bottom
+    if (!settled) {
+      const gravity = -12;
+      velocityRef.current += gravity * delta;
+      setCurrentY(prev => {
+        const newY = prev + velocityRef.current * delta;
+        if (newY <= settleY) {
+          setSettled(true);
+          velocityRef.current = 0;
+          return settleY;
+        }
+        return newY;
+      });
+      mesh.position.y = currentY;
+    } else {
+      // Hover bounce effect - only when hovered
+      if (isHovered) {
+        const bounceTime = state.clock.getElapsedTime() * 8;
+        const bounceAmount = Math.sin(bounceTime) * 0.3;
+        mesh.position.y = settleY + Math.max(0, bounceAmount);
+      } else {
+        // Return to settled position
+        mesh.position.y = THREE.MathUtils.lerp(mesh.position.y, settleY, delta * 5);
+      }
     }
 
-    // Apply gravity
-    velocityRef.current.y += gravity * delta;
-
-    // Update position
-    mesh.position.add(velocityRef.current.clone().multiplyScalar(delta));
-
-    // Boundary collision (ball pit walls)
-    const bounds = { x: 8, y: 2, z: 8 };
-    
-    // Floor collision
-    if (mesh.position.y - ballSize <= -bounds.y) {
-      mesh.position.y = -bounds.y + ballSize;
-      velocityRef.current.y *= -bounce;
-      velocityRef.current.x *= friction;
-      velocityRef.current.z *= friction;
-    }
-
-    // Wall collisions
-    if (Math.abs(mesh.position.x) + ballSize >= bounds.x) {
-      mesh.position.x = Math.sign(mesh.position.x) * (bounds.x - ballSize);
-      velocityRef.current.x *= -bounce;
-    }
-    
-    if (Math.abs(mesh.position.z) + ballSize >= bounds.z) {
-      mesh.position.z = Math.sign(mesh.position.z) * (bounds.z - ballSize);
-      velocityRef.current.z *= -bounce;
-    }
-
-    // Rotation based on velocity
-    mesh.rotation.x += velocityRef.current.z * delta;
-    mesh.rotation.z -= velocityRef.current.x * delta;
-
-    // Hover effect
-    const targetScale = isHovered ? 1.2 : 1;
-    mesh.scale.lerp(new THREE.Vector3(targetScale, targetScale, targetScale), delta * 5);
+    // Hover scale effect
+    const targetScale = isHovered ? 1.15 : 1;
+    mesh.scale.lerp(new THREE.Vector3(targetScale, targetScale, targetScale), delta * 8);
   });
 
   const getTransactionIcon = () => {
     switch (transaction.type) {
-      case 'send': return <ArrowUp size={12} />;
-      case 'receive': return <ArrowDown size={12} />;
-      case 'contract': return <Code size={12} />;
-      default: return <Zap size={12} />;
+      case 'send': return <ArrowUp size={10} />;
+      case 'receive': return <ArrowDown size={10} />;
+      case 'contract': return <Code size={10} />;
+      default: return <Zap size={10} />;
     }
   };
 
@@ -157,19 +143,19 @@ const TransactionBall: React.FC<{
         <meshStandardMaterial
           color={transaction.color}
           emissive={transaction.color}
-          emissiveIntensity={isHovered ? 0.3 : 0.1}
-          metalness={0.3}
-          roughness={0.4}
+          emissiveIntensity={isHovered ? 0.4 : 0.05}
+          metalness={0.1}
+          roughness={0.3}
         />
       </mesh>
 
       {/* Hover Details */}
       {isHovered && (
-        <Html position={[0, ballSize + 0.5, 0]} center>
-          <div className={`p-3 rounded-lg shadow-lg max-w-xs ${
+        <Html position={[0, ballSize + 0.8, 0]} center>
+          <div className={`p-2 rounded-lg shadow-lg max-w-xs ${
             isDarkMode ? 'bg-slate-800 text-white border border-slate-600' : 'bg-white text-black border border-gray-200'
           } pointer-events-none z-50`}>
-            <div className="flex items-center space-x-2 text-sm">
+            <div className="flex items-center space-x-2 text-xs">
               {getTransactionIcon()}
               <span className="font-semibold">{transaction.amount} MON</span>
             </div>
@@ -188,8 +174,8 @@ const BallPitEnvironment: React.FC<{ isDarkMode: boolean }> = ({ isDarkMode }) =
   return (
     <group>
       {/* Floor */}
-      <mesh position={[0, -2, 0]}>
-        <boxGeometry args={[16, 0.2, 16]} />
+      <mesh position={[0, -2.1, 0]}>
+        <boxGeometry args={[12, 0.2, 12]} />
         <meshStandardMaterial
           color={isDarkMode ? "#1e293b" : "#f1f5f9"}
           roughness={0.8}
@@ -199,51 +185,23 @@ const BallPitEnvironment: React.FC<{ isDarkMode: boolean }> = ({ isDarkMode }) =
 
       {/* Walls */}
       {[
-        { pos: [8, 0, 0], rot: [0, 0, 0], size: [0.2, 4, 16] },
-        { pos: [-8, 0, 0], rot: [0, 0, 0], size: [0.2, 4, 16] },
-        { pos: [0, 0, 8], rot: [0, 0, 0], size: [16, 4, 0.2] },
-        { pos: [0, 0, -8], rot: [0, 0, 0], size: [16, 4, 0.2] }
+        { pos: [6, -0.5, 0], size: [0.2, 3, 12] },
+        { pos: [-6, -0.5, 0], size: [0.2, 3, 12] },
+        { pos: [0, -0.5, 6], size: [12, 3, 0.2] },
+        { pos: [0, -0.5, -6], size: [12, 3, 0.2] }
       ].map((wall, index) => (
         <mesh key={index} position={wall.pos as [number, number, number]}>
           <boxGeometry args={wall.size as [number, number, number]} />
           <meshStandardMaterial
             color={isDarkMode ? "#334155" : "#e2e8f0"}
             transparent
-            opacity={0.3}
+            opacity={0.4}
             roughness={0.5}
           />
         </mesh>
       ))}
     </group>
   );
-};
-
-// Mouse Tracker
-const MouseTracker: React.FC<{ onMouseMove: (pos: THREE.Vector3) => void }> = ({ onMouseMove }) => {
-  const { camera, size } = useThree();
-  const raycaster = useMemo(() => new THREE.Raycaster(), []);
-  const mouse = useMemo(() => new THREE.Vector2(), []);
-
-  useEffect(() => {
-    const handleMouseMove = (event: MouseEvent) => {
-      mouse.x = (event.clientX / size.width) * 2 - 1;
-      mouse.y = -(event.clientY / size.height) * 2 + 1;
-      
-      raycaster.setFromCamera(mouse, camera);
-      
-      // Create an invisible plane at y = 0 for mouse intersection
-      const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
-      const intersection = new THREE.Vector3();
-      raycaster.ray.intersectPlane(plane, intersection);
-      
-      onMouseMove(intersection);
-    };
-
-    window.addEventListener('mousemove', handleMouseMove);
-    return () => window.removeEventListener('mousemove', handleMouseMove);
-  }, [camera, size, mouse, raycaster, onMouseMove]);
-
-  return null;
 };
 
 // Main Ball Pit Scene
@@ -253,28 +211,24 @@ const BallPitScene: React.FC<{
   isDarkMode: boolean;
   isLoreMode: boolean;
 }> = ({ transactions, onTransactionClick, isDarkMode, isLoreMode }) => {
-  const [mousePosition, setMousePosition] = useState(new THREE.Vector3(0, 0, 0));
 
   const ballPositions = useMemo(() => {
     return transactions.map((_, index) => {
-      const angle = (index / transactions.length) * Math.PI * 2;
-      const radius = 3 + Math.random() * 3;
-      const x = Math.cos(angle) * radius + (Math.random() - 0.5) * 2;
-      const z = Math.sin(angle) * radius + (Math.random() - 0.5) * 2;
-      const y = 2 + Math.random() * 4;
+      // Spread balls across the pit floor area randomly
+      const x = (Math.random() - 0.5) * 10;
+      const z = (Math.random() - 0.5) * 10;
+      const y = 3 + Math.random() * 2; // Start higher so they fall
       return [x, y, z] as [number, number, number];
     });
   }, [transactions]);
 
   return (
     <>
-      <ambientLight intensity={0.4} />
-      <directionalLight position={[10, 10, 5]} intensity={1} castShadow />
-      <pointLight position={[-10, 5, -10]} intensity={0.5} color="#8b5cf6" />
+      <ambientLight intensity={0.6} />
+      <directionalLight position={[8, 8, 5]} intensity={1.2} castShadow />
+      <pointLight position={[-8, 4, -8]} intensity={0.4} color="#8b5cf6" />
       
       <BallPitEnvironment isDarkMode={isDarkMode} />
-      
-      <MouseTracker onMouseMove={setMousePosition} />
       
       {transactions.map((transaction, index) => (
         <TransactionBall
@@ -284,7 +238,7 @@ const BallPitScene: React.FC<{
           onClick={onTransactionClick}
           isDarkMode={isDarkMode}
           isLoreMode={isLoreMode}
-          mousePosition={mousePosition}
+          index={index}
         />
       ))}
       
@@ -292,10 +246,10 @@ const BallPitScene: React.FC<{
         enablePan={true}
         enableZoom={true}
         enableRotate={true}
-        minDistance={10}
-        maxDistance={30}
-        maxPolarAngle={Math.PI / 2.2}
-        target={[0, 0, 0]}
+        minDistance={8}
+        maxDistance={25}
+        maxPolarAngle={Math.PI / 2.1}
+        target={[0, -1, 0]}
       />
     </>
   );
@@ -388,7 +342,7 @@ const BallPitTransactionVisualization: React.FC<BallPitTransactionVisualizationP
       <div className="absolute inset-0">
         <ErrorBoundary>
           <Canvas
-            camera={{ position: [15, 10, 15], fov: 60 }}
+            camera={{ position: [12, 8, 12], fov: 60 }}
             gl={{ 
               antialias: true,
               alpha: true,
@@ -498,7 +452,7 @@ const BallPitTransactionVisualization: React.FC<BallPitTransactionVisualizationP
       {/* Instructions */}
       <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2">
         <div className={`text-center text-xs ${isDarkMode ? 'text-gray-500' : 'text-gray-400'} bg-black/20 backdrop-blur-sm rounded px-3 py-1`}>
-          Move mouse to interact • Drag to rotate • Scroll to zoom • Click balls for details
+          Hover over balls to make them bounce • Drag to rotate • Scroll to zoom • Click balls for details
         </div>
       </div>
     </div>
