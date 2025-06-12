@@ -252,10 +252,10 @@ const BallPitTransactionVisualization: React.FC<BallPitTransactionVisualizationP
         </div>
       </div>
 
-      {/* Instructions */}
+      {/* Updated Instructions */}
       <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 z-10">
         <div className={`text-center text-xs ${isDarkMode ? 'text-gray-500' : 'text-gray-400'} bg-black/20 backdrop-blur-sm rounded px-3 py-1`}>
-          Click on any ball to see transaction details • 1 ball = 1 real transaction
+          Click to see details • Click and drag to throw balls • 1 ball = 1 real transaction
         </div>
       </div>
     </div>
