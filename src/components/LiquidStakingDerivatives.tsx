@@ -352,11 +352,11 @@ const LiquidStakingDerivatives = ({ walletAddress }: LSDProps) => {
                     <div className="flex items-start justify-between mb-4">
                       <div className="flex items-center space-x-3">
                         {item.platform.logoUrl ? (
-                          <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-white/10 p-1">
+                          <div className="w-16 h-16 rounded-lg flex items-center justify-center bg-white/10 p-2">
                             <img 
                               src={item.platform.logoUrl} 
                               alt={item.platform.name}
-                              className="w-8 h-8 object-contain"
+                              className="w-12 h-12 object-contain"
                               onError={(e) => {
                                 // Fallback to text initials if image fails to load
                                 const target = e.target as HTMLImageElement;
@@ -365,15 +365,15 @@ const LiquidStakingDerivatives = ({ walletAddress }: LSDProps) => {
                                 if (fallback) fallback.style.display = 'flex';
                               }}
                             />
-                            <div className={`w-8 h-8 ${item.platform.color} rounded-lg items-center justify-center hidden`}>
-                              <span className="text-white font-bold text-sm">
+                            <div className={`w-12 h-12 ${item.platform.color} rounded-lg items-center justify-center hidden`}>
+                              <span className="text-white font-bold text-lg">
                                 {item.platform.name.slice(0, 2).toUpperCase()}
                               </span>
                             </div>
                           </div>
                         ) : (
-                          <div className={`w-10 h-10 ${item.platform.color} rounded-lg flex items-center justify-center`}>
-                            <span className="text-white font-bold text-sm">
+                          <div className={`w-16 h-16 ${item.platform.color} rounded-lg flex items-center justify-center`}>
+                            <span className="text-white font-bold text-lg">
                               {item.platform.name.slice(0, 2).toUpperCase()}
                             </span>
                           </div>
