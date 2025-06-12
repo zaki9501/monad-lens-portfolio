@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Card, CardContent } from "@/components/ui/card";
 import { ArrowUp, ArrowDown, Send, Download, Code, Zap } from "lucide-react";
@@ -36,6 +35,7 @@ const BallPitTransactionVisualization: React.FC<BallPitTransactionVisualizationP
     const activities = data.result.data;
     const txs: Transaction[] = [];
     
+    // Process original transactions
     activities.forEach((activity: any, index: number) => {
       let type: 'send' | 'receive' | 'contract' = 'contract';
       let amount = Number(activity.transactionFee || 0);
@@ -61,23 +61,50 @@ const BallPitTransactionVisualization: React.FC<BallPitTransactionVisualizationP
         gasUsed: Number(activity.transactionFee || 0),
         color
       });
+    });
 
-      // Add some duplicate transactions with variations to have more balls
-      if (index < 5) {
-        for (let i = 0; i < 3; i++) {
-          txs.push({
-            id: `${activity.hash || `tx-${index}`}-dup-${i}`,
-            type,
-            amount: amount * (0.5 + Math.random()),
-            timestamp: new Date(activity.timestamp),
-            hash: `${activity.hash || `hash-${index}`}-dup-${i}`,
-            from: activity.from,
-            to: activity.to,
-            gasUsed: Number(activity.transactionFee || 0) * (0.5 + Math.random()),
-            color
-          });
-        }
+    // Create additional varied transactions to have more balls
+    const originalCount = txs.length;
+    const targetCount = Math.max(200, originalCount * 4);
+    
+    for (let i = originalCount; i < targetCount; i++) {
+      // Create varied transaction types
+      const randomType = Math.random();
+      let type: 'send' | 'receive' | 'contract';
+      let color: string;
+      
+      if (randomType < 0.4) {
+        type = 'send';
+        color = '#ef4444';
+      } else if (randomType < 0.7) {
+        type = 'receive';
+        color = '#10b981';
+      } else {
+        type = 'contract';
+        color = '#8b5cf6';
       }
+
+      // Use base data from original transactions if available
+      const baseIndex = i % originalCount;
+      const baseActivity = activities[baseIndex] || {};
+      
+      txs.push({
+        id: `synthetic-tx-${i}`,
+        type,
+        amount: Math.random() * 0.1 + 0.001,
+        timestamp: new Date(Date.now() - Math.random() * 30 * 24 * 60 * 60 * 1000), // Random time in last 30 days
+        hash: `synthetic-hash-${i}`,
+        from: type === 'send' ? `0x${Math.random().toString(16).substr(2, 40)}` : undefined,
+        to: type === 'receive' ? `0x${Math.random().toString(16).substr(2, 40)}` : undefined,
+        gasUsed: Math.random() * 0.02 + 0.001,
+        color
+      });
+    }
+    
+    console.log(`Generated ${txs.length} transactions:`, {
+      send: txs.filter(t => t.type === 'send').length,
+      receive: txs.filter(t => t.type === 'receive').length,
+      contract: txs.filter(t => t.type === 'contract').length
     });
     
     return txs;
@@ -91,8 +118,9 @@ const BallPitTransactionVisualization: React.FC<BallPitTransactionVisualizationP
   const handleBallClick = (ballIndex: number) => {
     console.log('Ball clicked, index:', ballIndex, 'Total transactions:', transactions.length);
     if (ballIndex >= 0 && ballIndex < transactions.length) {
-      setSelectedTransaction(transactions[ballIndex]);
-      console.log('Selected transaction:', transactions[ballIndex]);
+      const transaction = transactions[ballIndex];
+      setSelectedTransaction(transaction);
+      console.log('Selected transaction:', transaction);
     } else {
       console.log('Ball index out of range');
     }
@@ -132,17 +160,11 @@ const BallPitTransactionVisualization: React.FC<BallPitTransactionVisualizationP
       colors.push(typeColors[tx.type] || 0x8b5cf6);
     });
 
-    // Fill with additional random colors if we have fewer transactions than desired balls
-    while (colors.length < 150) {
-      const randomType = Math.random();
-      if (randomType < 0.33) {
-        colors.push(typeColors.send);
-      } else if (randomType < 0.66) {
-        colors.push(typeColors.receive);
-      } else {
-        colors.push(typeColors.contract);
-      }
-    }
+    console.log('Ball colors generated:', colors.length, {
+      send: colors.filter(c => c === typeColors.send).length,
+      receive: colors.filter(c => c === typeColors.receive).length,
+      contract: colors.filter(c => c === typeColors.contract).length
+    });
 
     return colors;
   }, [transactions]);
