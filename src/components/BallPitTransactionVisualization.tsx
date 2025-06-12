@@ -35,7 +35,7 @@ const BallPitTransactionVisualization: React.FC<BallPitTransactionVisualizationP
     const activities = data.result.data;
     const txs: Transaction[] = [];
     
-    // Process original transactions
+    // Process ONLY actual transactions - no synthetic ones
     activities.forEach((activity: any, index: number) => {
       let type: 'send' | 'receive' | 'contract' = 'contract';
       let amount = Number(activity.transactionFee || 0);
@@ -63,41 +63,7 @@ const BallPitTransactionVisualization: React.FC<BallPitTransactionVisualizationP
       });
     });
 
-    // Create additional varied transactions to have more balls - ensuring proper distribution
-    const originalCount = txs.length;
-    const targetCount = Math.max(250, originalCount * 5); // Increased target count
-    
-    for (let i = originalCount; i < targetCount; i++) {
-      // Create more varied distribution - 40% send, 40% receive, 20% contract
-      const randomType = Math.random();
-      let type: 'send' | 'receive' | 'contract';
-      let color: string;
-      
-      if (randomType < 0.4) {
-        type = 'send';
-        color = '#ef4444';
-      } else if (randomType < 0.8) {
-        type = 'receive';
-        color = '#10b981';
-      } else {
-        type = 'contract';
-        color = '#8b5cf6';
-      }
-
-      txs.push({
-        id: `synthetic-tx-${i}`,
-        type,
-        amount: Math.random() * 0.1 + 0.001,
-        timestamp: new Date(Date.now() - Math.random() * 30 * 24 * 60 * 60 * 1000),
-        hash: `synthetic-hash-${i}`,
-        from: type === 'send' ? `0x${Math.random().toString(16).substr(2, 40)}` : undefined,
-        to: type === 'receive' ? `0x${Math.random().toString(16).substr(2, 40)}` : undefined,
-        gasUsed: Math.random() * 0.02 + 0.001,
-        color
-      });
-    }
-    
-    console.log(`Generated ${txs.length} transactions:`, {
+    console.log(`Real transactions only: ${txs.length} transactions:`, {
       send: txs.filter(t => t.type === 'send').length,
       receive: txs.filter(t => t.type === 'receive').length,
       contract: txs.filter(t => t.type === 'contract').length
@@ -143,7 +109,7 @@ const BallPitTransactionVisualization: React.FC<BallPitTransactionVisualizationP
     return type.charAt(0).toUpperCase() + type.slice(1);
   };
 
-  // Generate colors for ball pit based on transaction types - EXACT match with transactions
+  // Generate colors for ball pit based on ACTUAL transaction types
   const ballColors = useMemo(() => {
     const colors: number[] = [];
     const typeColors = {
@@ -156,7 +122,7 @@ const BallPitTransactionVisualization: React.FC<BallPitTransactionVisualizationP
       colors.push(typeColors[tx.type] || 0x8b5cf6);
     });
 
-    console.log('Ball colors generated (exact match):', colors.length, 'transactions:', transactions.length, {
+    console.log('Ball colors (1:1 with real transactions):', colors.length, 'transactions:', transactions.length, {
       send: colors.filter(c => c === typeColors.send).length,
       receive: colors.filter(c => c === typeColors.receive).length,
       contract: colors.filter(c => c === typeColors.contract).length
@@ -169,6 +135,18 @@ const BallPitTransactionVisualization: React.FC<BallPitTransactionVisualizationP
     return (
       <div className="h-96 flex items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-500"></div>
+      </div>
+    );
+  }
+
+  // Show message if no transactions
+  if (transactions.length === 0) {
+    return (
+      <div className="h-96 flex items-center justify-center">
+        <div className={`text-center ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+          <p className="text-lg mb-2">No transactions found</p>
+          <p className="text-sm">This wallet has no transaction history to visualize</p>
+        </div>
       </div>
     );
   }
@@ -194,7 +172,7 @@ const BallPitTransactionVisualization: React.FC<BallPitTransactionVisualizationP
       {/* Ball Pit Label Overlay */}
       <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-10">
         <h3 className={`text-lg font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'} bg-black/20 backdrop-blur-sm rounded px-3 py-1`}>
-          {isLoreMode ? "Mind Ball Pit" : "Transaction Ball Pit"}
+          {isLoreMode ? "Mind Ball Pit" : "Transaction Ball Pit"} ({transactions.length} balls)
         </h3>
       </div>
 
@@ -277,7 +255,7 @@ const BallPitTransactionVisualization: React.FC<BallPitTransactionVisualizationP
       {/* Instructions */}
       <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 z-10">
         <div className={`text-center text-xs ${isDarkMode ? 'text-gray-500' : 'text-gray-400'} bg-black/20 backdrop-blur-sm rounded px-3 py-1`}>
-          Click on any ball to see transaction details • Each ball represents a blockchain transaction
+          Click on any ball to see transaction details • 1 ball = 1 real transaction
         </div>
       </div>
     </div>
