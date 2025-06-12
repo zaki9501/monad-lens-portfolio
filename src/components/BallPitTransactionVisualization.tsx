@@ -63,12 +63,12 @@ const BallPitTransactionVisualization: React.FC<BallPitTransactionVisualizationP
       });
     });
 
-    // Create additional varied transactions to have more balls
+    // Create additional varied transactions to have more balls - ensuring proper distribution
     const originalCount = txs.length;
-    const targetCount = Math.max(200, originalCount * 4);
+    const targetCount = Math.max(250, originalCount * 5); // Increased target count
     
     for (let i = originalCount; i < targetCount; i++) {
-      // Create varied transaction types
+      // Create more varied distribution - 40% send, 40% receive, 20% contract
       const randomType = Math.random();
       let type: 'send' | 'receive' | 'contract';
       let color: string;
@@ -76,7 +76,7 @@ const BallPitTransactionVisualization: React.FC<BallPitTransactionVisualizationP
       if (randomType < 0.4) {
         type = 'send';
         color = '#ef4444';
-      } else if (randomType < 0.7) {
+      } else if (randomType < 0.8) {
         type = 'receive';
         color = '#10b981';
       } else {
@@ -84,15 +84,11 @@ const BallPitTransactionVisualization: React.FC<BallPitTransactionVisualizationP
         color = '#8b5cf6';
       }
 
-      // Use base data from original transactions if available
-      const baseIndex = i % originalCount;
-      const baseActivity = activities[baseIndex] || {};
-      
       txs.push({
         id: `synthetic-tx-${i}`,
         type,
         amount: Math.random() * 0.1 + 0.001,
-        timestamp: new Date(Date.now() - Math.random() * 30 * 24 * 60 * 60 * 1000), // Random time in last 30 days
+        timestamp: new Date(Date.now() - Math.random() * 30 * 24 * 60 * 60 * 1000),
         hash: `synthetic-hash-${i}`,
         from: type === 'send' ? `0x${Math.random().toString(16).substr(2, 40)}` : undefined,
         to: type === 'receive' ? `0x${Math.random().toString(16).substr(2, 40)}` : undefined,
@@ -122,7 +118,7 @@ const BallPitTransactionVisualization: React.FC<BallPitTransactionVisualizationP
       setSelectedTransaction(transaction);
       console.log('Selected transaction:', transaction);
     } else {
-      console.log('Ball index out of range');
+      console.log('Ball index out of range - this should not happen');
     }
   };
 
@@ -147,7 +143,7 @@ const BallPitTransactionVisualization: React.FC<BallPitTransactionVisualizationP
     return type.charAt(0).toUpperCase() + type.slice(1);
   };
 
-  // Generate colors for ball pit based on transaction types
+  // Generate colors for ball pit based on transaction types - EXACT match with transactions
   const ballColors = useMemo(() => {
     const colors: number[] = [];
     const typeColors = {
@@ -160,7 +156,7 @@ const BallPitTransactionVisualization: React.FC<BallPitTransactionVisualizationP
       colors.push(typeColors[tx.type] || 0x8b5cf6);
     });
 
-    console.log('Ball colors generated:', colors.length, {
+    console.log('Ball colors generated (exact match):', colors.length, 'transactions:', transactions.length, {
       send: colors.filter(c => c === typeColors.send).length,
       receive: colors.filter(c => c === typeColors.receive).length,
       contract: colors.filter(c => c === typeColors.contract).length
@@ -183,8 +179,8 @@ const BallPitTransactionVisualization: React.FC<BallPitTransactionVisualizationP
       <div className="absolute inset-0">
         <div style={{position: 'relative', overflow: 'hidden', minHeight: '500px', maxHeight: '500px', width: '100%'}}>
           <Ballpit
-            count={Math.max(transactions.length, 150)}
-            gravity={1.2}
+            count={transactions.length}
+            gravity={1.8}
             friction={0.8}
             wallBounce={0.95}
             followCursor={false}
