@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -406,106 +405,99 @@ const LiquidStakingDerivatives = ({ walletAddress }: LSDProps) => {
         </CardContent>
       </Card>
 
-      {/* Lending Tokens */}
-      <Card className="bg-slate-800/50 border-slate-700">
-        <CardHeader>
-          <CardTitle className="text-white flex items-center">
-            <PiggyBank className="w-5 h-5 mr-2 text-teal-500" />
-            Lending Tokens
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {loading ? (
-            <div className="text-center py-8">
-              <RefreshCw className="w-8 h-8 animate-spin mx-auto text-teal-500 mb-4" />
-              <p className="text-gray-400">Loading lending data...</p>
-            </div>
-          ) : error ? (
-            <div className="text-center py-8">
-              <p className="text-red-400 mb-4">{error}</p>
-              <Button onClick={fetchData} variant="outline">
-                Retry
-              </Button>
-            </div>
-          ) : (
-            <div className="space-y-6">
-              {/* Group by platform */}
-              {["Convenant", "Nostra"].map((platform) => {
-                const platformTokens = lendingData.filter(item => item.token.platform === platform);
-                const platformActiveTokens = platformTokens.filter(item => item.hasToken && item.balanceFormatted > 0);
-                
-                return (
-                  <div key={platform} className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-lg font-semibold text-white flex items-center">
-                        <div className={`w-8 h-8 ${platform === 'Convenant' ? 'bg-indigo-500' : 'bg-teal-500'} rounded-lg flex items-center justify-center mr-3`}>
-                          <span className="text-white font-bold text-sm">
-                            {platform.slice(0, 2).toUpperCase()}
-                          </span>
-                        </div>
-                        {platform}
-                      </h3>
-                      {platformActiveTokens.length > 0 && (
+      {/* Lending Tokens - Only show if there are active lending tokens */}
+      {activeLendingTokens.length > 0 && (
+        <Card className="bg-slate-800/50 border-slate-700">
+          <CardHeader>
+            <CardTitle className="text-white flex items-center">
+              <PiggyBank className="w-5 h-5 mr-2 text-teal-500" />
+              Lending Tokens
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {loading ? (
+              <div className="text-center py-8">
+                <RefreshCw className="w-8 h-8 animate-spin mx-auto text-teal-500 mb-4" />
+                <p className="text-gray-400">Loading lending data...</p>
+              </div>
+            ) : error ? (
+              <div className="text-center py-8">
+                <p className="text-red-400 mb-4">{error}</p>
+                <Button onClick={fetchData} variant="outline">
+                  Retry
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-6">
+                {/* Group by platform */}
+                {["Convenant", "Nostra"].map((platform) => {
+                  const platformTokens = activeLendingTokens.filter(item => item.token.platform === platform);
+                  
+                  // Only show platform section if there are active tokens
+                  if (platformTokens.length === 0) return null;
+                  
+                  return (
+                    <div key={platform} className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <h3 className="text-lg font-semibold text-white flex items-center">
+                          <div className={`w-8 h-8 ${platform === 'Convenant' ? 'bg-indigo-500' : 'bg-teal-500'} rounded-lg flex items-center justify-center mr-3`}>
+                            <span className="text-white font-bold text-sm">
+                              {platform.slice(0, 2).toUpperCase()}
+                            </span>
+                          </div>
+                          {platform}
+                        </h3>
                         <Badge variant="outline" className="border-green-500 text-green-400">
-                          {platformActiveTokens.length} Active
+                          {platformTokens.length} Active
                         </Badge>
-                      )}
-                    </div>
-                    
-                    <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-                      {platformTokens.map((item) => (
-                        <Card 
-                          key={item.token.contractAddress} 
-                          className={`border-slate-600 ${
-                            item.hasToken && item.balanceFormatted > 0 
-                              ? 'bg-slate-700/50 border-green-500/30' 
-                              : 'bg-slate-700/30'
-                          }`}
-                        >
-                          <CardContent className="p-4">
-                            <div className="flex items-start justify-between mb-3">
-                              <div className="flex items-center space-x-2">
-                                <div className={`w-8 h-8 ${item.token.color} rounded-lg flex items-center justify-center`}>
-                                  <span className="text-white font-bold text-xs">
-                                    {item.token.tokenSymbol.slice(0, 2).toUpperCase()}
-                                  </span>
+                      </div>
+                      
+                      <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+                        {platformTokens.map((item) => (
+                          <Card 
+                            key={item.token.contractAddress} 
+                            className="border-slate-600 bg-slate-700/50 border-green-500/30"
+                          >
+                            <CardContent className="p-4">
+                              <div className="flex items-start justify-between mb-3">
+                                <div className="flex items-center space-x-2">
+                                  <div className={`w-8 h-8 ${item.token.color} rounded-lg flex items-center justify-center`}>
+                                    <span className="text-white font-bold text-xs">
+                                      {item.token.tokenSymbol.slice(0, 2).toUpperCase()}
+                                    </span>
+                                  </div>
+                                  <div>
+                                    <h4 className="text-white font-medium text-sm">{item.token.tokenSymbol}</h4>
+                                    <p className="text-gray-400 text-xs">{item.token.platform}</p>
+                                  </div>
                                 </div>
-                                <div>
-                                  <h4 className="text-white font-medium text-sm">{item.token.tokenSymbol}</h4>
-                                  <p className="text-gray-400 text-xs">{item.token.platform}</p>
-                                </div>
-                              </div>
-                              {item.hasToken && item.balanceFormatted > 0 && (
                                 <Badge variant="outline" className="border-green-500 text-green-400 text-xs">
                                   Lending
                                 </Badge>
-                              )}
-                            </div>
-
-                            <div className="space-y-2">
-                              <p className="text-gray-300 text-xs">{item.token.description}</p>
-                              
-                              <div className="flex justify-between items-center">
-                                <span className="text-gray-400 text-xs">Balance:</span>
-                                <span className="text-white font-semibold text-sm">
-                                  {item.balanceFormatted > 0 
-                                    ? `${item.balanceFormatted.toFixed(6)}`
-                                    : `0`
-                                  }
-                                </span>
                               </div>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      ))}
+
+                              <div className="space-y-2">
+                                <p className="text-gray-300 text-xs">{item.token.description}</p>
+                                
+                                <div className="flex justify-between items-center">
+                                  <span className="text-gray-400 text-xs">Balance:</span>
+                                  <span className="text-white font-semibold text-sm">
+                                    {item.balanceFormatted.toFixed(6)}
+                                  </span>
+                                </div>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+                  );
+                })}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 };
