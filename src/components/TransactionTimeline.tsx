@@ -1,6 +1,6 @@
 
 import React from 'react';
-import OrbitalTransactionTimeline from './OrbitalTransactionTimeline';
+import HelixTransactionTimeline from './HelixTransactionTimeline';
 
 interface TransactionTimelineProps {
   data: any;
@@ -9,7 +9,7 @@ interface TransactionTimelineProps {
 }
 
 const TransactionTimeline: React.FC<TransactionTimelineProps> = ({ data, isDarkMode, isLoreMode }) => {
-  return <OrbitalTransactionTimeline data={data} isDarkMode={isDarkMode} isLoreMode={isLoreMode} />;
+  return <HelixTransactionTimeline data={data} isDarkMode={isDarkMode} isLoreMode={isLoreMode} />;
 };
 
 export default TransactionTimeline;
