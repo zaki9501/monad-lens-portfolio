@@ -767,112 +767,23 @@ function createBallpit(
   threeInstance.cameraMaxAspect = 1.5;
   threeInstance.resize();
   initialize(config);
-  
   const raycaster = new Raycaster();
   const plane = new Plane(new Vector3(0, 0, 1), 0);
   const intersectionPoint = new Vector3();
   let isPaused = false;
-  
-  // Ball dragging state
-  let isDragging = false;
-  let draggedBallIndex = -1;
-  let lastMousePosition = new Vector2();
-  let dragVelocity = new Vector2();
-  let dragStartTime = 0;
-  
   const pointerData = createPointerData({
     domElement: canvas,
     onMove() {
-      if (isDragging && draggedBallIndex >= 0) {
-        // Update dragged ball position to follow cursor
-        raycaster.setFromCamera(pointerData.nPosition, threeInstance.camera);
-        threeInstance.camera.getWorldDirection(plane.normal);
-        raycaster.ray.intersectPlane(plane, intersectionPoint);
-        
-        // Update ball position
-        const ballIndex = draggedBallIndex * 3;
-        spheres.physics.positionData[ballIndex] = intersectionPoint.x;
-        spheres.physics.positionData[ballIndex + 1] = intersectionPoint.y;
-        spheres.physics.positionData[ballIndex + 2] = intersectionPoint.z;
-        
-        // Calculate drag velocity for throwing
-        const currentTime = performance.now();
-        const deltaTime = (currentTime - dragStartTime) / 1000;
-        if (deltaTime > 0) {
-          dragVelocity.x = (pointerData.nPosition.x - lastMousePosition.x) / deltaTime;
-          dragVelocity.y = (pointerData.nPosition.y - lastMousePosition.y) / deltaTime;
-        }
-        lastMousePosition.copy(pointerData.nPosition);
-      } else if (spheres.config.followCursor) {
-        // Original cursor following for ball 0
-        raycaster.setFromCamera(pointerData.nPosition, threeInstance.camera);
-        threeInstance.camera.getWorldDirection(plane.normal);
-        raycaster.ray.intersectPlane(plane, intersectionPoint);
-        spheres.physics.center.copy(intersectionPoint);
-        spheres.config.controlSphere0 = true;
-      }
+      raycaster.setFromCamera(pointerData.nPosition, threeInstance.camera);
+      threeInstance.camera.getWorldDirection(plane.normal);
+      raycaster.ray.intersectPlane(plane, intersectionPoint);
+      spheres.physics.center.copy(intersectionPoint);
+      spheres.config.controlSphere0 = true;
     },
     onLeave() {
-      if (isDragging) {
-        // Release the ball and apply throw velocity
-        if (draggedBallIndex >= 0) {
-          const ballIndex = draggedBallIndex * 3;
-          const throwForce = 5; // Adjust this to control throw strength
-          spheres.physics.velocityData[ballIndex] = dragVelocity.x * throwForce;
-          spheres.physics.velocityData[ballIndex + 1] = dragVelocity.y * throwForce;
-          spheres.physics.velocityData[ballIndex + 2] = 0;
-        }
-        isDragging = false;
-        draggedBallIndex = -1;
-      }
-      if (!spheres.config.followCursor) {
-        spheres.config.controlSphere0 = false;
-      }
+      spheres.config.controlSphere0 = false;
     },
   });
-
-  // Add mouse down handler for ball dragging
-  const handleMouseDown = (event: MouseEvent) => {
-    const rect = canvas.getBoundingClientRect();
-    const mouse = new Vector2();
-    mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-    mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
-
-    raycaster.setFromCamera(mouse, threeInstance.camera);
-    const intersects = raycaster.intersectObject(spheres);
-
-    if (intersects.length > 0 && intersects[0].instanceId !== undefined) {
-      isDragging = true;
-      draggedBallIndex = intersects[0].instanceId;
-      lastMousePosition.copy(mouse);
-      dragStartTime = performance.now();
-      dragVelocity.set(0, 0);
-      
-      // Prevent this ball from being affected by other physics temporarily
-      canvas.style.cursor = 'grabbing';
-    }
-  };
-
-  // Add mouse up handler
-  const handleMouseUp = (event: MouseEvent) => {
-    if (isDragging && draggedBallIndex >= 0) {
-      // Apply throw velocity when releasing
-      const ballIndex = draggedBallIndex * 3;
-      const throwForce = 8; // Adjust this to control throw strength
-      spheres.physics.velocityData[ballIndex] = dragVelocity.x * throwForce;
-      spheres.physics.velocityData[ballIndex + 1] = dragVelocity.y * throwForce;
-      spheres.physics.velocityData[ballIndex + 2] = 0;
-    }
-    
-    isDragging = false;
-    draggedBallIndex = -1;
-    canvas.style.cursor = 'pointer';
-  };
-
-  // Add event listeners
-  canvas.addEventListener('mousedown', handleMouseDown);
-  canvas.addEventListener('mouseup', handleMouseUp);
-  
   function initialize(cfg: any) {
     if (spheres) {
       threeInstance.clear();
@@ -881,16 +792,13 @@ function createBallpit(
     spheres = new Z(threeInstance.renderer, cfg);
     threeInstance.scene.add(spheres);
   }
-  
   threeInstance.onBeforeRender = (deltaInfo) => {
     if (!isPaused) spheres.update(deltaInfo);
   };
-  
   threeInstance.onAfterResize = (size) => {
     spheres.config.maxX = size.wWidth / 2;
     spheres.config.maxY = size.wHeight / 2;
   };
-  
   return {
     three: threeInstance,
     get spheres() {
@@ -903,8 +811,6 @@ function createBallpit(
       isPaused = !isPaused;
     },
     dispose() {
-      canvas.removeEventListener('mousedown', handleMouseDown);
-      canvas.removeEventListener('mouseup', handleMouseUp);
       pointerData.dispose?.();
       threeInstance.dispose();
     },
@@ -938,52 +844,75 @@ const Ballpit: React.FC<BallpitProps> = ({
 
     spheresInstanceRef.current = ballpitInstance;
 
-    // Add click handler for ball selection (only trigger on quick clicks, not drags)
+    // Add improved click handler for ball selection
     if (onBallClick) {
       const raycaster = new Raycaster();
       const mouse = new Vector2();
-      let mouseDownTime = 0;
-      let mouseDownPosition = new Vector2();
       
+      // Increase raycaster precision for better detection
       raycaster.params.Points.threshold = 0.1;
 
-      const handleMouseDown = (event: MouseEvent) => {
-        mouseDownTime = performance.now();
-        const rect = canvas.getBoundingClientRect();
-        mouseDownPosition.set(event.clientX - rect.left, event.clientY - rect.top);
-      };
-
       const handleClick = (event: MouseEvent) => {
-        const clickDuration = performance.now() - mouseDownTime;
         const rect = canvas.getBoundingClientRect();
-        const currentPosition = new Vector2(event.clientX - rect.left, event.clientY - rect.top);
-        const dragDistance = mouseDownPosition.distanceTo(currentPosition);
+        mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+        mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+        raycaster.setFromCamera(mouse, ballpitInstance.three.camera);
         
-        // Only trigger click if it's a quick click (not a drag)
-        if (clickDuration < 200 && dragDistance < 5) {
-          mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-          mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+        // Use a larger detection radius for better click detection
+        raycaster.far = 1000;
+        raycaster.near = 0.1;
+        
+        const intersects = raycaster.intersectObject(ballpitInstance.spheres);
 
-          raycaster.setFromCamera(mouse, ballpitInstance.three.camera);
-          raycaster.far = 1000;
-          raycaster.near = 0.1;
+        console.log('Click detected, intersects:', intersects.length);
+        
+        if (intersects.length > 0) {
+          const instanceId = intersects[0].instanceId;
+          console.log('Instance ID:', instanceId);
+          if (instanceId !== undefined && instanceId !== null) {
+            onBallClick(instanceId);
+          }
+        } else {
+          // Fallback: find closest ball to click position
+          const spheres = ballpitInstance.spheres;
+          let closestDistance = Infinity;
+          let closestIndex = -1;
           
-          const intersects = raycaster.intersectObject(ballpitInstance.spheres);
-
-          if (intersects.length > 0) {
-            const instanceId = intersects[0].instanceId;
-            if (instanceId !== undefined && instanceId !== null) {
-              onBallClick(instanceId);
+          for (let i = 0; i < spheres.count; i++) {
+            const position = new Vector3();
+            spheres.getMatrixAt(i, U.matrix);
+            position.setFromMatrixPosition(U.matrix);
+            
+            // Project 3D position to screen coordinates
+            const screenPos = position.clone().project(ballpitInstance.three.camera);
+            const screenX = (screenPos.x + 1) * rect.width / 2;
+            const screenY = (-screenPos.y + 1) * rect.height / 2;
+            
+            // Calculate distance from click
+            const clickX = event.clientX - rect.left;
+            const clickY = event.clientY - rect.top;
+            const distance = Math.sqrt(
+              Math.pow(screenX - clickX, 2) + Math.pow(screenY - clickY, 2)
+            );
+            
+            // Check if within reasonable click radius (50 pixels)
+            if (distance < 50 && distance < closestDistance) {
+              closestDistance = distance;
+              closestIndex = i;
             }
+          }
+          
+          if (closestIndex >= 0) {
+            console.log('Fallback detection, closest ball index:', closestIndex);
+            onBallClick(closestIndex);
           }
         }
       };
 
-      canvas.addEventListener('mousedown', handleMouseDown);
       canvas.addEventListener('click', handleClick);
       
       return () => {
-        canvas.removeEventListener('mousedown', handleMouseDown);
         canvas.removeEventListener('click', handleClick);
         ballpitInstance.dispose();
       };
