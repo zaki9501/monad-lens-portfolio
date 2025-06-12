@@ -4,7 +4,6 @@ import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls, Html } from '@react-three/drei';
 import * as THREE from 'three';
 import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { ArrowUp, ArrowDown, Send, Download, Code, Zap } from "lucide-react";
 
 interface Transaction {
@@ -16,11 +15,10 @@ interface Transaction {
   from?: string;
   to?: string;
   gasUsed: number;
-  helixPosition: number;
   color: string;
 }
 
-interface HelixTransactionTimelineProps {
+interface BallPitTransactionVisualizationProps {
   data: any;
   isDarkMode: boolean;
   isLoreMode: boolean;
@@ -42,7 +40,7 @@ class ErrorBoundary extends React.Component<{children: React.ReactNode}, {hasErr
       return (
         <div className="flex items-center justify-center h-96">
           <div className="text-center p-4">
-            <p className="text-red-500">Failed to load 3D visualization</p>
+            <p className="text-red-500">Failed to load 3D ball pit</p>
             <button 
               onClick={() => this.setState({ hasError: false })}
               className="mt-2 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
@@ -57,103 +55,84 @@ class ErrorBoundary extends React.Component<{children: React.ReactNode}, {hasErr
   }
 }
 
-// Helix Structure Component
-const HelixStructure: React.FC<{ isDarkMode: boolean; transactions: Transaction[] }> = ({ isDarkMode, transactions }) => {
-  const helixRef = useRef<THREE.Group>(null);
-  
-  useFrame((state) => {
-    if (helixRef.current) {
-      helixRef.current.rotation.y += 0.002;
-    }
-  });
-
-  // Create helix curve points
-  const helixPoints = useMemo(() => {
-    const points = [];
-    const radius = 4;
-    const height = 20;
-    const turns = 3;
-    
-    for (let i = 0; i <= 100; i++) {
-      const t = i / 100;
-      const angle = t * turns * Math.PI * 2;
-      const x = Math.cos(angle) * radius;
-      const z = Math.sin(angle) * radius;
-      const y = (t - 0.5) * height;
-      points.push(new THREE.Vector3(x, y, z));
-    }
-    return points;
-  }, []);
-
-  const helixCurve = useMemo(() => {
-    return new THREE.CatmullRomCurve3(helixPoints);
-  }, [helixPoints]);
-
-  const helixGeometry = useMemo(() => {
-    return new THREE.TubeGeometry(helixCurve, 100, 0.05, 8, false);
-  }, [helixCurve]);
-
-  return (
-    <group ref={helixRef}>
-      {/* Helix Structure */}
-      <mesh>
-        <primitive object={helixGeometry} />
-        <meshBasicMaterial
-          color={isDarkMode ? "#8b5cf6" : "#7c3aed"}
-          transparent
-          opacity={0.3}
-        />
-      </mesh>
-      
-      {/* Particle Trail */}
-      {helixPoints.map((point, index) => (
-        index % 10 === 0 && (
-          <mesh key={index} position={[point.x, point.y, point.z]}>
-            <sphereGeometry args={[0.02, 8, 8]} />
-            <meshBasicMaterial
-              color={isDarkMode ? "#8b5cf6" : "#7c3aed"}
-              transparent
-              opacity={0.6}
-            />
-          </mesh>
-        )
-      ))}
-    </group>
-  );
-};
-
-// Transaction Node Component
-const TransactionNode: React.FC<{
+// Ball Physics Component
+const TransactionBall: React.FC<{
   transaction: Transaction;
+  position: [number, number, number];
   onClick: (tx: Transaction) => void;
   isDarkMode: boolean;
   isLoreMode: boolean;
-  isHovered: boolean;
-  onHover: (tx: Transaction | null) => void;
-}> = ({ transaction, onClick, isDarkMode, isLoreMode, isHovered, onHover }) => {
+  mousePosition: THREE.Vector3;
+}> = ({ transaction, position, onClick, isDarkMode, isLoreMode, mousePosition }) => {
   const meshRef = useRef<THREE.Mesh>(null);
+  const velocityRef = useRef(new THREE.Vector3(0, 0, 0));
+  const [currentPosition, setCurrentPosition] = useState(new THREE.Vector3(...position));
+  const [isHovered, setIsHovered] = useState(false);
   
-  // Calculate position on helix
-  const position = useMemo(() => {
-    const radius = 4;
-    const height = 20;
-    const turns = 3;
-    const t = transaction.helixPosition;
-    const angle = t * turns * Math.PI * 2;
-    const x = Math.cos(angle) * radius;
-    const z = Math.sin(angle) * radius;
-    const y = (t - 0.5) * height;
-    return [x, y, z] as [number, number, number];
-  }, [transaction.helixPosition]);
+  const ballSize = useMemo(() => {
+    // Size based on transaction amount
+    const baseSize = 0.3;
+    const sizeMultiplier = Math.min(transaction.amount / 1000, 2);
+    return baseSize + sizeMultiplier * 0.2;
+  }, [transaction.amount]);
 
   useFrame((state, delta) => {
-    if (meshRef.current) {
-      meshRef.current.rotation.y += delta;
-      
-      // Hover effect
-      const scale = isHovered ? 1.5 : 1;
-      meshRef.current.scale.lerp(new THREE.Vector3(scale, scale, scale), delta * 5);
+    if (!meshRef.current) return;
+
+    const mesh = meshRef.current;
+    const gravity = -9.8;
+    const bounce = 0.7;
+    const friction = 0.98;
+    const repelForce = 5;
+    const repelDistance = 2;
+
+    // Mouse repulsion effect
+    const mouseWorldPos = mousePosition.clone();
+    const distance = mesh.position.distanceTo(mouseWorldPos);
+    
+    if (distance < repelDistance) {
+      const direction = new THREE.Vector3()
+        .subVectors(mesh.position, mouseWorldPos)
+        .normalize();
+      const force = (repelDistance - distance) / repelDistance * repelForce;
+      velocityRef.current.add(direction.multiplyScalar(force * delta));
     }
+
+    // Apply gravity
+    velocityRef.current.y += gravity * delta;
+
+    // Update position
+    mesh.position.add(velocityRef.current.clone().multiplyScalar(delta));
+
+    // Boundary collision (ball pit walls)
+    const bounds = { x: 8, y: 2, z: 8 };
+    
+    // Floor collision
+    if (mesh.position.y - ballSize <= -bounds.y) {
+      mesh.position.y = -bounds.y + ballSize;
+      velocityRef.current.y *= -bounce;
+      velocityRef.current.x *= friction;
+      velocityRef.current.z *= friction;
+    }
+
+    // Wall collisions
+    if (Math.abs(mesh.position.x) + ballSize >= bounds.x) {
+      mesh.position.x = Math.sign(mesh.position.x) * (bounds.x - ballSize);
+      velocityRef.current.x *= -bounce;
+    }
+    
+    if (Math.abs(mesh.position.z) + ballSize >= bounds.z) {
+      mesh.position.z = Math.sign(mesh.position.z) * (bounds.z - ballSize);
+      velocityRef.current.z *= -bounce;
+    }
+
+    // Rotation based on velocity
+    mesh.rotation.x += velocityRef.current.z * delta;
+    mesh.rotation.z -= velocityRef.current.x * delta;
+
+    // Hover effect
+    const targetScale = isHovered ? 1.2 : 1;
+    mesh.scale.lerp(new THREE.Vector3(targetScale, targetScale, targetScale), delta * 5);
   });
 
   const getTransactionIcon = () => {
@@ -166,46 +145,35 @@ const TransactionNode: React.FC<{
   };
 
   return (
-    <group position={position}>
+    <group>
       <mesh
         ref={meshRef}
+        position={position}
         onClick={() => onClick(transaction)}
-        onPointerEnter={() => onHover(transaction)}
-        onPointerLeave={() => onHover(null)}
+        onPointerEnter={() => setIsHovered(true)}
+        onPointerLeave={() => setIsHovered(false)}
       >
-        <sphereGeometry args={[0.2, 16, 16]} />
+        <sphereGeometry args={[ballSize, 16, 16]} />
         <meshStandardMaterial
           color={transaction.color}
           emissive={transaction.color}
-          emissiveIntensity={isHovered ? 0.5 : 0.2}
-          transparent
-          opacity={0.9}
+          emissiveIntensity={isHovered ? 0.3 : 0.1}
+          metalness={0.3}
+          roughness={0.4}
         />
       </mesh>
-      
-      {/* Glow effect for hovered transaction */}
-      {isHovered && (
-        <mesh>
-          <sphereGeometry args={[0.4, 16, 16]} />
-          <meshBasicMaterial
-            color={transaction.color}
-            transparent
-            opacity={0.2}
-          />
-        </mesh>
-      )}
 
       {/* Hover Details */}
       {isHovered && (
-        <Html position={[0, 0.5, 0]} center>
-          <div className={`p-2 rounded-lg shadow-lg ${
+        <Html position={[0, ballSize + 0.5, 0]} center>
+          <div className={`p-3 rounded-lg shadow-lg max-w-xs ${
             isDarkMode ? 'bg-slate-800 text-white border border-slate-600' : 'bg-white text-black border border-gray-200'
           } pointer-events-none z-50`}>
-            <div className="flex items-center space-x-1 text-xs">
+            <div className="flex items-center space-x-2 text-sm">
               {getTransactionIcon()}
               <span className="font-semibold">{transaction.amount} MON</span>
             </div>
-            <div className="text-xs opacity-70">
+            <div className="text-xs opacity-70 mt-1">
               {transaction.timestamp.toLocaleTimeString()}
             </div>
           </div>
@@ -215,32 +183,108 @@ const TransactionNode: React.FC<{
   );
 };
 
-// Main Scene Component
-const HelixScene: React.FC<{
+// Ball Pit Environment
+const BallPitEnvironment: React.FC<{ isDarkMode: boolean }> = ({ isDarkMode }) => {
+  return (
+    <group>
+      {/* Floor */}
+      <mesh position={[0, -2, 0]}>
+        <boxGeometry args={[16, 0.2, 16]} />
+        <meshStandardMaterial
+          color={isDarkMode ? "#1e293b" : "#f1f5f9"}
+          roughness={0.8}
+          metalness={0.1}
+        />
+      </mesh>
+
+      {/* Walls */}
+      {[
+        { pos: [8, 0, 0], rot: [0, 0, 0], size: [0.2, 4, 16] },
+        { pos: [-8, 0, 0], rot: [0, 0, 0], size: [0.2, 4, 16] },
+        { pos: [0, 0, 8], rot: [0, 0, 0], size: [16, 4, 0.2] },
+        { pos: [0, 0, -8], rot: [0, 0, 0], size: [16, 4, 0.2] }
+      ].map((wall, index) => (
+        <mesh key={index} position={wall.pos as [number, number, number]}>
+          <boxGeometry args={wall.size as [number, number, number]} />
+          <meshStandardMaterial
+            color={isDarkMode ? "#334155" : "#e2e8f0"}
+            transparent
+            opacity={0.3}
+            roughness={0.5}
+          />
+        </mesh>
+      ))}
+    </group>
+  );
+};
+
+// Mouse Tracker
+const MouseTracker: React.FC<{ onMouseMove: (pos: THREE.Vector3) => void }> = ({ onMouseMove }) => {
+  const { camera, size } = useThree();
+  const raycaster = useMemo(() => new THREE.Raycaster(), []);
+  const mouse = useMemo(() => new THREE.Vector2(), []);
+
+  useEffect(() => {
+    const handleMouseMove = (event: MouseEvent) => {
+      mouse.x = (event.clientX / size.width) * 2 - 1;
+      mouse.y = -(event.clientY / size.height) * 2 + 1;
+      
+      raycaster.setFromCamera(mouse, camera);
+      
+      // Create an invisible plane at y = 0 for mouse intersection
+      const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+      const intersection = new THREE.Vector3();
+      raycaster.ray.intersectPlane(plane, intersection);
+      
+      onMouseMove(intersection);
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    return () => window.removeEventListener('mousemove', handleMouseMove);
+  }, [camera, size, mouse, raycaster, onMouseMove]);
+
+  return null;
+};
+
+// Main Ball Pit Scene
+const BallPitScene: React.FC<{
   transactions: Transaction[];
   onTransactionClick: (tx: Transaction) => void;
   isDarkMode: boolean;
   isLoreMode: boolean;
 }> = ({ transactions, onTransactionClick, isDarkMode, isLoreMode }) => {
-  const [hoveredTransaction, setHoveredTransaction] = useState<Transaction | null>(null);
+  const [mousePosition, setMousePosition] = useState(new THREE.Vector3(0, 0, 0));
+
+  const ballPositions = useMemo(() => {
+    return transactions.map((_, index) => {
+      const angle = (index / transactions.length) * Math.PI * 2;
+      const radius = 3 + Math.random() * 3;
+      const x = Math.cos(angle) * radius + (Math.random() - 0.5) * 2;
+      const z = Math.sin(angle) * radius + (Math.random() - 0.5) * 2;
+      const y = 2 + Math.random() * 4;
+      return [x, y, z] as [number, number, number];
+    });
+  }, [transactions]);
 
   return (
     <>
-      <ambientLight intensity={0.6} />
-      <pointLight position={[10, 10, 10]} intensity={1} />
-      <pointLight position={[-10, -10, -10]} intensity={0.5} color="#8b5cf6" />
+      <ambientLight intensity={0.4} />
+      <directionalLight position={[10, 10, 5]} intensity={1} castShadow />
+      <pointLight position={[-10, 5, -10]} intensity={0.5} color="#8b5cf6" />
       
-      <HelixStructure isDarkMode={isDarkMode} transactions={transactions} />
+      <BallPitEnvironment isDarkMode={isDarkMode} />
       
-      {transactions.map((transaction) => (
-        <TransactionNode
+      <MouseTracker onMouseMove={setMousePosition} />
+      
+      {transactions.map((transaction, index) => (
+        <TransactionBall
           key={transaction.id}
           transaction={transaction}
+          position={ballPositions[index]}
           onClick={onTransactionClick}
           isDarkMode={isDarkMode}
           isLoreMode={isLoreMode}
-          isHovered={hoveredTransaction?.id === transaction.id}
-          onHover={setHoveredTransaction}
+          mousePosition={mousePosition}
         />
       ))}
       
@@ -248,16 +292,16 @@ const HelixScene: React.FC<{
         enablePan={true}
         enableZoom={true}
         enableRotate={true}
-        minDistance={8}
-        maxDistance={25}
-        autoRotate
-        autoRotateSpeed={1}
+        minDistance={10}
+        maxDistance={30}
+        maxPolarAngle={Math.PI / 2.2}
+        target={[0, 0, 0]}
       />
     </>
   );
 };
 
-const HelixTransactionTimeline: React.FC<HelixTransactionTimelineProps> = ({
+const BallPitTransactionVisualization: React.FC<BallPitTransactionVisualizationProps> = ({
   data,
   isDarkMode,
   isLoreMode
@@ -271,8 +315,7 @@ const HelixTransactionTimeline: React.FC<HelixTransactionTimelineProps> = ({
     const activities = data.result.data;
     const txs: Transaction[] = [];
     
-    activities.forEach((activity: any, index: number) => {
-      // Determine transaction type and properties
+    activities.forEach((activity: any) => {
       let type: 'send' | 'receive' | 'contract' = 'contract';
       let amount = Number(activity.transactionFee || 0);
       let color = '#8b5cf6';
@@ -295,7 +338,6 @@ const HelixTransactionTimeline: React.FC<HelixTransactionTimelineProps> = ({
         from: activity.from,
         to: activity.to,
         gasUsed: Number(activity.transactionFee || 0),
-        helixPosition: index / (activities.length - 1), // 0 to 1
         color
       });
     });
@@ -346,7 +388,7 @@ const HelixTransactionTimeline: React.FC<HelixTransactionTimelineProps> = ({
       <div className="absolute inset-0">
         <ErrorBoundary>
           <Canvas
-            camera={{ position: [10, 5, 10], fov: 60 }}
+            camera={{ position: [15, 10, 15], fov: 60 }}
             gl={{ 
               antialias: true,
               alpha: true,
@@ -354,10 +396,12 @@ const HelixTransactionTimeline: React.FC<HelixTransactionTimelineProps> = ({
             }}
             onCreated={({ gl }) => {
               gl.setClearColor(isDarkMode ? '#0f172a' : '#ffffff', 0);
+              gl.shadowMap.enabled = true;
+              gl.shadowMap.type = THREE.PCFSoftShadowMap;
             }}
           >
             <Suspense fallback={null}>
-              <HelixScene
+              <BallPitScene
                 transactions={transactions}
                 onTransactionClick={handleTransactionClick}
                 isDarkMode={isDarkMode}
@@ -368,10 +412,10 @@ const HelixTransactionTimeline: React.FC<HelixTransactionTimelineProps> = ({
         </ErrorBoundary>
       </div>
 
-      {/* Timeline Label Overlay */}
+      {/* Ball Pit Label Overlay */}
       <div className="absolute top-4 left-1/2 transform -translate-x-1/2">
         <h3 className={`text-lg font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'} bg-black/20 backdrop-blur-sm rounded px-3 py-1`}>
-          {isLoreMode ? "Mind Timeline" : "Transaction History"}
+          {isLoreMode ? "Mind Ball Pit" : "Transaction Ball Pit"}
         </h3>
       </div>
 
@@ -454,11 +498,11 @@ const HelixTransactionTimeline: React.FC<HelixTransactionTimelineProps> = ({
       {/* Instructions */}
       <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2">
         <div className={`text-center text-xs ${isDarkMode ? 'text-gray-500' : 'text-gray-400'} bg-black/20 backdrop-blur-sm rounded px-3 py-1`}>
-          Drag to rotate • Scroll to zoom • Click nodes for details • Auto-rotation enabled
+          Move mouse to interact • Drag to rotate • Scroll to zoom • Click balls for details
         </div>
       </div>
     </div>
   );
 };
 
-export default HelixTransactionTimeline;
+export default BallPitTransactionVisualization;

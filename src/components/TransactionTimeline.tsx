@@ -1,6 +1,6 @@
 
 import React from 'react';
-import HelixTransactionTimeline from './HelixTransactionTimeline';
+import BallPitTransactionVisualization from './BallPitTransactionVisualization';
 
 interface TransactionTimelineProps {
   data: any;
@@ -9,7 +9,7 @@ interface TransactionTimelineProps {
 }
 
 const TransactionTimeline: React.FC<TransactionTimelineProps> = ({ data, isDarkMode, isLoreMode }) => {
-  return <HelixTransactionTimeline data={data} isDarkMode={isDarkMode} isLoreMode={isLoreMode} />;
+  return <BallPitTransactionVisualization data={data} isDarkMode={isDarkMode} isLoreMode={isLoreMode} />;
 };
 
 export default TransactionTimeline;
