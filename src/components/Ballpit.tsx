@@ -844,10 +844,13 @@ const Ballpit: React.FC<BallpitProps> = ({
 
     spheresInstanceRef.current = ballpitInstance;
 
-    // Add click handler for ball selection
+    // Add improved click handler for ball selection
     if (onBallClick) {
       const raycaster = new Raycaster();
       const mouse = new Vector2();
+      
+      // Increase raycaster precision for better detection
+      raycaster.params.Points.threshold = 0.1;
 
       const handleClick = (event: MouseEvent) => {
         const rect = canvas.getBoundingClientRect();
@@ -855,12 +858,54 @@ const Ballpit: React.FC<BallpitProps> = ({
         mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
 
         raycaster.setFromCamera(mouse, ballpitInstance.three.camera);
+        
+        // Use a larger detection radius for better click detection
+        raycaster.far = 1000;
+        raycaster.near = 0.1;
+        
         const intersects = raycaster.intersectObject(ballpitInstance.spheres);
 
+        console.log('Click detected, intersects:', intersects.length);
+        
         if (intersects.length > 0) {
           const instanceId = intersects[0].instanceId;
-          if (instanceId !== undefined) {
+          console.log('Instance ID:', instanceId);
+          if (instanceId !== undefined && instanceId !== null) {
             onBallClick(instanceId);
+          }
+        } else {
+          // Fallback: find closest ball to click position
+          const spheres = ballpitInstance.spheres;
+          let closestDistance = Infinity;
+          let closestIndex = -1;
+          
+          for (let i = 0; i < spheres.count; i++) {
+            const position = new Vector3();
+            spheres.getMatrixAt(i, U.matrix);
+            position.setFromMatrixPosition(U.matrix);
+            
+            // Project 3D position to screen coordinates
+            const screenPos = position.clone().project(ballpitInstance.three.camera);
+            const screenX = (screenPos.x + 1) * rect.width / 2;
+            const screenY = (-screenPos.y + 1) * rect.height / 2;
+            
+            // Calculate distance from click
+            const clickX = event.clientX - rect.left;
+            const clickY = event.clientY - rect.top;
+            const distance = Math.sqrt(
+              Math.pow(screenX - clickX, 2) + Math.pow(screenY - clickY, 2)
+            );
+            
+            // Check if within reasonable click radius (50 pixels)
+            if (distance < 50 && distance < closestDistance) {
+              closestDistance = distance;
+              closestIndex = i;
+            }
+          }
+          
+          if (closestIndex >= 0) {
+            console.log('Fallback detection, closest ball index:', closestIndex);
+            onBallClick(closestIndex);
           }
         }
       };
@@ -883,7 +928,7 @@ const Ballpit: React.FC<BallpitProps> = ({
     <canvas
       className={className}
       ref={canvasRef}
-      style={{ width: "100%", height: "100%" }}
+      style={{ width: "100%", height: "100%", cursor: "pointer" }}
     />
   );
 };

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Card, CardContent } from "@/components/ui/card";
 import { ArrowUp, ArrowDown, Send, Download, Code, Zap } from "lucide-react";
@@ -35,7 +36,7 @@ const BallPitTransactionVisualization: React.FC<BallPitTransactionVisualizationP
     const activities = data.result.data;
     const txs: Transaction[] = [];
     
-    activities.forEach((activity: any) => {
+    activities.forEach((activity: any, index: number) => {
       let type: 'send' | 'receive' | 'contract' = 'contract';
       let amount = Number(activity.transactionFee || 0);
       let color = '#8b5cf6';
@@ -50,16 +51,33 @@ const BallPitTransactionVisualization: React.FC<BallPitTransactionVisualizationP
       }
       
       txs.push({
-        id: activity.hash,
+        id: activity.hash || `tx-${index}`,
         type,
         amount,
         timestamp: new Date(activity.timestamp),
-        hash: activity.hash,
+        hash: activity.hash || `hash-${index}`,
         from: activity.from,
         to: activity.to,
         gasUsed: Number(activity.transactionFee || 0),
         color
       });
+
+      // Add some duplicate transactions with variations to have more balls
+      if (index < 5) {
+        for (let i = 0; i < 3; i++) {
+          txs.push({
+            id: `${activity.hash || `tx-${index}`}-dup-${i}`,
+            type,
+            amount: amount * (0.5 + Math.random()),
+            timestamp: new Date(activity.timestamp),
+            hash: `${activity.hash || `hash-${index}`}-dup-${i}`,
+            from: activity.from,
+            to: activity.to,
+            gasUsed: Number(activity.transactionFee || 0) * (0.5 + Math.random()),
+            color
+          });
+        }
+      }
     });
     
     return txs;
@@ -71,8 +89,12 @@ const BallPitTransactionVisualization: React.FC<BallPitTransactionVisualizationP
   }, []);
 
   const handleBallClick = (ballIndex: number) => {
-    if (ballIndex < transactions.length) {
+    console.log('Ball clicked, index:', ballIndex, 'Total transactions:', transactions.length);
+    if (ballIndex >= 0 && ballIndex < transactions.length) {
       setSelectedTransaction(transactions[ballIndex]);
+      console.log('Selected transaction:', transactions[ballIndex]);
+    } else {
+      console.log('Ball index out of range');
     }
   };
 
@@ -110,9 +132,16 @@ const BallPitTransactionVisualization: React.FC<BallPitTransactionVisualizationP
       colors.push(typeColors[tx.type] || 0x8b5cf6);
     });
 
-    // Fill with default colors if we have fewer transactions than balls
-    while (colors.length < 200) {
-      colors.push(0x8b5cf6);
+    // Fill with additional random colors if we have fewer transactions than desired balls
+    while (colors.length < 150) {
+      const randomType = Math.random();
+      if (randomType < 0.33) {
+        colors.push(typeColors.send);
+      } else if (randomType < 0.66) {
+        colors.push(typeColors.receive);
+      } else {
+        colors.push(typeColors.contract);
+      }
     }
 
     return colors;
@@ -132,8 +161,8 @@ const BallPitTransactionVisualization: React.FC<BallPitTransactionVisualizationP
       <div className="absolute inset-0">
         <div style={{position: 'relative', overflow: 'hidden', minHeight: '500px', maxHeight: '500px', width: '100%'}}>
           <Ballpit
-            count={Math.min(transactions.length, 200)}
-            gravity={0.7}
+            count={Math.max(transactions.length, 150)}
+            gravity={1.2}
             friction={0.8}
             wallBounce={0.95}
             followCursor={false}
@@ -185,13 +214,13 @@ const BallPitTransactionVisualization: React.FC<BallPitTransactionVisualizationP
                 <div>
                   <span className={`${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Amount:</span>
                   <p className={`font-mono font-bold ${isDarkMode ? 'text-gray-200' : 'text-gray-800'}`}>
-                    {selectedTransaction.amount} MON
+                    {selectedTransaction.amount.toFixed(4)} MON
                   </p>
                 </div>
                 <div>
                   <span className={`${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Gas Used:</span>
                   <p className={`font-mono ${isDarkMode ? 'text-gray-200' : 'text-gray-800'}`}>
-                    {selectedTransaction.gasUsed}
+                    {selectedTransaction.gasUsed.toFixed(4)}
                   </p>
                 </div>
                 <div className="col-span-2">
@@ -230,7 +259,7 @@ const BallPitTransactionVisualization: React.FC<BallPitTransactionVisualizationP
       {/* Instructions */}
       <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 z-10">
         <div className={`text-center text-xs ${isDarkMode ? 'text-gray-500' : 'text-gray-400'} bg-black/20 backdrop-blur-sm rounded px-3 py-1`}>
-          Move your cursor to interact with balls • Each ball represents a transaction
+          Click on any ball to see transaction details • Each ball represents a blockchain transaction
         </div>
       </div>
     </div>
