@@ -47,8 +47,8 @@ const STAKING_PLATFORMS: StakingPlatform[] = [
     name: "aPriori",
     contractAddress: "0xb2f82D0f38dc453D596Ad40A37799446Cc89274A",
     tokenSymbol: "aprMON",
-    description: "Liquid staking token for staked MON, tradable on Uniswap V2 and zkSwap Finance V3",
-    website: "https://apriori.finance",
+    description: "MEV infrastructure and liquid staking protocol, designed for the parallel execution era and natively built on Monad.",
+    website: "https://www.apr.io/",
     color: "bg-blue-500",
     logoUrl: "https://www.apr.io/logo-with-name.svg"
   },
@@ -56,8 +56,8 @@ const STAKING_PLATFORMS: StakingPlatform[] = [
     name: "Shmonad",
     contractAddress: "0x3a98250F98Dd388C211206983453837C8365BDc1",
     tokenSymbol: "shMONAD",
-    description: "Holistic liquid staking platform offering rewards while maintaining liquidity",
-    website: "https://shmonad.xyz",
+    description: "Holistic Liquid Staking that boosts yield, UX, and execution quality by credibly aligning Validators with Applications in the MEV layer.",
+    website: "https://shmonad.xyz/",
     color: "bg-purple-500",
     logoUrl: "https://shmonad.xyz/logo/shmonad_white.svg"
   },
@@ -65,16 +65,16 @@ const STAKING_PLATFORMS: StakingPlatform[] = [
     name: "Kintsu",
     contractAddress: "0xe1d2439b75fb9746E7Bc6cB777Ae10AA7f7ef9c5",
     tokenSymbol: "sMON",
-    description: "Next-gen liquid staking protocol with DeFi integration",
-    website: "https://kintsu.xyz",
+    description: "Liquid Staking On Monad",
+    website: "https://kintsu.xyz/",
     color: "bg-green-500"
   },
   {
     name: "Magma",
     contractAddress: "0xaEef2f6B429Cb59C9B2D7bB2141ADa993E8571c3",
     tokenSymbol: "gMON",
-    description: "Liquid staking platform integrated with Monad ecosystem",
-    website: "https://magmastaking.xyz",
+    description: "Magma is a community focused Liquid Staking Protocol on Monad",
+    website: "https://www.magmastaking.xyz/",
     color: "bg-orange-500",
     logoUrl: "https://www.magmastaking.xyz/_next/image?url=%2F_next%2Fstatic%2Fmedia%2Flogo.723d3b22.png&w=1920&q=75"
   }
@@ -352,11 +352,11 @@ const LiquidStakingDerivatives = ({ walletAddress }: LSDProps) => {
                     <div className="flex items-start justify-between mb-4">
                       <div className="flex items-center space-x-3">
                         {item.platform.logoUrl ? (
-                          <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-white/10 p-1">
+                          <div className="w-16 h-16 rounded-lg flex items-center justify-center bg-white/10 p-2">
                             <img 
                               src={item.platform.logoUrl} 
                               alt={item.platform.name}
-                              className="w-8 h-8 object-contain"
+                              className="w-12 h-12 object-contain"
                               onError={(e) => {
                                 // Fallback to text initials if image fails to load
                                 const target = e.target as HTMLImageElement;
@@ -365,15 +365,15 @@ const LiquidStakingDerivatives = ({ walletAddress }: LSDProps) => {
                                 if (fallback) fallback.style.display = 'flex';
                               }}
                             />
-                            <div className={`w-8 h-8 ${item.platform.color} rounded-lg items-center justify-center hidden`}>
-                              <span className="text-white font-bold text-sm">
+                            <div className={`w-12 h-12 ${item.platform.color} rounded-lg items-center justify-center hidden`}>
+                              <span className="text-white font-bold text-lg">
                                 {item.platform.name.slice(0, 2).toUpperCase()}
                               </span>
                             </div>
                           </div>
                         ) : (
-                          <div className={`w-10 h-10 ${item.platform.color} rounded-lg flex items-center justify-center`}>
-                            <span className="text-white font-bold text-sm">
+                          <div className={`w-16 h-16 ${item.platform.color} rounded-lg flex items-center justify-center`}>
+                            <span className="text-white font-bold text-lg">
                               {item.platform.name.slice(0, 2).toUpperCase()}
                             </span>
                           </div>
