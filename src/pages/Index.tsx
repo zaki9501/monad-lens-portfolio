@@ -19,6 +19,7 @@ import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/comp
 import { Link, useSearchParams } from "react-router-dom";
 import { getAccountTokens } from "@/lib/blockvision";
 import { ethers } from "ethers";
+import LiquidStakingDerivatives from "@/components/LiquidStakingDerivatives";
 const CopyAddressButton = ({
   address
 }: {
@@ -215,7 +216,7 @@ const Index = () => {
 
             {/* Main Dashboard */}
             <Tabs defaultValue="portfolio" className="space-y-6">
-              <TabsList className="grid w-full grid-cols-4 bg-slate-800/50">
+              <TabsList className="grid w-full grid-cols-5 bg-slate-800/50">
                 <TabsTrigger value="portfolio" className="text-white data-[state=active]:bg-purple-600">
                   Portfolio
                 </TabsTrigger>
@@ -224,6 +225,9 @@ const Index = () => {
                 </TabsTrigger>
                 <TabsTrigger value="transactions" className="text-white data-[state=active]:bg-purple-600">
                   Transactions
+                </TabsTrigger>
+                <TabsTrigger value="lsd" className="text-white data-[state=active]:bg-purple-600">
+                  LSD
                 </TabsTrigger>
                 <TabsTrigger value="badges" className="text-white data-[state=active]:bg-purple-600">
                   Badges
@@ -282,6 +286,10 @@ const Index = () => {
 
               <TabsContent value="transactions">
                 <TransactionHistory walletAddress={viewingAddress} />
+              </TabsContent>
+
+              <TabsContent value="lsd">
+                <LiquidStakingDerivatives walletAddress={viewingAddress} />
               </TabsContent>
 
               <TabsContent value="badges">
