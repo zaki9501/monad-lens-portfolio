@@ -1,6 +1,5 @@
-
-import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Canvas, useFrame } from '@react-three/fiber';
+import React, { useState, useEffect, useRef, useMemo, Suspense } from 'react';
+import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls, Sphere, Text, Html } from '@react-three/drei';
 import * as THREE from 'three';
 import { Card, CardContent } from "@/components/ui/card";
@@ -29,7 +28,126 @@ interface OrbitalTransactionTimelineProps {
   isLoreMode: boolean;
 }
 
-// Central Wallet Sun Component
+interface ErrorBoundaryProps {
+  children: React.ReactNode;
+}
+
+interface ErrorBoundaryState {
+  hasError: boolean;
+}
+
+// Error Boundary Component
+class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  constructor(props: ErrorBoundaryProps) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError(error: Error): ErrorBoundaryState {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+    console.error('3D Scene Error:', error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="flex items-center justify-center h-full">
+          <div className="text-center p-4">
+            <p className="text-red-500">Failed to load 3D visualization</p>
+            <button 
+              onClick={() => this.setState({ hasError: false })}
+              className="mt-2 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+            >
+              Retry
+            </button>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+interface WebGLContextHandlerProps {
+  children: React.ReactNode;
+}
+
+// WebGL Context Handler
+const WebGLContextHandler: React.FC<WebGLContextHandlerProps> = ({ children }) => {
+  const { gl, scene, camera } = useThree();
+  
+  useEffect(() => {
+    const handleContextLost = (event: Event) => {
+      event.preventDefault();
+      console.log('WebGL Context Lost');
+    };
+
+    const handleContextRestored = () => {
+      console.log('WebGL Context Restored');
+      if (scene && camera) {
+        gl.render(scene, camera);
+      }
+    };
+
+    gl.domElement.addEventListener('webglcontextlost', handleContextLost);
+    gl.domElement.addEventListener('webglcontextrestored', handleContextRestored);
+
+    return () => {
+      gl.domElement.removeEventListener('webglcontextlost', handleContextLost);
+      gl.domElement.removeEventListener('webglcontextrestored', handleContextRestored);
+    };
+  }, [gl, scene, camera]);
+
+  return <>{children}</>;
+};
+
+// Scene Setup Component
+const SceneSetup: React.FC = () => {
+  const { gl, scene, camera } = useThree();
+
+  useEffect(() => {
+    // Initialize scene
+    scene.background = new THREE.Color(0x000000);
+    scene.fog = new THREE.Fog(0x000000, 20, 100);
+
+    // Initialize camera
+    camera.position.set(0, 5, 10);
+    camera.lookAt(0, 0, 0);
+
+    // Initialize renderer
+    gl.setPixelRatio(window.devicePixelRatio);
+    gl.setSize(window.innerWidth, window.innerHeight);
+    gl.shadowMap.enabled = true;
+    gl.shadowMap.type = THREE.PCFSoftShadowMap;
+
+    // Handle resize
+    const handleResize = () => {
+      if (camera instanceof THREE.PerspectiveCamera) {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+      } else if (camera instanceof THREE.OrthographicCamera) {
+        const aspect = window.innerWidth / window.innerHeight;
+        const frustumSize = 10;
+        camera.left = -frustumSize * aspect / 2;
+        camera.right = frustumSize * aspect / 2;
+        camera.top = frustumSize / 2;
+        camera.bottom = -frustumSize / 2;
+        camera.updateProjectionMatrix();
+      }
+      gl.setSize(window.innerWidth, window.innerHeight);
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [gl, scene, camera]);
+
+  return null;
+};
+
+// Modified WalletSun Component
 const WalletSun: React.FC<{ isDarkMode: boolean; isLoreMode: boolean }> = ({ isDarkMode, isLoreMode }) => {
   const meshRef = useRef<THREE.Mesh>(null);
   
@@ -43,7 +161,8 @@ const WalletSun: React.FC<{ isDarkMode: boolean; isLoreMode: boolean }> = ({ isD
 
   return (
     <group>
-      <Sphere ref={meshRef} args={[1.5, 32, 32]} position={[0, 0, 0]}>
+      <mesh>
+        <sphereGeometry args={[1.5, 32, 32]} />
         <meshStandardMaterial
           color={isDarkMode ? "#8b5cf6" : "#7c3aed"}
           emissive={isDarkMode ? "#4c1d95" : "#5b21b6"}
@@ -51,9 +170,8 @@ const WalletSun: React.FC<{ isDarkMode: boolean; isLoreMode: boolean }> = ({ isD
           transparent
           opacity={0.9}
         />
-      </Sphere>
+      </mesh>
       
-      {/* Glowing Ring */}
       <mesh rotation={[Math.PI / 2, 0, 0]}>
         <ringGeometry args={[2, 2.5, 64]} />
         <meshBasicMaterial
@@ -64,7 +182,6 @@ const WalletSun: React.FC<{ isDarkMode: boolean; isLoreMode: boolean }> = ({ isD
         />
       </mesh>
 
-      {/* Wallet Label */}
       <Text
         position={[0, -2.5, 0]}
         fontSize={0.3}
@@ -165,7 +282,7 @@ const TransactionOrb: React.FC<{
   );
 };
 
-// Particle Field Component
+// Modified ParticleField Component
 const ParticleField: React.FC<{ isDarkMode: boolean }> = ({ isDarkMode }) => {
   const particlesRef = useRef<THREE.Points>(null);
   
@@ -186,7 +303,7 @@ const ParticleField: React.FC<{ isDarkMode: boolean }> = ({ isDarkMode }) => {
   });
 
   return (
-    <points ref={particlesRef}>
+    <points>
       <bufferGeometry>
         <bufferAttribute
           attach="attributes-position"
@@ -199,8 +316,7 @@ const ParticleField: React.FC<{ isDarkMode: boolean }> = ({ isDarkMode }) => {
         size={0.05}
         color={isDarkMode ? "#8b5cf6" : "#7c3aed"}
         transparent
-        opacity={0.6}
-        sizeAttenuation={true}
+        opacity={0.5}
       />
     </points>
   );
@@ -345,34 +461,37 @@ const OrbitalTransactionTimeline: React.FC<OrbitalTransactionTimelineProps> = ({
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="text-center">
-        <h3 className={`text-2xl font-bold mb-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-          {isLoreMode ? 'Mind Orbital Map' : 'Transaction Solar System'}
-        </h3>
-        <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-          {isLoreMode 
-            ? 'Each thought orbits your consciousness core' 
-            : 'Each transaction orbits your wallet like a planet'
-          }
-        </p>
-      </div>
-
-      {/* 3D Canvas */}
-      <div className="h-96 rounded-lg overflow-hidden border" style={{
-        background: isDarkMode 
-          ? 'radial-gradient(ellipse at center, #1e1b4b 0%, #0f0f23 50%, #000000 100%)'
-          : 'radial-gradient(ellipse at center, #ddd6fe 0%, #e0e7ff 50%, #f8fafc 100%)'
-      }}>
-        <Canvas camera={{ position: [0, 5, 10], fov: 60 }}>
-          <Scene3D
-            transactions={transactions}
-            onTransactionClick={handleTransactionClick}
-            isDarkMode={isDarkMode}
-            isLoreMode={isLoreMode}
-          />
-        </Canvas>
+    <div className="relative w-full h-[600px]">
+      <div className="absolute inset-0">
+        <ErrorBoundary>
+          <Canvas
+            camera={{ position: [0, 5, 10], fov: 50 }}
+            gl={{ 
+              antialias: true,
+              alpha: true,
+              powerPreference: 'high-performance',
+              failIfMajorPerformanceCaveat: true,
+              preserveDrawingBuffer: true,
+              logarithmicDepthBuffer: true
+            }}
+            onCreated={({ gl }) => {
+              gl.setClearColor(isDarkMode ? '#0f172a' : '#ffffff', 0);
+            }}
+            dpr={[1, 2]}
+          >
+            <WebGLContextHandler>
+              <Suspense fallback={null}>
+                <SceneSetup />
+                <Scene3D
+                  transactions={transactions}
+                  onTransactionClick={handleTransactionClick}
+                  isDarkMode={isDarkMode}
+                  isLoreMode={isLoreMode}
+                />
+              </Suspense>
+            </WebGLContextHandler>
+          </Canvas>
+        </ErrorBoundary>
       </div>
 
       {/* Transaction Details Panel */}
