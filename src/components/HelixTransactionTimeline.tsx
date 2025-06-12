@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef, useMemo, Suspense } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { OrbitControls, Text, Html } from '@react-three/drei';
+import { OrbitControls, Html } from '@react-three/drei';
 import * as THREE from 'three';
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -244,17 +244,6 @@ const HelixScene: React.FC<{
         />
       ))}
       
-      {/* Central Timeline Label */}
-      <Text
-        position={[0, 12, 0]}
-        fontSize={0.8}
-        color={isDarkMode ? "#ffffff" : "#000000"}
-        anchorX="center"
-        anchorY="middle"
-      >
-        {isLoreMode ? "Mind Timeline" : "Transaction History"}
-      </Text>
-      
       <OrbitControls
         enablePan={true}
         enableZoom={true}
@@ -377,6 +366,13 @@ const HelixTransactionTimeline: React.FC<HelixTransactionTimelineProps> = ({
             </Suspense>
           </Canvas>
         </ErrorBoundary>
+      </div>
+
+      {/* Timeline Label Overlay */}
+      <div className="absolute top-4 left-1/2 transform -translate-x-1/2">
+        <h3 className={`text-lg font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'} bg-black/20 backdrop-blur-sm rounded px-3 py-1`}>
+          {isLoreMode ? "Mind Timeline" : "Transaction History"}
+        </h3>
       </div>
 
       {/* Transaction Details Panel */}
