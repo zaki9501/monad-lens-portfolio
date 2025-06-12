@@ -483,8 +483,8 @@ class Y extends MeshPhysicalMaterial {
         void main() {
         `
       );
-      const lightsChunk = ShaderChunk.lights_fragment_begin.replaceAll(
-        "RE_Direct( directLight, geometryPosition, geometryNormal, geometryViewDir, geometryClearcoatNormal, material, reflectedLight );",
+      const lightsChunk = ShaderChunk.lights_fragment_begin.replace(
+        /RE_Direct\( directLight, geometryPosition, geometryNormal, geometryViewDir, geometryClearcoatNormal, material, reflectedLight \);/g,
         `
           RE_Direct( directLight, geometryPosition, geometryNormal, geometryViewDir, geometryClearcoatNormal, material, reflectedLight );
           RE_Direct_Scattering(directLight, vUv, geometryPosition, geometryNormal, geometryViewDir, geometryClearcoatNormal, reflectedLight);
@@ -820,12 +820,14 @@ function createBallpit(
 interface BallpitProps {
   className?: string;
   followCursor?: boolean;
+  onBallClick?: (ballIndex: number) => void;
   [key: string]: any;
 }
 
 const Ballpit: React.FC<BallpitProps> = ({
   className = "",
   followCursor = true,
+  onBallClick,
   ...props
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -835,15 +837,44 @@ const Ballpit: React.FC<BallpitProps> = ({
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    spheresInstanceRef.current = createBallpit(canvas, {
-      followCursor,
+    const ballpitInstance = createBallpit(canvas, {
+      followCursor: false, // Disable cursor following to remove white ball
       ...props,
     });
 
+    spheresInstanceRef.current = ballpitInstance;
+
+    // Add click handler for ball selection
+    if (onBallClick) {
+      const raycaster = new Raycaster();
+      const mouse = new Vector2();
+
+      const handleClick = (event: MouseEvent) => {
+        const rect = canvas.getBoundingClientRect();
+        mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+        mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+        raycaster.setFromCamera(mouse, ballpitInstance.three.camera);
+        const intersects = raycaster.intersectObject(ballpitInstance.spheres);
+
+        if (intersects.length > 0) {
+          const instanceId = intersects[0].instanceId;
+          if (instanceId !== undefined) {
+            onBallClick(instanceId);
+          }
+        }
+      };
+
+      canvas.addEventListener('click', handleClick);
+      
+      return () => {
+        canvas.removeEventListener('click', handleClick);
+        ballpitInstance.dispose();
+      };
+    }
+
     return () => {
-      if (spheresInstanceRef.current) {
-        spheresInstanceRef.current.dispose();
-      }
+      ballpitInstance.dispose();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

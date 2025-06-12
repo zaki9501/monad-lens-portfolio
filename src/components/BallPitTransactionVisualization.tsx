@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Card, CardContent } from "@/components/ui/card";
 import { ArrowUp, ArrowDown, Send, Download, Code, Zap } from "lucide-react";
@@ -71,6 +70,12 @@ const BallPitTransactionVisualization: React.FC<BallPitTransactionVisualizationP
     return () => clearTimeout(timer);
   }, []);
 
+  const handleBallClick = (ballIndex: number) => {
+    if (ballIndex < transactions.length) {
+      setSelectedTransaction(transactions[ballIndex]);
+    }
+  };
+
   const getTypeIcon = (type: string) => {
     switch (type) {
       case 'send': return <Send className="w-4 h-4" />;
@@ -131,8 +136,9 @@ const BallPitTransactionVisualization: React.FC<BallPitTransactionVisualizationP
             gravity={0.7}
             friction={0.8}
             wallBounce={0.95}
-            followCursor={true}
+            followCursor={false}
             colors={ballColors}
+            onBallClick={handleBallClick}
             className={`w-full h-full ${isDarkMode ? 'opacity-90' : 'opacity-95'}`}
           />
         </div>
