@@ -16,6 +16,7 @@ interface StakingPlatform {
   description: string;
   website: string;
   color: string;
+  logoUrl?: string;
 }
 
 interface LendingToken {
@@ -48,7 +49,8 @@ const STAKING_PLATFORMS: StakingPlatform[] = [
     tokenSymbol: "aprMON",
     description: "Liquid staking token for staked MON, tradable on Uniswap V2 and zkSwap Finance V3",
     website: "https://apriori.finance",
-    color: "bg-blue-500"
+    color: "bg-blue-500",
+    logoUrl: "https://www.apr.io/logo-with-name.svg"
   },
   {
     name: "Shmonad",
@@ -56,7 +58,8 @@ const STAKING_PLATFORMS: StakingPlatform[] = [
     tokenSymbol: "shMONAD",
     description: "Holistic liquid staking platform offering rewards while maintaining liquidity",
     website: "https://shmonad.xyz",
-    color: "bg-purple-500"
+    color: "bg-purple-500",
+    logoUrl: "https://shmonad.xyz/logo/shmonad_white.svg"
   },
   {
     name: "Kintsu",
@@ -72,7 +75,8 @@ const STAKING_PLATFORMS: StakingPlatform[] = [
     tokenSymbol: "gMON",
     description: "Liquid staking platform integrated with Monad ecosystem",
     website: "https://magmastaking.xyz",
-    color: "bg-orange-500"
+    color: "bg-orange-500",
+    logoUrl: "https://www.magmastaking.xyz/_next/image?url=%2F_next%2Fstatic%2Fmedia%2Flogo.723d3b22.png&w=1920&q=75"
   }
 ];
 
@@ -347,11 +351,33 @@ const LiquidStakingDerivatives = ({ walletAddress }: LSDProps) => {
                   <CardContent className="p-6">
                     <div className="flex items-start justify-between mb-4">
                       <div className="flex items-center space-x-3">
-                        <div className={`w-10 h-10 ${item.platform.color} rounded-lg flex items-center justify-center`}>
-                          <span className="text-white font-bold text-sm">
-                            {item.platform.name.slice(0, 2).toUpperCase()}
-                          </span>
-                        </div>
+                        {item.platform.logoUrl ? (
+                          <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-white/10 p-1">
+                            <img 
+                              src={item.platform.logoUrl} 
+                              alt={item.platform.name}
+                              className="w-8 h-8 object-contain"
+                              onError={(e) => {
+                                // Fallback to text initials if image fails to load
+                                const target = e.target as HTMLImageElement;
+                                target.style.display = 'none';
+                                const fallback = target.nextElementSibling as HTMLElement;
+                                if (fallback) fallback.style.display = 'flex';
+                              }}
+                            />
+                            <div className={`w-8 h-8 ${item.platform.color} rounded-lg items-center justify-center hidden`}>
+                              <span className="text-white font-bold text-sm">
+                                {item.platform.name.slice(0, 2).toUpperCase()}
+                              </span>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className={`w-10 h-10 ${item.platform.color} rounded-lg flex items-center justify-center`}>
+                            <span className="text-white font-bold text-sm">
+                              {item.platform.name.slice(0, 2).toUpperCase()}
+                            </span>
+                          </div>
+                        )}
                         <div>
                           <h3 className="text-white font-semibold">{item.platform.name}</h3>
                           <p className="text-gray-400 text-sm">{item.platform.tokenSymbol}</p>
