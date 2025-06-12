@@ -218,7 +218,7 @@ const ReputationArtGenerator = ({
             isDarkMode ? 'text-white' : 'text-gray-900'
           }`}>
             <Palette className="w-6 h-6 text-purple-400" />
-            <span>{isLoreMode ? 'Mind Essence Art' : 'Lens Art'}</span>
+            <span>{isLoreMode ? 'Mind Essence Art' : 'Reputation Masterpiece'}</span>
           </CardTitle>
         </CardHeader>
         <CardContent>

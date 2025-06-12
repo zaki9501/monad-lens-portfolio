@@ -384,7 +384,7 @@ const WalletScoreCard = ({
                 ) : (
                   <>
                     <Palette className="w-4 h-4 mr-2" />
-                    {showArtGenerator ? 'Hide Art' : 'generate Art'}
+                    {showArtGenerator ? 'Hide Art' : 'View Reputation Art'}
                   </>
                 )}
               </Button>

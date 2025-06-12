@@ -41,79 +41,23 @@ const EagerMintDialog = ({ walletAddress, overallScore, artData, isDarkMode, isL
     const checkNetwork = async () => {
       if (window.ethereum) {
         try {
-          // First try to get the chainId directly
-          const chainId = await window.ethereum.request({ method: 'eth_chainId' });
-          console.log('Current chainId:', chainId);
+          const networkVersion = (window.ethereum as any).networkVersion;
+          console.log('window.ethereum.networkVersion', networkVersion);
           
-          // Convert chainId to decimal for comparison
-          const decimalChainId = parseInt(chainId, 16);
-          console.log('Decimal chainId:', decimalChainId);
-
-          if (decimalChainId === 10143) {
+          if (networkVersion === '10143') {
             setContractAddress('0x1396df636f278c2722f3c8c7217999ab018cb64d');
             setNetworkInfo({
               name: 'Monad Testnet',
               chainId: '10143',
               explorer: 'https://explorer.monad.xyz'
             });
-            setMintError(''); // Clear any previous errors
           } else {
-            // Try to switch to Monad Testnet
-            try {
-              await window.ethereum.request({
-                method: 'wallet_switchEthereumChain',
-                params: [{ chainId: '0x2797' }], // 10143 in hex
-              });
-              // After switching, update the network info
-              setContractAddress('0x1396df636f278c2722f3c8c7217999ab018cb64d');
-              setNetworkInfo({
-                name: 'Monad Testnet',
-                chainId: '10143',
-                explorer: 'https://explorer.monad.xyz'
-              });
-              setMintError('');
-            } catch (switchError: any) {
-              // This error code indicates that the chain has not been added to MetaMask
-              if (switchError.code === 4902) {
-                try {
-                  await window.ethereum.request({
-                    method: 'wallet_addEthereumChain',
-                    params: [{
-                      chainId: '0x2797',
-                      chainName: 'Monad Testnet',
-                      nativeCurrency: {
-                        name: 'MONAD',
-                        symbol: 'MON',
-                        decimals: 18
-                      },
-                      rpcUrls: ['https://rpc.testnet.monad.xyz'],
-                      blockExplorerUrls: ['https://explorer.monad.xyz']
-                    }]
-                  });
-                  // After adding, update the network info
-                  setContractAddress('0x1396df636f278c2722f3c8c7217999ab018cb64d');
-                  setNetworkInfo({
-                    name: 'Monad Testnet',
-                    chainId: '10143',
-                    explorer: 'https://explorer.monad.xyz'
-                  });
-                  setMintError('');
-                } catch (addError) {
-                  console.error('Error adding Monad Testnet:', addError);
-                  setMintError('Failed to add Monad Testnet to MetaMask. Please add it manually.');
-                }
-              } else {
-                console.error('Error switching to Monad Testnet:', switchError);
-                setMintError('Please switch to Monad Testnet (Chain ID: 10143) in MetaMask');
-              }
-            }
+            setMintError('Please connect to Monad Testnet (Chain ID: 10143)');
           }
         } catch (error) {
           console.error('Error checking network:', error);
-          setMintError('Failed to detect network. Please ensure MetaMask is connected.');
+          setMintError('Failed to detect network');
         }
-      } else {
-        setMintError('MetaMask not found. Please install MetaMask to mint NFTs.');
       }
     };
 
@@ -121,23 +65,6 @@ const EagerMintDialog = ({ walletAddress, overallScore, artData, isDarkMode, isL
       checkNetwork();
     }
   }, [isOpen]);
-
-  // Add network change listener
-  useEffect(() => {
-    if (window.ethereum) {
-      const handleChainChanged = (chainId: string) => {
-        console.log('Chain changed:', chainId);
-        // Refresh the page when the chain changes
-        window.location.reload();
-      };
-
-      window.ethereum.on('chainChanged', handleChainChanged);
-
-      return () => {
-        window.ethereum.removeListener('chainChanged', handleChainChanged);
-      };
-    }
-  }, []);
 
   const handleMint = async () => {
     if (!window.ethereum) {
@@ -415,30 +342,6 @@ const EagerMintDialog = ({ walletAddress, overallScore, artData, isDarkMode, isL
                 <span className={`font-medium ${isDarkMode ? 'text-red-300' : 'text-red-700'}`}>Minting Failed</span>
               </div>
               <p className={`text-sm ${isDarkMode ? 'text-red-200' : 'text-red-600'}`}>{mintError}</p>
-            </div>
-          )}
-
-          {/* Add a more detailed network error message */}
-          {mintError && mintError.includes('Monad Testnet') && (
-            <div className={`p-4 rounded-lg border ${isDarkMode ? 'bg-yellow-900/20 border-yellow-700' : 'bg-yellow-50 border-yellow-200'}`}>
-              <div className="flex items-center space-x-3 mb-2">
-                <AlertTriangle className="w-5 h-5 text-yellow-400" />
-                <span className={`font-medium ${isDarkMode ? 'text-yellow-300' : 'text-yellow-700'}`}>Network Required</span>
-              </div>
-              <p className={`text-sm ${isDarkMode ? 'text-yellow-200' : 'text-yellow-600'}`}>
-                {mintError}
-              </p>
-              <div className="mt-3 text-sm">
-                <p className={`${isDarkMode ? 'text-yellow-200' : 'text-yellow-600'}`}>
-                  To mint your NFT:
-                </p>
-                <ol className="list-decimal list-inside mt-2 space-y-1">
-                  <li>Open MetaMask</li>
-                  <li>Click the network dropdown</li>
-                  <li>Select "Monad Testnet" or add it if not present</li>
-                  <li>Return here and try again</li>
-                </ol>
-              </div>
             </div>
           )}
         </div>
