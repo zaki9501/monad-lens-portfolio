@@ -45,7 +45,7 @@ const EagerMintDialog = ({ walletAddress, overallScore, artData, isDarkMode, isL
           console.log('window.ethereum.networkVersion', networkVersion);
           
           if (networkVersion === '10143') {
-            setContractAddress('0x4Ba16060A00d0e0939cB69e46846FBee30F7c847');
+            setContractAddress('0x1396df636f278c2722f3c8c7217999ab018cb64d');
             setNetworkInfo({
               name: 'Monad Testnet',
               chainId: '10143',
