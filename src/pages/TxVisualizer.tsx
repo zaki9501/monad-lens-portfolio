@@ -127,7 +127,7 @@ const TxVisualizer = () => {
   }, [walletAddress]);
 
   const visualizationModes = [
-    { id: 'timeline', label: 'Timeline Chart', icon: Activity },
+    { id: 'timeline', label: 'Transaction Pit', icon: Activity },
     { id: 'tokens', label: 'Token Movement', icon: Zap },
     { id: 'score', label: 'Wallet Score', icon: Shield },
     { id: 'live', label: 'Live Monitor', icon: Radio }
