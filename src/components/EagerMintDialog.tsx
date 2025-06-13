@@ -45,22 +45,33 @@ const EagerMintDialog = ({ walletAddress, overallScore, artData, isDarkMode, isL
       if (window.ethereum) {
         try {
           const networkVersion = (window.ethereum as any).networkVersion;
-          console.log('window.ethereum.networkVersion', networkVersion);
+          const chainId = await (window.ethereum as any).request({ method: 'eth_chainId' });
+          console.log('Network Details:', {
+            networkVersion,
+            chainId,
+            isMonadTestnet: networkVersion === '10143' || chainId === '0x279b',
+            ethereum: !!window.ethereum
+          });
           
-          if (networkVersion === '10143') {
+          if (networkVersion === '10143' || chainId === '0x279b') {
             setContractAddress(REPUTATION_ART_NFT_ADDRESS);
             setNetworkInfo({
               name: 'Monad Testnet',
               chainId: '10143',
               explorer: 'https://testnet.monvision.io/'
             });
+            setMintError(''); // Clear any previous errors
           } else {
+            console.log('Wrong network detected:', { networkVersion, chainId });
             setMintError('Please connect to Monad Testnet (Chain ID: 10143)');
           }
         } catch (error) {
           console.error('Error checking network:', error);
-          setMintError('Failed to detect network');
+          setMintError('Failed to detect network. Please ensure MetaMask is installed and connected.');
         }
+      } else {
+        console.log('No ethereum provider found');
+        setMintError('MetaMask not found. Please install MetaMask to continue.');
       }
     };
 
