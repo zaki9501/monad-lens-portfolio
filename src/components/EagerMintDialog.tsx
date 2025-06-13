@@ -102,6 +102,14 @@ const EagerMintDialog = ({ walletAddress, overallScore, artData, isDarkMode, isL
         throw new Error('Connected wallet does not match the analyzed wallet');
       }
 
+      // Check if already minted before proceeding
+      const contract = new ethers.Contract(contractAddress, ReputationArtNFTABI, signer);
+      const hasMinted = await contract.hasMinted(walletAddress, overallScore);
+      
+      if (hasMinted) {
+        throw new Error('This wallet has already minted an NFT for this score.');
+      }
+
       setMintingStep('Uploading to IPFS...');
       console.log('Uploading to IPFS...');
       const ipfsHash = await uploadToPinata(walletAddress, overallScore, artData);
@@ -110,16 +118,6 @@ const EagerMintDialog = ({ walletAddress, overallScore, artData, isDarkMode, isL
       setMintingStep('Creating contract instance for minting...');
       console.log('Creating contract instance for minting...');
       
-      const contract = new ethers.Contract(contractAddress, ReputationArtNFTABI, signer);
-      console.log('Calling mintArt with params:', {
-        recipient: walletAddress,
-        score: overallScore,
-        totalTransactions: artData.patterns?.length || 0,
-        diversityScore: artData.mandalaRings?.length || 0,
-        ipfsHash: ipfsHash
-      });
-
-      setMintingStep('Minting NFT...');
       const transaction = await contract.mintArt(
         walletAddress,
         overallScore,
@@ -188,7 +186,25 @@ const EagerMintDialog = ({ walletAddress, overallScore, artData, isDarkMode, isL
       setHasBeenMinted(true);
     } catch (error) {
       console.error('Minting error:', error);
-      setMintError(error.message || 'Failed to mint NFT');
+      
+      // Handle contract errors in a user-friendly way
+      if (error.reason) {
+        // This is a contract error
+        setMintError(error.reason);
+      } else if (error.message) {
+        // Handle specific error messages
+        if (error.message.includes('already minted')) {
+          setMintError('This wallet has already minted an NFT for this score.');
+        } else if (error.message.includes('user rejected')) {
+          setMintError('Transaction was rejected. Please try again.');
+        } else if (error.message.includes('insufficient funds')) {
+          setMintError('Insufficient funds for gas. Please ensure you have enough MON tokens.');
+        } else {
+          setMintError(error.message);
+        }
+      } else {
+        setMintError('Failed to mint NFT. Please try again.');
+      }
     } finally {
       setIsMinting(false);
     }
