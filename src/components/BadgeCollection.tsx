@@ -1,9 +1,8 @@
-
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Award, Star, Zap, Target, Trophy, Shield, Calendar, Activity } from "lucide-react";
+import { Award, Star, Zap, Target, Trophy, Shield, Calendar, Activity, Crown, Gem, Image, PiggyBank, Coins, TrendingUp } from "lucide-react";
 import { useEffect, useState } from "react";
-import { getAccountTransactions, getAccountActivities } from "@/lib/blockvision";
+import { getAccountTransactions, getAccountActivities, getAccountNFTs, getAccountTokens } from "@/lib/blockvision";
 
 interface BadgeCollectionProps {
   walletAddress: string;
@@ -41,13 +40,19 @@ const BadgeCollection = ({ walletAddress }: BadgeCollectionProps) => {
     const analyzeWalletForBadges = async () => {
       setLoading(true);
       try {
-        const [txData, activityData] = await Promise.all([
+        console.log("Analyzing wallet for comprehensive badges...");
+        
+        const [txData, activityData, nftData, tokenData] = await Promise.all([
           getAccountTransactions(walletAddress, 1000),
-          getAccountActivities(walletAddress, 1000)
+          getAccountActivities(walletAddress, 1000),
+          getAccountNFTs(walletAddress, 1),
+          getAccountTokens(walletAddress)
         ]);
 
         const transactions = txData?.result?.data || [];
         const activities = activityData?.result?.data || [];
+        const nfts = nftData?.result?.data || [];
+        const tokens = tokenData?.result?.data || [];
         const allTxs = [...transactions, ...activities];
         
         // Calculate comprehensive metrics
@@ -89,6 +94,17 @@ const BadgeCollection = ({ walletAddress }: BadgeCollectionProps) => {
           }).filter(Boolean)
         ).size;
 
+        // Check for staking/lending tokens
+        const stakingTokens = tokens.filter(token => 
+          token.symbol?.includes('sM') || 
+          token.symbol?.includes('apr') || 
+          token.symbol?.includes('gM') || 
+          token.symbol?.includes('sh') ||
+          token.symbol?.includes('cvn') ||
+          token.symbol?.includes('ib') ||
+          token.symbol?.includes('za')
+        );
+
         setWalletMetrics({
           totalTx,
           contractInteractions,
@@ -96,12 +112,24 @@ const BadgeCollection = ({ walletAddress }: BadgeCollectionProps) => {
           gasSpent,
           totalVolume,
           accountAge,
-          activeDays
+          activeDays,
+          nftCount: nfts.length,
+          stakingTokensCount: stakingTokens.length
         });
 
-        // Generate earned badges based on real metrics
+        console.log("Comprehensive wallet metrics:", {
+          totalTx,
+          uniqueContracts,
+          accountAge,
+          activeDays,
+          nftCount: nfts.length,
+          stakingTokensCount: stakingTokens.length
+        });
+
+        // Generate earned badges based on real comprehensive metrics
         const earned: EarnedBadge[] = [];
         
+        // Time-based badges
         if (accountAge > 30) {
           earned.push({
             id: 1,
@@ -113,7 +141,20 @@ const BadgeCollection = ({ walletAddress }: BadgeCollectionProps) => {
             category: "Community"
           });
         }
-        
+
+        if (accountAge > 90 && totalTx > 200) {
+          earned.push({
+            id: 15,
+            name: "Veteran Trader",
+            description: "Long-term trader with consistent activity",
+            icon: Shield,
+            rarity: "Epic",
+            earnedDate: new Date().toISOString().split('T')[0],
+            category: "Trading"
+          });
+        }
+
+        // Activity badges
         if (uniqueContracts >= 5) {
           earned.push({
             id: 2,
@@ -138,6 +179,18 @@ const BadgeCollection = ({ walletAddress }: BadgeCollectionProps) => {
           });
         }
 
+        if (totalTx >= 500) {
+          earned.push({
+            id: 16,
+            name: "Transaction King",
+            description: "Completed 500+ transactions",
+            icon: Crown,
+            rarity: "Legendary",
+            earnedDate: new Date().toISOString().split('T')[0],
+            category: "Trading"
+          });
+        }
+
         if (activeDays >= 15) {
           earned.push({
             id: 5,
@@ -150,6 +203,105 @@ const BadgeCollection = ({ walletAddress }: BadgeCollectionProps) => {
           });
         }
 
+        // DeFi badges
+        if (stakingTokens.length >= 2) {
+          earned.push({
+            id: 10,
+            name: "Yield Farmer",
+            description: `Active in ${stakingTokens.length} staking protocols`,
+            icon: PiggyBank,
+            rarity: "Rare",
+            earnedDate: new Date().toISOString().split('T')[0],
+            category: "DeFi"
+          });
+        }
+
+        if (stakingTokens.length >= 5) {
+          earned.push({
+            id: 11,
+            name: "Staking Master",
+            description: "Master of liquid staking derivatives",
+            icon: Coins,
+            rarity: "Epic",
+            earnedDate: new Date().toISOString().split('T')[0],
+            category: "DeFi"
+          });
+        }
+
+        if (uniqueContracts >= 10) {
+          earned.push({
+            id: 12,
+            name: "Liquidity Provider",
+            description: "Provides liquidity to multiple pools",
+            icon: TrendingUp,
+            rarity: "Rare",
+            earnedDate: new Date().toISOString().split('T')[0],
+            category: "DeFi"
+          });
+        }
+
+        // NFT badges
+        if (nfts.length >= 1) {
+          earned.push({
+            id: 7,
+            name: "NFT Collector",
+            description: `Owns ${nfts.length} NFT${nfts.length > 1 ? 's' : ''}`,
+            icon: Image,
+            rarity: "Common",
+            earnedDate: new Date().toISOString().split('T')[0],
+            category: "NFTs"
+          });
+        }
+
+        if (nfts.length >= 10) {
+          earned.push({
+            id: 8,
+            name: "Art Enthusiast",
+            description: "Serious NFT collector with 10+ pieces",
+            icon: Star,
+            rarity: "Rare",
+            earnedDate: new Date().toISOString().split('T')[0],
+            category: "NFTs"
+          });
+        }
+
+        if (nfts.length >= 50) {
+          earned.push({
+            id: 9,
+            name: "NFT Whale",
+            description: "Major NFT holder with 50+ pieces",
+            icon: Crown,
+            rarity: "Legendary",
+            earnedDate: new Date().toISOString().split('T')[0],
+            category: "NFTs"
+          });
+        }
+
+        // Rare achievement badges
+        if (accountAge > 60 && uniqueContracts >= 15 && totalTx > 300) {
+          earned.push({
+            id: 13,
+            name: "Protocol Pioneer",
+            description: "Early adopter of multiple protocols",
+            icon: Shield,
+            rarity: "Legendary",
+            earnedDate: new Date().toISOString().split('T')[0],
+            category: "Achievement"
+          });
+        }
+
+        if (accountAge > 120 && totalTx > 1000 && totalVolume > 100) {
+          earned.push({
+            id: 14,
+            name: "Monad OG",
+            description: "Original Monad ecosystem participant",
+            icon: Gem,
+            rarity: "Legendary",
+            earnedDate: new Date().toISOString().split('T')[0],
+            category: "Achievement"
+          });
+        }
+
         setEarnedBadges(earned);
 
         // Generate available badges with real progress
@@ -157,32 +309,32 @@ const BadgeCollection = ({ walletAddress }: BadgeCollectionProps) => {
         
         if (totalVolume < 10000) {
           available.push({
-            id: 5,
+            id: 20,
             name: "Whale Status",
-            description: "Hold 10,000+ MON tokens",
+            description: "Trade 10,000+ MON volume",
             icon: Shield,
             rarity: "Legendary",
             progress: Math.min(95, (totalVolume / 10000) * 100),
-            category: "Portfolio"
+            category: "Trading"
           });
         }
         
-        if (uniqueContracts < 15) {
+        if (uniqueContracts < 20) {
           available.push({
-            id: 7,
+            id: 21,
             name: "dApp Master",
-            description: "Use 15+ different dApps",
+            description: "Use 20+ different dApps",
             icon: Award,
-            rarity: "Rare",
-            progress: Math.min(95, (uniqueContracts / 15) * 100),
+            rarity: "Epic",
+            progress: Math.min(95, (uniqueContracts / 20) * 100),
             category: "dApps"
           });
         }
 
         if (totalTx < 1000) {
           available.push({
-            id: 8,
-            name: "Transaction King",
+            id: 22,
+            name: "Transaction Legend",
             description: "Complete 1000+ transactions",
             icon: Activity,
             rarity: "Epic",
@@ -191,10 +343,34 @@ const BadgeCollection = ({ walletAddress }: BadgeCollectionProps) => {
           });
         }
 
+        if (nfts.length < 100) {
+          available.push({
+            id: 23,
+            name: "NFT Mogul",
+            description: "Own 100+ NFTs",
+            icon: Crown,
+            rarity: "Legendary",
+            progress: Math.min(95, (nfts.length / 100) * 100),
+            category: "NFTs"
+          });
+        }
+
+        if (stakingTokens.length < 10) {
+          available.push({
+            id: 24,
+            name: "DeFi Wizard",
+            description: "Stake in 10+ protocols",
+            icon: Star,
+            rarity: "Epic",
+            progress: Math.min(95, (stakingTokens.length / 10) * 100),
+            category: "DeFi"
+          });
+        }
+
         setAvailableBadges(available);
 
       } catch (error) {
-        console.error('Error analyzing wallet for badges:', error);
+        console.error('Error analyzing wallet for comprehensive badges:', error);
       } finally {
         setLoading(false);
       }
@@ -236,7 +412,7 @@ const BadgeCollection = ({ walletAddress }: BadgeCollectionProps) => {
           <CardContent className="p-6">
             <div className="text-center py-8">
               <div className="animate-spin w-8 h-8 border-2 border-purple-400 border-t-transparent rounded-full mx-auto mb-4" />
-              <p className="text-gray-300">Analyzing wallet activity for badges...</p>
+              <p className="text-gray-300">Analyzing wallet activity for comprehensive badges...</p>
             </div>
           </CardContent>
         </Card>
@@ -256,29 +432,45 @@ const BadgeCollection = ({ walletAddress }: BadgeCollectionProps) => {
         </CardHeader>
         <CardContent>
           {earnedBadges.length > 0 ? (
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {earnedBadges.map((badge) => (
-                <div key={badge.id} className="bg-slate-700/30 rounded-lg p-4 hover:bg-slate-700/50 transition-colors">
-                  <div className="flex items-center space-x-3 mb-3">
-                    <div className={`w-12 h-12 bg-gradient-to-r ${getRarityColor(badge.rarity)} rounded-full flex items-center justify-center`}>
-                      <badge.icon className="w-6 h-6 text-white" />
-                    </div>
-                    <div className="flex-1">
-                      <h3 className="text-white font-medium">{badge.name}</h3>
-                      <Badge className={getRarityBadgeColor(badge.rarity)}>
-                        {badge.rarity}
-                      </Badge>
+            <div className="space-y-6">
+              {/* Group badges by category */}
+              {["Achievement", "Community", "Trading", "DeFi", "NFTs", "Engagement"].map((category) => {
+                const categoryBadges = earnedBadges.filter(badge => badge.category === category);
+                
+                if (categoryBadges.length === 0) return null;
+                
+                return (
+                  <div key={category} className="space-y-3">
+                    <h3 className="text-lg font-semibold text-white border-b border-slate-600 pb-2">
+                      {category} ({categoryBadges.length})
+                    </h3>
+                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                      {categoryBadges.map((badge) => (
+                        <div key={badge.id} className="bg-slate-700/30 rounded-lg p-4 hover:bg-slate-700/50 transition-colors">
+                          <div className="flex items-center space-x-3 mb-3">
+                            <div className={`w-12 h-12 bg-gradient-to-r ${getRarityColor(badge.rarity)} rounded-full flex items-center justify-center`}>
+                              <badge.icon className="w-6 h-6 text-white" />
+                            </div>
+                            <div className="flex-1">
+                              <h3 className="text-white font-medium">{badge.name}</h3>
+                              <Badge className={getRarityBadgeColor(badge.rarity)}>
+                                {badge.rarity}
+                              </Badge>
+                            </div>
+                          </div>
+                          
+                          <p className="text-gray-400 text-sm mb-2">{badge.description}</p>
+                          
+                          <div className="flex justify-between items-center text-xs text-gray-500">
+                            <span>{badge.category}</span>
+                            <span>Earned: {badge.earnedDate}</span>
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   </div>
-                  
-                  <p className="text-gray-400 text-sm mb-2">{badge.description}</p>
-                  
-                  <div className="flex justify-between items-center text-xs text-gray-500">
-                    <span>{badge.category}</span>
-                    <span>Earned: {badge.earnedDate}</span>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           ) : (
             <div className="text-center py-8">
@@ -322,7 +514,7 @@ const BadgeCollection = ({ walletAddress }: BadgeCollectionProps) => {
                   <div className="space-y-2">
                     <div className="flex justify-between text-xs text-gray-400">
                       <span>Progress</span>
-                      <span>{badge.progress}%</span>
+                      <span>{badge.progress.toFixed(1)}%</span>
                     </div>
                     <div className="w-full bg-slate-600 rounded-full h-2">
                       <div 
@@ -343,7 +535,7 @@ const BadgeCollection = ({ walletAddress }: BadgeCollectionProps) => {
       )}
 
       {/* Badge Stats */}
-      <div className="grid gap-6 md:grid-cols-3">
+      <div className="grid gap-6 md:grid-cols-4">
         <Card className="bg-slate-800/50 border-slate-700">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
@@ -383,6 +575,20 @@ const BadgeCollection = ({ walletAddress }: BadgeCollectionProps) => {
                 </p>
               </div>
               <Trophy className="w-8 h-8 text-blue-500" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-slate-800/50 border-slate-700">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-gray-400 text-sm">Categories</p>
+                <p className="text-white text-2xl font-bold">
+                  {new Set(earnedBadges.map(b => b.category)).size}
+                </p>
+              </div>
+              <Shield className="w-8 h-8 text-purple-500" />
             </div>
           </CardContent>
         </Card>
