@@ -59,8 +59,7 @@ const CopyAddressButton: React.FC<CopyAddressButtonProps> = ({ address }) => {
         <TooltipContent>
           {copied ? "Copied!" : "Copy to clipboard"}
         </TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
+      </TooltipProvider>
   );
 };
 
@@ -168,27 +167,37 @@ const Index = () => {
     }).finally(() => setLoadingTokens(false));
   }, [viewingAddress, refreshTokens]);
 
-  // Prepare pie chart data from tokens
+  // Prepare pie chart data from tokens - Fixed calculation
   const preparePieChartData = () => {
     if (!tokens || tokens.length === 0) return [];
     
-    return tokens
-      .filter(token => {
-        const balance = Number(token.balance) / 10 ** Number(token.decimals);
-        return balance > 0;
-      })
-      .slice(0, 10) // Limit to top 10 tokens
+    console.log("Preparing pie chart data from tokens:", tokens);
+    
+    // Calculate actual balances and filter out zero balances
+    const tokenData = tokens
       .map((token, index) => {
-        const balance = Number(token.balance) / 10 ** Number(token.decimals);
-        const value = balance * (token.priceUSD ? Number(token.priceUSD) : 1);
+        const rawBalance = Number(token.balance || 0);
+        const decimals = Number(token.decimals || token.decimal || 18);
+        const actualBalance = rawBalance / Math.pow(10, decimals);
+        const priceUSD = Number(token.priceUSD || 0);
+        const usdValue = actualBalance * priceUSD;
+        
+        console.log(`Token ${token.symbol}: rawBalance=${rawBalance}, decimals=${decimals}, actualBalance=${actualBalance}, priceUSD=${priceUSD}, usdValue=${usdValue}`);
+        
         return {
-          name: token.symbol,
-          value: Math.max(value, balance), // Use USD value if available, otherwise raw balance
-          balance: balance,
-          fill: CHART_COLORS[index % CHART_COLORS.length]
+          name: token.symbol || token.name || 'Unknown',
+          value: usdValue > 0 ? usdValue : actualBalance, // Use USD value if available, otherwise raw balance
+          balance: actualBalance,
+          fill: CHART_COLORS[index % CHART_COLORS.length],
+          hasUSDValue: usdValue > 0
         };
       })
-      .sort((a, b) => b.value - a.value); // Sort by value descending
+      .filter(token => token.balance > 0) // Only include tokens with actual balance
+      .sort((a, b) => b.value - a.value) // Sort by value descending
+      .slice(0, 10); // Limit to top 10 tokens
+    
+    console.log("Prepared pie chart data:", tokenData);
+    return tokenData;
   };
 
   const pieChartData = preparePieChartData();
@@ -320,24 +329,26 @@ const Index = () => {
                         return (
                           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
                             {sortedTokens.map((token, idx) => {
-                              const balance = Number(token.balance ?? 0);
+                              const rawBalance = Number(token.balance ?? 0);
+                              const decimals = Number(token.decimals || token.decimal || 18);
+                              const actualBalance = rawBalance / Math.pow(10, decimals);
                               const isTop = token.symbol === "MON";
 
                               return (
                                 <div
-                                  key={token.token_address || idx}
-                                  className={`flex items-center space-x-3 p-3 rounded-xl bg-white/5 border ${isTop ? 'border-blue-500 shadow-lg' : 'border-transparent'} ${balance === 0 ? 'opacity-50' : ''}`}
+                                  key={token.token_address || token.contractAddress || idx}
+                                  className={`flex items-center space-x-3 p-3 rounded-xl bg-white/5 border ${isTop ? 'border-blue-500 shadow-lg' : 'border-transparent'} ${actualBalance === 0 ? 'opacity-50' : ''}`}
                                 >
-                                  {token.logo_url ? (
-                                    <img src={token.logo_url} alt={token.symbol} className="w-8 h-8 rounded-full" />
+                                  {token.logo_url || token.imageURL ? (
+                                    <img src={token.logo_url || token.imageURL} alt={token.symbol} className="w-8 h-8 rounded-full" />
                                   ) : (
                                     <div className="w-8 h-8 bg-gradient-to-r from-purple-500 to-blue-500 rounded-full flex items-center justify-center">
-                                      <span className="text-xs font-bold text-white">{token.symbol[0]}</span>
+                                      <span className="text-xs font-bold text-white">{(token.symbol || 'T')[0]}</span>
                                     </div>
                                   )}
                                   <div>
                                     <div className={`text-sm ${isTop ? 'text-blue-500 font-bold' : 'text-gray-200'}`}>{token.name || token.symbol}</div>
-                                    <div className={`text-lg ${isTop ? 'text-blue-700 font-bold' : 'text-white'}`}>{balance.toLocaleString(undefined, {
+                                    <div className={`text-lg ${isTop ? 'text-blue-700 font-bold' : 'text-white'}`}>{actualBalance.toLocaleString(undefined, {
                                       maximumFractionDigits: 6
                                     })}</div>
                                   </div>
@@ -360,7 +371,7 @@ const Index = () => {
                           <PieChart className="w-5 h-5 mr-2 text-blue-400" />
                           Token Distribution
                         </h3>
-                        <p className="text-gray-400 text-sm">Top {pieChartData.length} tokens</p>
+                        <p className="text-gray-400 text-sm">Top {pieChartData.length} tokens with balance</p>
                       </div>
                       
                       <div className="grid md:grid-cols-2 gap-6">
@@ -396,23 +407,28 @@ const Index = () => {
                         <div className="space-y-2">
                           <h4 className="text-lg font-medium text-white mb-4">Token Breakdown</h4>
                           <div className="space-y-3 max-h-64 overflow-y-auto">
-                            {pieChartData.map((token, index) => (
-                              <div key={token.name} className="flex items-center justify-between p-2 bg-slate-700/30 rounded-lg">
-                                <div className="flex items-center space-x-3">
-                                  <div 
-                                    className="w-4 h-4 rounded-full"
-                                    style={{ backgroundColor: token.fill }}
-                                  />
-                                  <span className="text-white font-medium">{token.name}</span>
+                            {pieChartData.map((token, index) => {
+                              const totalValue = pieChartData.reduce((sum, t) => sum + t.value, 0);
+                              const percentage = totalValue > 0 ? ((token.value / totalValue) * 100) : 0;
+                              
+                              return (
+                                <div key={token.name} className="flex items-center justify-between p-2 bg-slate-700/30 rounded-lg">
+                                  <div className="flex items-center space-x-3">
+                                    <div 
+                                      className="w-4 h-4 rounded-full"
+                                      style={{ backgroundColor: token.fill }}
+                                    />
+                                    <span className="text-white font-medium">{token.name}</span>
+                                  </div>
+                                  <div className="text-right">
+                                    <p className="text-white font-semibold">{token.balance.toFixed(6)}</p>
+                                    <p className="text-gray-400 text-xs">
+                                      {percentage.toFixed(1)}%
+                                    </p>
+                                  </div>
                                 </div>
-                                <div className="text-right">
-                                  <p className="text-white font-semibold">{token.balance.toFixed(6)}</p>
-                                  <p className="text-gray-400 text-xs">
-                                    {((token.value / pieChartData.reduce((sum, t) => sum + t.value, 0)) * 100).toFixed(1)}%
-                                  </p>
-                                </div>
-                              </div>
-                            ))}
+                              );
+                            })}
                           </div>
                         </div>
                       </div>
