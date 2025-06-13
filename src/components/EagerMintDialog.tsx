@@ -29,6 +29,9 @@ const EagerMintDialog = ({ walletAddress, overallScore, artData, isDarkMode, isL
   const [networkInfo, setNetworkInfo] = useState(null);
   const [hasBeenMinted, setHasBeenMinted] = useState(false);
 
+  // ReputationArtNFT contract address on Monad testnet
+  const REPUTATION_ART_NFT_ADDRESS = "0x1396df636f278c2722f3c8c7217999ab018cb64d";
+
   // Check if this wallet has already minted an NFT
   useEffect(() => {
     const mintedWallets = JSON.parse(localStorage.getItem('mintedWallets') || '{}');
@@ -45,11 +48,11 @@ const EagerMintDialog = ({ walletAddress, overallScore, artData, isDarkMode, isL
           console.log('window.ethereum.networkVersion', networkVersion);
           
           if (networkVersion === '10143') {
-            setContractAddress('');
+            setContractAddress(REPUTATION_ART_NFT_ADDRESS);
             setNetworkInfo({
               name: 'Monad Testnet',
               chainId: '10143',
-              explorer: 'https://explorer.monad.xyz'
+              explorer: 'https://testnet.monvision.io/'
             });
           } else {
             setMintError('Please connect to Monad Testnet (Chain ID: 10143)');

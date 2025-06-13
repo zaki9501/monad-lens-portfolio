@@ -313,7 +313,7 @@ const TransactionHistory = ({
                           <span className="text-gray-400 text-sm">{ago}</span>
                         </TableCell>
                         <TableCell>
-                          <a href={`https://monadscan.io/tx/${hash}`} target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-blue-400 transition-colors">
+                          <a href={`https://testnet.monvision.io/tx/${hash}`} target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-blue-400 transition-colors">
                             <ExternalLink className="w-4 h-4" />
                           </a>
                         </TableCell>

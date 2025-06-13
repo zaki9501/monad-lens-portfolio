@@ -271,7 +271,7 @@ const LiquidStakingDerivatives = ({ walletAddress }: LSDProps) => {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-gray-400 text-sm font-medium">Total Lent</p>
+                <p className="text-gray-400 text-sm font-medium">Total Lend</p>
                 <p className="text-2xl font-bold text-white">{totalLent.toFixed(4)}</p>
               </div>
               <div className="w-10 h-10 bg-gradient-to-r from-teal-500 to-cyan-500 rounded-lg flex items-center justify-center">
