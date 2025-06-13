@@ -173,7 +173,10 @@ const Index = () => {
     if (!tokens || tokens.length === 0) return [];
     
     return tokens
-      .filter(token => Number(token.balance) > 0)
+      .filter(token => {
+        const balance = Number(token.balance) / 10 ** Number(token.decimals);
+        return balance > 0;
+      })
       .slice(0, 10) // Limit to top 10 tokens
       .map((token, index) => {
         const balance = Number(token.balance) / 10 ** Number(token.decimals);
@@ -184,7 +187,8 @@ const Index = () => {
           balance: balance,
           fill: CHART_COLORS[index % CHART_COLORS.length]
         };
-      });
+      })
+      .sort((a, b) => b.value - a.value); // Sort by value descending
   };
 
   const pieChartData = preparePieChartData();
