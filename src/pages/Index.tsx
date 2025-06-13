@@ -59,7 +59,8 @@ const CopyAddressButton: React.FC<CopyAddressButtonProps> = ({ address }) => {
         <TooltipContent>
           {copied ? "Copied!" : "Copy to clipboard"}
         </TooltipContent>
-      </TooltipProvider>
+      </Tooltip>
+    </TooltipProvider>
   );
 };
 
@@ -167,13 +168,13 @@ const Index = () => {
     }).finally(() => setLoadingTokens(false));
   }, [viewingAddress, refreshTokens]);
 
-  // Prepare pie chart data from tokens - Fixed calculation
+  // Prepare pie chart data from tokens - Fixed calculation to use actual balances
   const preparePieChartData = () => {
     if (!tokens || tokens.length === 0) return [];
     
     console.log("Preparing pie chart data from tokens:", tokens);
     
-    // Calculate actual balances and filter out zero balances
+    // Calculate actual balances using proper decimal conversion and filter out zero balances
     const tokenData = tokens
       .map((token, index) => {
         const rawBalance = Number(token.balance || 0);
@@ -186,13 +187,13 @@ const Index = () => {
         
         return {
           name: token.symbol || token.name || 'Unknown',
-          value: usdValue > 0 ? usdValue : actualBalance, // Use USD value if available, otherwise raw balance
+          value: actualBalance, // Always use actual balance for the chart
           balance: actualBalance,
           fill: CHART_COLORS[index % CHART_COLORS.length],
           hasUSDValue: usdValue > 0
         };
       })
-      .filter(token => token.balance > 0) // Only include tokens with actual balance
+      .filter(token => token.balance > 0) // Only include tokens with actual balance > 0
       .sort((a, b) => b.value - a.value) // Sort by value descending
       .slice(0, 10); // Limit to top 10 tokens
     
