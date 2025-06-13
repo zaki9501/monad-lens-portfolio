@@ -1,10 +1,7 @@
-
 import { useEffect, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { TrendingUp, TrendingDown, DollarSign, PieChart, Activity, Wallet, Target, BarChart3 } from "lucide-react";
 import { getAccountTokens, getAccountNFTs, getAccountTransactions, getAccountActivities } from "@/lib/blockvision";
-import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
-import { PieChart as RechartsPieChart, Cell, Pie, ResponsiveContainer } from "recharts";
 
 interface PortfolioOverviewProps {
   walletAddress: string;
@@ -223,19 +220,7 @@ const PortfolioOverview = ({ walletAddress }: PortfolioOverviewProps) => {
   const visibleTokens = showAllTokens ? sortedTokens : sortedTokens.slice(0, DEFAULT_VISIBLE_TOKENS);
 
   // Prepare pie chart data
-  const pieChartData = sortedTokens
-    .filter(token => Number(token.balance) > 0)
-    .slice(0, 10) // Limit to top 10 tokens for better visualization
-    .map((token, index) => {
-      const balance = Number(token.balance) / 10 ** Number(token.decimals);
-      const value = balance * (token.priceUSD ? Number(token.priceUSD) : 1);
-      return {
-        name: token.symbol,
-        value: Math.max(value, balance), // Use USD value if available, otherwise raw balance
-        balance: balance,
-        fill: CHART_COLORS[index % CHART_COLORS.length]
-      };
-    });
+  
 
   return (
     <>
@@ -367,75 +352,6 @@ const PortfolioOverview = ({ walletAddress }: PortfolioOverviewProps) => {
           </CardContent>
         </Card>
       </div>
-
-      {/* Token Distribution Pie Chart */}
-      {pieChartData.length > 0 && (
-        <Card className="bg-slate-800/50 border-slate-700">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="text-xl font-semibold text-white flex items-center">
-                <PieChart className="w-5 h-5 mr-2 text-blue-400" />
-                Token Distribution
-              </h3>
-              <p className="text-gray-400 text-sm">Top {pieChartData.length} tokens</p>
-            </div>
-            
-            <div className="grid md:grid-cols-2 gap-6">
-              {/* Pie Chart */}
-              <div className="h-80">
-                <ChartContainer config={chartConfig} className="h-full">
-                  <RechartsPieChart>
-                    <Pie
-                      data={pieChartData}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={60}
-                      outerRadius={120}
-                      paddingAngle={2}
-                      dataKey="value"
-                    >
-                      {pieChartData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.fill} />
-                      ))}
-                    </Pie>
-                    <ChartTooltip
-                      content={<ChartTooltipContent />}
-                      formatter={(value, name) => [
-                        `${Number(value).toFixed(6)}`,
-                        name
-                      ]}
-                    />
-                  </RechartsPieChart>
-                </ChartContainer>
-              </div>
-              
-              {/* Legend */}
-              <div className="space-y-2">
-                <h4 className="text-lg font-medium text-white mb-4">Token Breakdown</h4>
-                <div className="space-y-3 max-h-64 overflow-y-auto">
-                  {pieChartData.map((token, index) => (
-                    <div key={token.name} className="flex items-center justify-between p-2 bg-slate-700/30 rounded-lg">
-                      <div className="flex items-center space-x-3">
-                        <div 
-                          className="w-4 h-4 rounded-full"
-                          style={{ backgroundColor: token.fill }}
-                        />
-                        <span className="text-white font-medium">{token.name}</span>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-white font-semibold">{token.balance.toFixed(6)}</p>
-                        <p className="text-gray-400 text-xs">
-                          {((token.value / pieChartData.reduce((sum, t) => sum + t.value, 0)) * 100).toFixed(1)}%
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
     </>
   );
 };
