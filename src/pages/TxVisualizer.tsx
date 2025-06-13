@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -45,6 +44,7 @@ const TxVisualizer = () => {
   
   const [walletAddress, setWalletAddress] = useState('');
   const [connectedWallet, setConnectedWallet] = useState('');
+  const [showConnectedWalletPrompt, setShowConnectedWalletPrompt] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
   const [scanProgress, setScanProgress] = useState(0);
   const [transactionData, setTransactionData] = useState(null);
@@ -58,11 +58,16 @@ const TxVisualizer = () => {
   useEffect(() => {
     if (authenticated && user?.wallet?.address) {
       setConnectedWallet(user.wallet.address);
+      // Show prompt only if no wallet address is set and user just connected
+      if (!walletAddress) {
+        setShowConnectedWalletPrompt(true);
+      }
       console.log('Connected wallet:', user.wallet.address);
     } else {
       setConnectedWallet('');
+      setShowConnectedWalletPrompt(false);
     }
-  }, [authenticated, user]);
+  }, [authenticated, user, walletAddress]);
 
   const handleBackClick = () => {
     console.log('Back button clicked');
@@ -78,13 +83,22 @@ const TxVisualizer = () => {
     }
   };
 
+  const handleVisualizeConnectedWallet = () => {
+    setWalletAddress(connectedWallet);
+    setShowConnectedWalletPrompt(false);
+    // Auto-generate visualization for connected wallet
+    setTimeout(() => {
+      handleGenerateVisualization(connectedWallet);
+    }, 100);
+  };
+
   const isWalletOwner = () => {
     if (!connectedWallet || !walletAddress) return false;
     return connectedWallet.toLowerCase() === walletAddress.toLowerCase();
   };
 
-  const handleGenerateVisualization = async () => {
-    if (!walletAddress) return;
+  const handleGenerateVisualization = async (addressToUse = walletAddress) => {
+    if (!addressToUse) return;
     setIsScanning(true);
     setScanProgress(0);
 
@@ -95,15 +109,15 @@ const TxVisualizer = () => {
         setScanProgress(i);
       }
       const apiKey = import.meta.env.VITE_BLOCKVISION_API_KEY;
-      const data = await fetchAccountActivities(walletAddress, apiKey, 50);
+      const data = await fetchAccountActivities(addressToUse, apiKey, 50);
       setTransactionData(data);
       setAnalysisData(null);
 
       const activities = data?.result?.data || [];
       const totalTransactions = activities.length;
-      const sentTxs = activities.filter(tx => tx.from?.toLowerCase() === walletAddress.toLowerCase()).length;
+      const sentTxs = activities.filter(tx => tx.from?.toLowerCase() === addressToUse.toLowerCase()).length;
       const receivedTxs = activities.filter(
-        tx => Array.isArray(tx.addTokens) && tx.addTokens.some(token => token.to?.toLowerCase() === walletAddress.toLowerCase())
+        tx => Array.isArray(tx.addTokens) && tx.addTokens.some(token => token.to?.toLowerCase() === addressToUse.toLowerCase())
       ).length;
       const totalGasSpent = activities
         .filter(tx => tx.transactionFee)
@@ -239,6 +253,51 @@ const TxVisualizer = () => {
           </div>
         </div>
 
+        {/* Connected Wallet Prompt */}
+        {showConnectedWalletPrompt && connectedWallet && (
+          <Card className={`max-w-2xl mx-auto mb-6 animate-slide-in-down border-2 ${
+            isDarkMode ? 'bg-purple-900/30 border-purple-500/50' : 'bg-purple-50 border-purple-300'
+          }`}>
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-4">
+                  <div className={`p-3 rounded-full ${isDarkMode ? 'bg-purple-500/20' : 'bg-purple-100'}`}>
+                    <Wallet className={`w-6 h-6 ${isDarkMode ? 'text-purple-400' : 'text-purple-600'}`} />
+                  </div>
+                  <div>
+                    <h3 className={`font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                      Wallet Connected!
+                    </h3>
+                    <p className={`text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+                      Would you like to visualize your connected wallet?
+                    </p>
+                    <div className={`text-xs font-mono ${isDarkMode ? 'text-gray-400' : 'text-gray-500'} mt-1`}>
+                      {connectedWallet.slice(0, 6)}...{connectedWallet.slice(-4)}
+                    </div>
+                  </div>
+                </div>
+                <div className="flex space-x-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowConnectedWalletPrompt(false)}
+                    className={isDarkMode ? 'border-slate-600 text-gray-300' : 'border-gray-300'}
+                  >
+                    Maybe Later
+                  </Button>
+                  <Button
+                    onClick={handleVisualizeConnectedWallet}
+                    className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
+                  >
+                    <Eye className="w-4 h-4 mr-2" />
+                    Visualize
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Search Section */}
         <Card className={`max-w-2xl mx-auto mb-8 animate-slide-in-right ${
           isDarkMode ? 'bg-slate-800/50 border-slate-700' : 'bg-white/80 border-gray-200'
@@ -261,7 +320,7 @@ const TxVisualizer = () => {
                 }`}
               />
               <Button 
-                onClick={handleGenerateVisualization}
+                onClick={() => handleGenerateVisualization()}
                 disabled={!walletAddress || isScanning}
                 className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
               >
