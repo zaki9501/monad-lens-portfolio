@@ -43,18 +43,6 @@ function setCachedTransactionData(address: string, data: any) {
   } catch {}
 }
 
-// Chart color palette
-const CHART_COLORS = [
-  "#8884d8", "#82ca9d", "#ffc658", "#ff7300", "#00ff88", 
-  "#ff0080", "#8000ff", "#ff8000", "#0080ff", "#80ff00"
-];
-
-const chartConfig = {
-  balance: {
-    label: "Balance",
-  },
-};
-
 const PortfolioOverview = ({ walletAddress }: PortfolioOverviewProps) => {
   const [tokens, setTokens] = useState<TokenInfo[]>([]);
   const [loading, setLoading] = useState(false);
@@ -218,9 +206,6 @@ const PortfolioOverview = ({ walletAddress }: PortfolioOverviewProps) => {
     return bValue - aValue;
   });
   const visibleTokens = showAllTokens ? sortedTokens : sortedTokens.slice(0, DEFAULT_VISIBLE_TOKENS);
-
-  // Prepare pie chart data
-  
 
   return (
     <>
