@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -7,7 +6,7 @@ import { useNavigate } from "react-router-dom";
 import { usePrivy } from "@privy-io/react-auth";
 
 const fetchLatestBlock = async () => {
-  const response = await fetch('https://monad-testnet.hypersync.xyz/', {
+  const response = await fetch('https://testnet1.monad.xyz/', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -26,7 +25,7 @@ const fetchLatestBlock = async () => {
 };
 
 const fetchBlockNumber = async () => {
-  const response = await fetch('https://monad-testnet.hypersync.xyz/', {
+  const response = await fetch('https://testnet1.monad.xyz/', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -54,6 +53,7 @@ const BlockVisualizer = () => {
   const [isDarkMode, setIsDarkMode] = useState(true);
   const [isLoreMode, setIsLoreMode] = useState(false);
   const [lastUpdate, setLastUpdate] = useState(null);
+  const [connectionStatus, setConnectionStatus] = useState('connecting');
 
   const handleBackClick = () => {
     navigate('/');
@@ -61,6 +61,9 @@ const BlockVisualizer = () => {
 
   const fetchBlockData = async () => {
     try {
+      console.log('Fetching block data...');
+      setConnectionStatus('connecting');
+      
       const [block, number] = await Promise.all([
         fetchLatestBlock(),
         fetchBlockNumber()
@@ -69,9 +72,11 @@ const BlockVisualizer = () => {
       setLatestBlock(block);
       setBlockNumber(number);
       setLastUpdate(new Date());
+      setConnectionStatus('connected');
       console.log('Block data updated:', { blockNumber: number, blockHash: block?.hash });
     } catch (error) {
       console.error('Failed to fetch block data:', error);
+      setConnectionStatus('error');
     }
   };
 
@@ -82,6 +87,7 @@ const BlockVisualizer = () => {
 
   const stopLiveMode = () => {
     setIsLive(false);
+    setConnectionStatus('stopped');
   };
 
   // Auto-start live mode when component mounts
@@ -108,6 +114,26 @@ const BlockVisualizer = () => {
   const formatNumber = (hex) => {
     if (!hex) return 'N/A';
     return parseInt(hex, 16).toLocaleString();
+  };
+
+  const getStatusColor = () => {
+    switch (connectionStatus) {
+      case 'connected': return 'bg-green-400';
+      case 'connecting': return 'bg-yellow-400';
+      case 'error': return 'bg-red-400';
+      case 'stopped': return 'bg-gray-400';
+      default: return 'bg-gray-400';
+    }
+  };
+
+  const getStatusText = () => {
+    switch (connectionStatus) {
+      case 'connected': return 'Connected';
+      case 'connecting': return 'Connecting...';
+      case 'error': return 'Connection Error';
+      case 'stopped': return 'Stopped';
+      default: return 'Unknown';
+    }
   };
 
   return (
@@ -138,11 +164,11 @@ const BlockVisualizer = () => {
             <div className={`flex items-center space-x-2 px-3 py-2 rounded-lg ${
               isDarkMode ? 'bg-slate-800/50 border border-slate-700' : 'bg-white/80 border border-gray-200'
             }`}>
-              <div className={`w-2 h-2 rounded-full ${isLive ? 'bg-green-400 animate-pulse' : 'bg-gray-400'}`} />
+              <div className={`w-2 h-2 rounded-full ${getStatusColor()} ${connectionStatus === 'connecting' ? 'animate-pulse' : ''}`} />
               <span className={`text-sm font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                {isLive ? 'Live' : 'Stopped'}
+                {getStatusText()}
               </span>
-              {lastUpdate && (
+              {lastUpdate && connectionStatus === 'connected' && (
                 <span className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
                   {lastUpdate.toLocaleTimeString()}
                 </span>
@@ -193,6 +219,25 @@ const BlockVisualizer = () => {
             </Button>
           </div>
         </div>
+
+        {/* Connection Error Message */}
+        {connectionStatus === 'error' && (
+          <Card className={`max-w-2xl mx-auto mb-8 ${
+            isDarkMode ? 'bg-red-900/50 border-red-700' : 'bg-red-50/80 border-red-200'
+          }`}>
+            <CardContent className="p-6 text-center">
+              <p className={`${isDarkMode ? 'text-red-300' : 'text-red-700'} mb-4`}>
+                Unable to connect to Monad testnet. Retrying automatically...
+              </p>
+              <Button 
+                onClick={fetchBlockData}
+                className="bg-red-600 hover:bg-red-700"
+              >
+                Retry Connection
+              </Button>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Live Control - Only show when stopped */}
         {!isLive && (
@@ -348,7 +393,7 @@ const BlockVisualizer = () => {
         )}
 
         {/* Features Section */}
-        {!latestBlock && (
+        {!latestBlock && connectionStatus !== 'error' && (
           <div className="mt-16 grid gap-8 md:grid-cols-3 animate-fade-in">
             {[
               {
