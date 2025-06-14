@@ -1,5 +1,4 @@
-
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Box, Activity, Clock, Hash, ArrowLeft, Eye, Radio, Zap } from "lucide-react";
@@ -45,6 +44,71 @@ const fetchBlockNumber = async () => {
   return parseInt(data.result, 16);
 };
 
+// Block Ray component that creates dynamic light rays for new blocks
+const BlockRayVisualizer = React.forwardRef<any, { 
+  newBlockDetected: boolean, 
+  blockData: any, 
+  isDarkMode: boolean, 
+  isLoreMode: boolean 
+}>((props, ref) => {
+  const { newBlockDetected, blockData, isDarkMode, isLoreMode } = props;
+  const [blockRayCount, setBlockRayCount] = useState(40);
+  
+  // When a new block is detected, temporarily increase light rays
+  useEffect(() => {
+    if (newBlockDetected) {
+      setBlockRayCount(prev => prev + 5); // Add 5 new light rays for the new block
+      // Reset after a delay
+      setTimeout(() => {
+        setBlockRayCount(40);
+      }, 2000);
+    }
+  }, [newBlockDetected]);
+
+  const hyperspeedOptions = {
+    distortion: 'turbulentDistortion',
+    length: 400,
+    roadWidth: 10,
+    islandWidth: 2,
+    lanesPerRoad: 4,
+    fov: 90,
+    fovSpeedUp: 150,
+    speedUp: newBlockDetected ? 4 : 2, // Speed up when new block detected
+    carLightsFade: 0.4,
+    totalSideLightSticks: 20,
+    lightPairsPerRoadWay: blockRayCount, // Dynamic number based on blocks
+    shoulderLinesWidthPercentage: 0.05,
+    brokenLinesWidthPercentage: 0.1,
+    brokenLinesLengthPercentage: 0.5,
+    lightStickWidth: [0.12, 0.5] as [number, number],
+    lightStickHeight: [1.3, 1.7] as [number, number],
+    movingAwaySpeed: [60, 120] as [number, number], // Faster for block rays
+    movingCloserSpeed: [-120, -200] as [number, number], // Faster for block rays
+    carLightsLength: [400 * 0.05, 400 * 0.3] as [number, number], // Longer rays
+    carLightsRadius: [0.08, 0.20] as [number, number], // Thicker rays
+    carWidthPercentage: [0.3, 0.5] as [number, number],
+    carShiftX: [-0.8, 0.8] as [number, number],
+    carFloorSeparation: [0, 5] as [number, number],
+    colors: {
+      roadColor: 0x080808,
+      islandColor: 0x0a0a0a,
+      background: 0x000000,
+      shoulderLines: isDarkMode ? 0x131318 : 0xffffff,
+      brokenLines: isDarkMode ? 0x131318 : 0xffffff,
+      // Block rays - bright colors representing new blocks
+      leftCars: isLoreMode 
+        ? [0xFF6B6B, 0x4ECDC4, 0x45B7D1, 0x96CEB4, 0xFECA57]
+        : [0x03B3C3, 0x6750A2, 0xD856BF, 0x0E5EA5, 0xC247AC],
+      rightCars: isLoreMode
+        ? [0xFF9F43, 0x6C5CE7, 0xFD79A8, 0x00B894, 0xE17055] 
+        : [0xD856BF, 0x6750A2, 0xC247AC, 0x03B3C3, 0x0E5EA5],
+      sticks: isDarkMode ? 0x03B3C3 : 0x6750A2,
+    }
+  };
+
+  return <Hyperspeed effectOptions={hyperspeedOptions} />;
+});
+
 const BlockVisualizer = () => {
   const navigate = useNavigate();
   const { authenticated } = usePrivy();
@@ -57,6 +121,8 @@ const BlockVisualizer = () => {
   const [lastUpdate, setLastUpdate] = useState(null);
   const [connectionStatus, setConnectionStatus] = useState('connecting');
   const [lastBlockHash, setLastBlockHash] = useState<string | null>(null);
+  const [newBlockDetected, setNewBlockDetected] = useState(false);
+  const [blockHistory, setBlockHistory] = useState<any[]>([]);
 
   const handleBackClick = () => {
     navigate('/');
@@ -75,15 +141,22 @@ const BlockVisualizer = () => {
       // Check if this is a new block
       const isNewBlock = lastBlockHash && block?.hash && block.hash !== lastBlockHash;
       
+      if (isNewBlock) {
+        console.log('New block detected:', block.hash);
+        setNewBlockDetected(true);
+        // Add to block history for visualization
+        setBlockHistory(prev => [block, ...prev.slice(0, 9)]); // Keep last 10 blocks
+        
+        // Reset the detection flag after a short time
+        setTimeout(() => {
+          setNewBlockDetected(false);
+        }, 1500);
+      }
+      
       setLatestBlock(block);
       setBlockNumber(number);
       setLastUpdate(new Date());
       setConnectionStatus('connected');
-      
-      if (isNewBlock) {
-        console.log('New block detected:', block.hash);
-      }
-      
       setLastBlockHash(block?.hash || null);
       
       console.log('Block data updated:', { blockNumber: number, blockHash: block?.hash });
@@ -138,52 +211,16 @@ const BlockVisualizer = () => {
     }
   };
 
-  // Hyperspeed effect options
-  const hyperspeedOptions = {
-    distortion: 'turbulentDistortion',
-    length: 400,
-    roadWidth: 10,
-    islandWidth: 2,
-    lanesPerRoad: 4,
-    fov: 90,
-    fovSpeedUp: 150,
-    speedUp: connectionStatus === 'connected' ? 2 : 1,
-    carLightsFade: 0.4,
-    totalSideLightSticks: 20,
-    lightPairsPerRoadWay: 40,
-    shoulderLinesWidthPercentage: 0.05,
-    brokenLinesWidthPercentage: 0.1,
-    brokenLinesLengthPercentage: 0.5,
-    lightStickWidth: [0.12, 0.5] as [number, number],
-    lightStickHeight: [1.3, 1.7] as [number, number],
-    movingAwaySpeed: [60, 80] as [number, number],
-    movingCloserSpeed: [-120, -160] as [number, number],
-    carLightsLength: [400 * 0.03, 400 * 0.2] as [number, number],
-    carLightsRadius: [0.05, 0.14] as [number, number],
-    carWidthPercentage: [0.3, 0.5] as [number, number],
-    carShiftX: [-0.8, 0.8] as [number, number],
-    carFloorSeparation: [0, 5] as [number, number],
-    colors: {
-      roadColor: 0x080808,
-      islandColor: 0x0a0a0a,
-      background: 0x000000,
-      shoulderLines: isDarkMode ? 0x131318 : 0xffffff,
-      brokenLines: isDarkMode ? 0x131318 : 0xffffff,
-      leftCars: isLoreMode 
-        ? [0xD856BF, 0x6750A2, 0xC247AC]
-        : [0x03B3C3, 0x0E5EA5, 0x324555],
-      rightCars: isLoreMode
-        ? [0xFF322F, 0xA33010, 0xA81508] 
-        : [0xD856BF, 0x6750A2, 0xC247AC],
-      sticks: isDarkMode ? 0x03B3C3 : 0x6750A2,
-    }
-  };
-
   return (
     <div className="min-h-screen relative overflow-hidden">
-      {/* Hyperspeed Background */}
+      {/* Block Ray Hyperspeed Background */}
       <div className="absolute inset-0 z-0">
-        <Hyperspeed effectOptions={hyperspeedOptions} />
+        <BlockRayVisualizer 
+          newBlockDetected={newBlockDetected}
+          blockData={latestBlock}
+          isDarkMode={isDarkMode}
+          isLoreMode={isLoreMode}
+        />
       </div>
       
       {/* Dark overlay for better text readability */}
@@ -229,13 +266,13 @@ const BlockVisualizer = () => {
                   ? 'bg-gradient-to-r from-purple-400 via-pink-400 to-blue-400 bg-clip-text text-transparent'
                   : 'text-white'
               }`}>
-                {isLoreMode ? 'Chain Oracle' : 'Block Visualizer'}
+                {isLoreMode ? 'Block Genesis Highway' : 'Block Ray Visualizer'}
               </h1>
             </div>
             <p className="text-xl text-gray-300 mb-6">
               {isLoreMode 
-                ? 'Witness blockchain genesis as light rays pierce the hyperspeed void' 
-                : 'Watch live Monad blocks as light rays in hyperspeed visualization'
+                ? 'Each light ray represents a block being born into the digital cosmos' 
+                : 'Watch live Monad blocks as dynamic light rays in hyperspeed visualization'
               }
             </p>
             
@@ -259,8 +296,22 @@ const BlockVisualizer = () => {
                 {isLoreMode ? 'Lore Mode' : 'Standard'}
               </Button>
             </div>
+
+            {/* New Block Alert */}
+            {newBlockDetected && (
+              <div className="animate-pulse bg-gradient-to-r from-purple-500/30 to-blue-500/30 border border-purple-500/50 rounded-lg p-4 mb-6">
+                <div className="flex items-center justify-center space-x-2">
+                  <Zap className="w-5 h-5 text-yellow-400 animate-bounce" />
+                  <span className="text-white font-semibold">
+                    {isLoreMode ? 'New Block Genesis Detected!' : 'New Block Mined!'}
+                  </span>
+                  <Zap className="w-5 h-5 text-yellow-400 animate-bounce" />
+                </div>
+              </div>
+            )}
           </div>
 
+          {/* Rest of the existing UI components... */}
           {/* Connection Error Message */}
           {connectionStatus === 'error' && (
             <Card className="max-w-2xl mx-auto mb-8 bg-red-900/80 border-red-700 backdrop-blur-sm">
