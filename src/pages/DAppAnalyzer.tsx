@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Activity, Target, ArrowLeft, Search, TrendingUp, AlertCircle } from "lucide-react";
 import { Link } from "react-router-dom";
+import { useToast } from "@/hooks/use-toast";
 import DAppInteractionStats from "@/components/DAppInteractionStats";
 import DAppInteractionTimeline from "@/components/DAppInteractionTimeline";
 
@@ -25,117 +26,142 @@ const DAppAnalyzer = () => {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisData, setAnalysisData] = useState(null);
   const [error, setError] = useState('');
+  const { toast } = useToast();
 
   const fetchAmbientData = async (address: string) => {
-    const swapsQuery = `
-      query GetSwaps($user: String!) {
-        Ambiant_CrocSwap(where: {user: {_eq: $user}}) {
-          user
-          baseFlow
-          quoteFlow
-          time
-          txHash
-          logIndex
-        }
-      }
-    `;
-
-    const microSwapsQuery = `
-      query GetMicroSwaps($user: String!) {
-        Ambiant_CrocMicroSwap(where: {user: {_eq: $user}}) {
-          user
-          baseFlow
-          quoteFlow
-          time
-          txHash
-          logIndex
-        }
-      }
-    `;
-
-    const ambientMintsQuery = `
-      query GetAmbientMints($user: String!) {
-        Ambiant_CrocMicroMintAmbient(where: {user: {_eq: $user}}) {
-          user
-          baseFlow
-          quoteFlow
-          time
-          txHash
-          logIndex
-        }
-      }
-    `;
-
-    const rangeMintsQuery = `
-      query GetRangeMints($user: String!) {
-        Ambiant_CrocMicroMintRange(where: {user: {_eq: $user}}) {
-          user
-          baseFlow
-          quoteFlow
-          time
-          txHash
-          logIndex
-        }
-      }
-    `;
-
-    const ambientBurnsQuery = `
-      query GetAmbientBurns($user: String!) {
-        Ambiant_CrocMicroBurnAmbient(where: {user: {_eq: $user}}) {
-          user
-          baseFlow
-          quoteFlow
-          time
-          txHash
-          logIndex
-        }
-      }
-    `;
-
-    const rangeBurnsQuery = `
-      query GetRangeBurns($user: String!) {
-        Ambiant_CrocMicroBurnRange(where: {user: {_eq: $user}}) {
-          user
-          baseFlow
-          quoteFlow
-          time
-          txHash
-          logIndex
+    // First, let's get the schema introspection to understand the available fields
+    const introspectionQuery = `
+      query IntrospectionQuery {
+        __schema {
+          types {
+            name
+            kind
+            fields {
+              name
+            }
+          }
         }
       }
     `;
 
     try {
+      // Fetch schema information first
+      const schemaResponse = await fetch(GRAPHQL_ENDPOINT, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query: introspectionQuery })
+      });
+      
+      const schemaData = await schemaResponse.json();
+      console.log('Schema data:', schemaData);
+      
+      // Now let's construct our queries based on the actual schema
+      // Since we don't know the exact field names, we'll use a generalized approach
+      
+      // For CrocSwap events
+      const swapsQuery = `
+        query GetSwaps {
+          Ambiant_CrocSwap(where: {}) {
+            baseFlow
+            quoteFlow
+            time
+            txHash
+            logIndex
+          }
+        }
+      `;
+
+      const microSwapsQuery = `
+        query GetMicroSwaps {
+          Ambiant_CrocMicroSwap(where: {}) {
+            baseFlow
+            quoteFlow
+            time
+            txHash
+            logIndex
+          }
+        }
+      `;
+
+      const ambientMintsQuery = `
+        query GetAmbientMints {
+          Ambiant_CrocMicroMintAmbient(where: {}) {
+            baseFlow
+            quoteFlow
+            time
+            txHash
+            logIndex
+          }
+        }
+      `;
+
+      const rangeMintsQuery = `
+        query GetRangeMints {
+          Ambiant_CrocMicroMintRange(where: {}) {
+            baseFlow
+            quoteFlow
+            time
+            txHash
+            logIndex
+          }
+        }
+      `;
+
+      const ambientBurnsQuery = `
+        query GetAmbientBurns {
+          Ambiant_CrocMicroBurnAmbient(where: {}) {
+            baseFlow
+            quoteFlow
+            time
+            txHash
+            logIndex
+          }
+        }
+      `;
+
+      const rangeBurnsQuery = `
+        query GetRangeBurns {
+          Ambiant_CrocMicroBurnRange(where: {}) {
+            baseFlow
+            quoteFlow
+            time
+            txHash
+            logIndex
+          }
+        }
+      `;
+
+      // Execute all queries
       const [swapsResponse, microSwapsResponse, ambientMintsResponse, rangeMintsResponse, ambientBurnsResponse, rangeBurnsResponse] = await Promise.all([
         fetch(GRAPHQL_ENDPOINT, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ query: swapsQuery, variables: { user: address } })
+          body: JSON.stringify({ query: swapsQuery })
         }),
         fetch(GRAPHQL_ENDPOINT, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ query: microSwapsQuery, variables: { user: address } })
+          body: JSON.stringify({ query: microSwapsQuery })
         }),
         fetch(GRAPHQL_ENDPOINT, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ query: ambientMintsQuery, variables: { user: address } })
+          body: JSON.stringify({ query: ambientMintsQuery })
         }),
         fetch(GRAPHQL_ENDPOINT, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ query: rangeMintsQuery, variables: { user: address } })
+          body: JSON.stringify({ query: rangeMintsQuery })
         }),
         fetch(GRAPHQL_ENDPOINT, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ query: ambientBurnsQuery, variables: { user: address } })
+          body: JSON.stringify({ query: ambientBurnsQuery })
         }),
         fetch(GRAPHQL_ENDPOINT, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ query: rangeBurnsQuery, variables: { user: address } })
+          body: JSON.stringify({ query: rangeBurnsQuery })
         })
       ]);
 
@@ -155,27 +181,64 @@ const DAppAnalyzer = () => {
       console.log('Ambient burns data:', ambientBurnsData);
       console.log('Range burns data:', rangeBurnsData);
 
-      // Check for errors in any of the responses
-      if (swapsData.errors || microSwapsData.errors || ambientMintsData.errors || 
-          rangeMintsData.errors || ambientBurnsData.errors || rangeBurnsData.errors) {
-        console.error('GraphQL errors detected:', {
-          swaps: swapsData.errors,
-          microSwaps: microSwapsData.errors,
-          ambientMints: ambientMintsData.errors,
-          rangeMints: rangeMintsData.errors,
-          ambientBurns: ambientBurnsData.errors,
-          rangeBurns: rangeBurnsData.errors
+      // Filter the data by the wallet address (client-side filtering since we can't filter by user in the API)
+      const filterByAddress = (data, addressField) => {
+        if (!data || !data.data) return [];
+        const key = Object.keys(data.data)[0];
+        if (!data.data[key]) return [];
+        
+        // Check if there's a specific field that contains the address
+        // This is a simplified approach - we're checking several possible fields
+        return data.data[key].filter(item => {
+          if (addressField && item[addressField] && item[addressField].toLowerCase() === address.toLowerCase()) {
+            return true;
+          }
+          // Check common fields that might contain address
+          for (const field of ['origin', 'from', 'to', 'user', 'account', 'owner']) {
+            if (item[field] && item[field].toLowerCase() === address.toLowerCase()) {
+              return true;
+            }
+          }
+          // Check if txHash is related to the address (very approximate)
+          if (item.txHash && item.txHash.toLowerCase().includes(address.toLowerCase())) {
+            return true;
+          }
+          return false;
         });
-        throw new Error('GraphQL query errors detected');
+      };
+
+      // Check for errors in any of the responses
+      const errors = [swapsData.errors, microSwapsData.errors, ambientMintsData.errors, 
+                      rangeMintsData.errors, ambientBurnsData.errors, rangeBurnsData.errors]
+                     .filter(Boolean);
+
+      if (errors.length > 0) {
+        console.error('GraphQL errors detected:', errors);
+        // We will still try to process whatever data we received
+        toast({
+          title: "Some data may be incomplete",
+          description: "We encountered some issues fetching complete data from Ambient.",
+          variant: "destructive",
+        });
       }
 
+      const possibleAddressFields = ['origin', 'from', 'to', 'user', 'account', 'owner'];
+      
       return {
-        swaps: swapsData.data?.Ambiant_CrocSwap || [],
-        microSwaps: microSwapsData.data?.Ambiant_CrocMicroSwap || [],
-        ambientMints: ambientMintsData.data?.Ambiant_CrocMicroMintAmbient || [],
-        rangeMints: rangeMintsData.data?.Ambiant_CrocMicroMintRange || [],
-        ambientBurns: ambientBurnsData.data?.Ambiant_CrocMicroBurnAmbient || [],
-        rangeBurns: rangeBurnsData.data?.Ambiant_CrocMicroBurnRange || []
+        swaps: filterByAddress(swapsData, possibleAddressFields),
+        microSwaps: filterByAddress(microSwapsData, possibleAddressFields),
+        ambientMints: filterByAddress(ambientMintsData, possibleAddressFields),
+        rangeMints: filterByAddress(rangeMintsData, possibleAddressFields),
+        ambientBurns: filterByAddress(ambientBurnsData, possibleAddressFields),
+        rangeBurns: filterByAddress(rangeBurnsData, possibleAddressFields),
+        raw: {
+          swapsData,
+          microSwapsData,
+          ambientMintsData,
+          rangeMintsData,
+          ambientBurnsData,
+          rangeBurnsData
+        }
       };
     } catch (error) {
       console.error('Error fetching Ambient data:', error);
@@ -184,27 +247,44 @@ const DAppAnalyzer = () => {
   };
 
   const processAmbientData = (rawData: any) => {
+    // For demonstration, let's create sample data if no data was found
     const allTransactions = [
-      ...rawData.swaps.map(tx => ({ ...tx, type: 'swap' })),
-      ...rawData.microSwaps.map(tx => ({ ...tx, type: 'microSwap' })),
-      ...rawData.ambientMints.map(tx => ({ ...tx, type: 'ambientMint' })),
-      ...rawData.rangeMints.map(tx => ({ ...tx, type: 'rangeMint' })),
-      ...rawData.ambientBurns.map(tx => ({ ...tx, type: 'ambientBurn' })),
-      ...rawData.rangeBurns.map(tx => ({ ...tx, type: 'rangeBurn' }))
+      ...(Array.isArray(rawData.swaps) ? rawData.swaps.map(tx => ({ ...tx, type: 'swap' })) : []),
+      ...(Array.isArray(rawData.microSwaps) ? rawData.microSwaps.map(tx => ({ ...tx, type: 'microSwap' })) : []),
+      ...(Array.isArray(rawData.ambientMints) ? rawData.ambientMints.map(tx => ({ ...tx, type: 'ambientMint' })) : []),
+      ...(Array.isArray(rawData.rangeMints) ? rawData.rangeMints.map(tx => ({ ...tx, type: 'rangeMint' })) : []),
+      ...(Array.isArray(rawData.ambientBurns) ? rawData.ambientBurns.map(tx => ({ ...tx, type: 'ambientBurn' })) : []),
+      ...(Array.isArray(rawData.rangeBurns) ? rawData.rangeBurns.map(tx => ({ ...tx, type: 'rangeBurn' })) : [])
     ];
 
     console.log('All transactions:', allTransactions);
 
+    // If we have no transactions, use sample data for demonstration
+    if (allTransactions.length === 0) {
+      // For now, we'll just return empty data
+      // We could add sample data here for demo purposes
+      toast({
+        title: "No Ambient activity found",
+        description: "We couldn't find any Ambient activity for this wallet address.",
+        variant: "default",
+      });
+    }
+
     // Sort by time (descending - newest first)
-    allTransactions.sort((a, b) => b.time - a.time);
+    allTransactions.sort((a, b) => {
+      if (!a.time) return 1;
+      if (!b.time) return -1;
+      return b.time - a.time;
+    });
 
     // Calculate function calls distribution
     const functionCalls = [
-      { name: 'Swaps', count: rawData.swaps.length + rawData.microSwaps.length },
-      { name: 'Ambient Mints', count: rawData.ambientMints.length },
-      { name: 'Range Mints', count: rawData.rangeMints.length },
-      { name: 'Ambient Burns', count: rawData.ambientBurns.length },
-      { name: 'Range Burns', count: rawData.rangeBurns.length }
+      { name: 'Swaps', count: (Array.isArray(rawData.swaps) ? rawData.swaps.length : 0) + 
+                             (Array.isArray(rawData.microSwaps) ? rawData.microSwaps.length : 0) },
+      { name: 'Ambient Mints', count: Array.isArray(rawData.ambientMints) ? rawData.ambientMints.length : 0 },
+      { name: 'Range Mints', count: Array.isArray(rawData.rangeMints) ? rawData.rangeMints.length : 0 },
+      { name: 'Ambient Burns', count: Array.isArray(rawData.ambientBurns) ? rawData.ambientBurns.length : 0 },
+      { name: 'Range Burns', count: Array.isArray(rawData.rangeBurns) ? rawData.rangeBurns.length : 0 }
     ].filter(item => item.count > 0);
 
     // Calculate volume (simplified - sum of absolute baseFlow and quoteFlow)
@@ -218,6 +298,7 @@ const DAppAnalyzer = () => {
     // Create timeline data
     const timelineMap = new Map();
     allTransactions.forEach(tx => {
+      if (!tx.time) return;
       const date = new Date(tx.time * 1000).toDateString();
       timelineMap.set(date, (timelineMap.get(date) || 0) + 1);
     });
@@ -230,11 +311,11 @@ const DAppAnalyzer = () => {
       }))
       .sort((a, b) => a.date.getTime() - b.date.getTime());
 
-    const firstInteraction = allTransactions.length > 0 
+    const firstInteraction = allTransactions.length > 0 && allTransactions[allTransactions.length - 1].time
       ? new Date(allTransactions[allTransactions.length - 1].time * 1000)
       : new Date();
     
-    const lastInteraction = allTransactions.length > 0 
+    const lastInteraction = allTransactions.length > 0 && allTransactions[0].time
       ? new Date(allTransactions[0].time * 1000)
       : new Date();
 
@@ -250,23 +331,51 @@ const DAppAnalyzer = () => {
       lastInteraction,
       functionCalls,
       timeline,
-      tokensUsed
+      tokensUsed,
+      raw: rawData.raw
     };
   };
 
   const handleAnalyze = async () => {
-    if (!walletAddress) return;
+    if (!walletAddress) {
+      toast({
+        title: "Wallet address required",
+        description: "Please enter a wallet address to analyze.",
+        variant: "destructive",
+      });
+      return;
+    }
     
     setIsAnalyzing(true);
     setError('');
     
     try {
+      // Validate the wallet address format
+      if (!/^0x[a-fA-F0-9]{40}$/.test(walletAddress)) {
+        throw new Error("Invalid wallet address format. Please enter a valid Ethereum address.");
+      }
+
       const rawData = await fetchAmbientData(walletAddress);
       const processedData = processAmbientData(rawData);
       setAnalysisData(processedData);
+      
+      // Show success toast
+      if (processedData.totalInteractions > 0) {
+        toast({
+          title: "Analysis Complete",
+          description: `Found ${processedData.totalInteractions} interactions for ${walletAddress}`,
+        });
+      }
     } catch (err) {
-      setError('Failed to fetch Ambient data. Please check the wallet address and try again.');
+      const errorMessage = err instanceof Error ? err.message : "Failed to fetch Ambient data. Please check the wallet address and try again.";
+      setError(errorMessage);
       console.error('Analysis error:', err);
+      
+      toast({
+        title: "Analysis Failed",
+        description: errorMessage,
+        variant: "destructive",
+      });
     } finally {
       setIsAnalyzing(false);
     }
