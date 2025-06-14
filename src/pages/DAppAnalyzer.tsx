@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -29,108 +28,131 @@ const DAppAnalyzer = () => {
   const { toast } = useToast();
 
   const fetchAmbientData = async (address: string) => {
-    // First, let's get the schema introspection to understand the available fields
-    const introspectionQuery = `
-      query IntrospectionQuery {
-        __schema {
-          types {
-            name
-            kind
-            fields {
-              name
-            }
-          }
+    console.log('🔍 Fetching data for address:', address);
+    
+    const swapsQuery = `
+      query GetSwaps {
+        Ambiant_CrocSwap(limit: 100) {
+          user
+          baseFlow
+          quoteFlow
+          time
+          txHash
+          logIndex
+          base
+          quote
+          poolIdx
+          isBuy
+          inBaseQty
+          qty
+          limitPrice
+          minOut
+          reserveFlags
+          tip
+        }
+      }
+    `;
+
+    const microSwapsQuery = `
+      query GetMicroSwaps {
+        Ambiant_CrocMicroSwap(limit: 100) {
+          user
+          baseFlow
+          quoteFlow
+          time
+          txHash
+          logIndex
+          base
+          quote
+          poolIdx
+          bidTick
+          askTick
+          inBaseQty
+          qty
+          limitPrice
+          minOut
+          reserveFlags
+        }
+      }
+    `;
+
+    const ambientMintsQuery = `
+      query GetAmbientMints {
+        Ambiant_CrocMicroMintAmbient(limit: 100) {
+          user
+          baseFlow
+          quoteFlow
+          time
+          txHash
+          logIndex
+          base
+          quote
+          poolIdx
+          bidTick
+          askTick
+          liq
+        }
+      }
+    `;
+
+    const rangeMintsQuery = `
+      query GetRangeMints {
+        Ambiant_CrocMicroMintRange(limit: 100) {
+          user
+          baseFlow
+          quoteFlow
+          time
+          txHash
+          logIndex
+          base
+          quote
+          poolIdx
+          bidTick
+          askTick
+          liq
+        }
+      }
+    `;
+
+    const ambientBurnsQuery = `
+      query GetAmbientBurns {
+        Ambiant_CrocMicroBurnAmbient(limit: 100) {
+          user
+          baseFlow
+          quoteFlow
+          time
+          txHash
+          logIndex
+          base
+          quote
+          poolIdx
+          bidTick
+          askTick
+          liq
+        }
+      }
+    `;
+
+    const rangeBurnsQuery = `
+      query GetRangeBurns {
+        Ambiant_CrocMicroBurnRange(limit: 100) {
+          user
+          baseFlow
+          quoteFlow
+          time
+          txHash
+          logIndex
+          base
+          quote
+          poolIdx
+          bidTick
+          askTick
+          liq
         }
       }
     `;
 
     try {
-      // Fetch schema information first
-      const schemaResponse = await fetch(GRAPHQL_ENDPOINT, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query: introspectionQuery })
-      });
-      
-      const schemaData = await schemaResponse.json();
-      console.log('Schema data:', schemaData);
-      
-      // Now let's construct our queries based on the actual schema
-      // Since we don't know the exact field names, we'll use a generalized approach
-      
-      // For CrocSwap events
-      const swapsQuery = `
-        query GetSwaps {
-          Ambiant_CrocSwap(where: {}) {
-            baseFlow
-            quoteFlow
-            time
-            txHash
-            logIndex
-          }
-        }
-      `;
-
-      const microSwapsQuery = `
-        query GetMicroSwaps {
-          Ambiant_CrocMicroSwap(where: {}) {
-            baseFlow
-            quoteFlow
-            time
-            txHash
-            logIndex
-          }
-        }
-      `;
-
-      const ambientMintsQuery = `
-        query GetAmbientMints {
-          Ambiant_CrocMicroMintAmbient(where: {}) {
-            baseFlow
-            quoteFlow
-            time
-            txHash
-            logIndex
-          }
-        }
-      `;
-
-      const rangeMintsQuery = `
-        query GetRangeMints {
-          Ambiant_CrocMicroMintRange(where: {}) {
-            baseFlow
-            quoteFlow
-            time
-            txHash
-            logIndex
-          }
-        }
-      `;
-
-      const ambientBurnsQuery = `
-        query GetAmbientBurns {
-          Ambiant_CrocMicroBurnAmbient(where: {}) {
-            baseFlow
-            quoteFlow
-            time
-            txHash
-            logIndex
-          }
-        }
-      `;
-
-      const rangeBurnsQuery = `
-        query GetRangeBurns {
-          Ambiant_CrocMicroBurnRange(where: {}) {
-            baseFlow
-            quoteFlow
-            time
-            txHash
-            logIndex
-          }
-        }
-      `;
-
       // Execute all queries
       const [swapsResponse, microSwapsResponse, ambientMintsResponse, rangeMintsResponse, ambientBurnsResponse, rangeBurnsResponse] = await Promise.all([
         fetch(GRAPHQL_ENDPOINT, {
@@ -174,63 +196,88 @@ const DAppAnalyzer = () => {
         rangeBurnsResponse.json()
       ]);
 
-      console.log('Swaps data:', swapsData);
-      console.log('MicroSwaps data:', microSwapsData);
-      console.log('Ambient mints data:', ambientMintsData);
-      console.log('Range mints data:', rangeMintsData);
-      console.log('Ambient burns data:', ambientBurnsData);
-      console.log('Range burns data:', rangeBurnsData);
+      console.log('📊 Raw API responses:');
+      console.log('Swaps:', swapsData);
+      console.log('MicroSwaps:', microSwapsData);
+      console.log('Ambient mints:', ambientMintsData);
+      console.log('Range mints:', rangeMintsData);
+      console.log('Ambient burns:', ambientBurnsData);
+      console.log('Range burns:', rangeBurnsData);
 
-      // Filter the data by the wallet address (client-side filtering since we can't filter by user in the API)
-      const filterByAddress = (data, addressField) => {
-        if (!data || !data.data) return [];
-        const key = Object.keys(data.data)[0];
-        if (!data.data[key]) return [];
-        
-        // Check if there's a specific field that contains the address
-        // This is a simplified approach - we're checking several possible fields
-        return data.data[key].filter(item => {
-          if (addressField && item[addressField] && item[addressField].toLowerCase() === address.toLowerCase()) {
-            return true;
-          }
-          // Check common fields that might contain address
-          for (const field of ['origin', 'from', 'to', 'user', 'account', 'owner']) {
-            if (item[field] && item[field].toLowerCase() === address.toLowerCase()) {
-              return true;
-            }
-          }
-          // Check if txHash is related to the address (very approximate)
-          if (item.txHash && item.txHash.toLowerCase().includes(address.toLowerCase())) {
-            return true;
-          }
-          return false;
-        });
-      };
-
-      // Check for errors in any of the responses
-      const errors = [swapsData.errors, microSwapsData.errors, ambientMintsData.errors, 
-                      rangeMintsData.errors, ambientBurnsData.errors, rangeBurnsData.errors]
-                     .filter(Boolean);
-
+      // Check for errors
+      const responses = [swapsData, microSwapsData, ambientMintsData, rangeMintsData, ambientBurnsData, rangeBurnsData];
+      const errors = responses.filter(response => response.errors);
+      
       if (errors.length > 0) {
-        console.error('GraphQL errors detected:', errors);
-        // We will still try to process whatever data we received
+        console.error('❌ GraphQL errors detected:', errors);
         toast({
-          title: "Some data may be incomplete",
-          description: "We encountered some issues fetching complete data from Ambient.",
+          title: "Query errors detected",
+          description: "Some GraphQL queries failed. Check console for details.",
           variant: "destructive",
         });
       }
 
-      const possibleAddressFields = ['origin', 'from', 'to', 'user', 'account', 'owner'];
-      
+      // Extract data arrays and log their lengths
+      const swaps = swapsData?.data?.Ambiant_CrocSwap || [];
+      const microSwaps = microSwapsData?.data?.Ambiant_CrocMicroSwap || [];
+      const ambientMints = ambientMintsData?.data?.Ambiant_CrocMicroMintAmbient || [];
+      const rangeMints = rangeMintsData?.data?.Ambiant_CrocMicroMintRange || [];
+      const ambientBurns = ambientBurnsData?.data?.Ambiant_CrocMicroBurnAmbient || [];
+      const rangeBurns = rangeBurnsData?.data?.Ambiant_CrocMicroBurnRange || [];
+
+      console.log('📈 Data lengths before filtering:');
+      console.log(`Swaps: ${swaps.length}`);
+      console.log(`MicroSwaps: ${microSwaps.length}`);
+      console.log(`Ambient mints: ${ambientMints.length}`);
+      console.log(`Range mints: ${rangeMints.length}`);
+      console.log(`Ambient burns: ${ambientBurns.length}`);
+      console.log(`Range burns: ${rangeBurns.length}`);
+
+      // Log some sample records to see the structure
+      if (swaps.length > 0) {
+        console.log('📝 Sample swap record:', swaps[0]);
+      }
+      if (microSwaps.length > 0) {
+        console.log('📝 Sample microswap record:', microSwaps[0]);
+      }
+
+      // Filter by user address
+      const filterByUser = (data) => {
+        if (!Array.isArray(data)) return [];
+        const filtered = data.filter(item => 
+          item.user && item.user.toLowerCase() === address.toLowerCase()
+        );
+        return filtered;
+      };
+
+      const filteredSwaps = filterByUser(swaps);
+      const filteredMicroSwaps = filterByUser(microSwaps);
+      const filteredAmbientMints = filterByUser(ambientMints);
+      const filteredRangeMints = filterByUser(rangeMints);
+      const filteredAmbientBurns = filterByUser(ambientBurns);
+      const filteredRangeBurns = filterByUser(rangeBurns);
+
+      console.log('🎯 Data lengths after filtering by address:');
+      console.log(`Filtered swaps: ${filteredSwaps.length}`);
+      console.log(`Filtered microSwaps: ${filteredMicroSwaps.length}`);
+      console.log(`Filtered ambient mints: ${filteredAmbientMints.length}`);
+      console.log(`Filtered range mints: ${filteredRangeMints.length}`);
+      console.log(`Filtered ambient burns: ${filteredAmbientBurns.length}`);
+      console.log(`Filtered range burns: ${filteredRangeBurns.length}`);
+
+      // Log some unique user addresses to help debug
+      const allUsers = [...swaps, ...microSwaps].map(item => item.user).filter(Boolean);
+      const uniqueUsers = [...new Set(allUsers)];
+      console.log('👥 Sample user addresses found:', uniqueUsers.slice(0, 10));
+      console.log('🔍 Looking for address:', address.toLowerCase());
+
       return {
-        swaps: filterByAddress(swapsData, possibleAddressFields),
-        microSwaps: filterByAddress(microSwapsData, possibleAddressFields),
-        ambientMints: filterByAddress(ambientMintsData, possibleAddressFields),
-        rangeMints: filterByAddress(rangeMintsData, possibleAddressFields),
-        ambientBurns: filterByAddress(ambientBurnsData, possibleAddressFields),
-        rangeBurns: filterByAddress(rangeBurnsData, possibleAddressFields),
+        swaps: filteredSwaps,
+        microSwaps: filteredMicroSwaps,
+        ambientMints: filteredAmbientMints,
+        rangeMints: filteredRangeMints,
+        ambientBurns: filteredAmbientBurns,
+        rangeBurns: filteredRangeBurns,
         raw: {
           swapsData,
           microSwapsData,
@@ -241,7 +288,7 @@ const DAppAnalyzer = () => {
         }
       };
     } catch (error) {
-      console.error('Error fetching Ambient data:', error);
+      console.error('💥 Error fetching Ambient data:', error);
       throw error;
     }
   };
