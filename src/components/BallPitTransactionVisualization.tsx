@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -30,7 +29,7 @@ const BallPitTransactionVisualization: React.FC<BallPitTransactionVisualizationP
 }) => {
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [transactionLimit, setTransactionLimit] = useState<number>(130);
+  const [transactionLimit, setTransactionLimit] = useState<number>(30);
 
   const allTransactions = useMemo(() => {
     if (!data?.result?.data) return [];
@@ -103,11 +102,11 @@ const BallPitTransactionVisualization: React.FC<BallPitTransactionVisualizationP
   // Filter transactions based on selected limit
   const transactions = useMemo(() => {
     const filtered = allTransactions.slice(0, transactionLimit);
-    console.log(`Filtered to ${filtered.length} transactions (limit: ${transactionLimit}):`, {
+    console.log(`🔥 FILTER UPDATE: Showing ${filtered.length} out of ${allTransactions.length} total transactions (limit: ${transactionLimit})`);
+    console.log('Transaction types in filtered set:', {
       send: filtered.filter(t => t.type === 'send').length,
       receive: filtered.filter(t => t.type === 'receive').length,
-      contract: filtered.filter(t => t.type === 'contract').length,
-      breakdown: filtered.map(t => ({ type: t.type, hash: t.hash.slice(0, 8) }))
+      contract: filtered.filter(t => t.type === 'contract').length
     });
     return filtered;
   }, [allTransactions, transactionLimit]);
@@ -162,7 +161,7 @@ const BallPitTransactionVisualization: React.FC<BallPitTransactionVisualizationP
       colors.push(typeColors[tx.type] || 0x8b5cf6);
     });
 
-    console.log('Ball colors generated:', colors.length, 'transactions:', transactions.length, {
+    console.log(`🎨 Ball colors generated for ${colors.length} balls:`, {
       send: colors.filter(c => c === typeColors.send).length,
       receive: colors.filter(c => c === typeColors.receive).length,
       contract: colors.filter(c => c === typeColors.contract).length
@@ -202,7 +201,14 @@ const BallPitTransactionVisualization: React.FC<BallPitTransactionVisualizationP
           <span className={`text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
             Show last:
           </span>
-          <Select value={transactionLimit.toString()} onValueChange={(value) => setTransactionLimit(Number(value))}>
+          <Select 
+            value={transactionLimit.toString()} 
+            onValueChange={(value) => {
+              const newLimit = Number(value);
+              console.log(`🎯 Filter changed from ${transactionLimit} to ${newLimit}`);
+              setTransactionLimit(newLimit);
+            }}
+          >
             <SelectTrigger className={`w-20 h-8 ${
               isDarkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-white border-gray-300'
             }`}>
@@ -224,7 +230,7 @@ const BallPitTransactionVisualization: React.FC<BallPitTransactionVisualizationP
       <div className="absolute inset-0">
         <div style={{position: 'relative', overflow: 'hidden', minHeight: '500px', maxHeight: '500px', width: '100%'}}>
           <Ballpit
-            key={`ballpit-${transactionLimit}-${transactions.length}`}
+            key={`ballpit-${transactionLimit}-${transactions.length}-${Date.now()}`}
             count={transactions.length}
             gravity={1.8}
             friction={0.8}
@@ -242,6 +248,15 @@ const BallPitTransactionVisualization: React.FC<BallPitTransactionVisualizationP
         <h3 className={`text-lg font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'} bg-black/20 backdrop-blur-sm rounded px-3 py-1`}>
           {isLoreMode ? "Mind Ball Pit" : "Transaction Ball Pit"} ({transactions.length} balls)
         </h3>
+      </div>
+
+      {/* Filter Status Indicator */}
+      <div className="absolute top-16 left-1/2 transform -translate-x-1/2 z-10">
+        <div className={`text-sm px-3 py-1 rounded-full ${
+          isDarkMode ? 'bg-purple-900/60 text-purple-300 border border-purple-500/30' : 'bg-purple-100 text-purple-700 border border-purple-300'
+        } animate-pulse`}>
+          Showing {transactions.length} of {allTransactions.length} transactions
+        </div>
       </div>
 
       {/* Transaction Details Panel */}
