@@ -1,7 +1,7 @@
 
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Wallet, BarChart3, Eye, Blocks } from "lucide-react";
+import { Wallet, BarChart3, Eye } from "lucide-react";
 import { usePrivy } from "@privy-io/react-auth";
 
 const Navigation = () => {
@@ -36,13 +36,6 @@ const Navigation = () => {
               <Button variant="ghost" className="text-white hover:text-purple-400">
                 <Eye className="w-4 h-4 mr-2" />
                 TX Visualizer
-              </Button>
-            </Link>
-            
-            <Link to="/block-visualizer">
-              <Button variant="ghost" className="text-white hover:text-purple-400">
-                <Blocks className="w-4 h-4 mr-2" />
-                Block Visualizer
               </Button>
             </Link>
           </div>

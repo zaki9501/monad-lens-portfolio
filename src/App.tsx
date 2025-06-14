@@ -7,7 +7,6 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Index from "./pages/Index";
 import Lending from "./pages/Lending";
 import TxVisualizer from "./pages/TxVisualizer";
-import BlockVisualizer from "./pages/BlockVisualizer";
 import NotFound from "./pages/NotFound";
 import { PrivyProvider } from "@privy-io/react-auth";
 
@@ -24,7 +23,6 @@ const App = () => (
             <Route path="/" element={<Index />} />
             <Route path="/lending" element={<Lending />} />
             <Route path="/tx-visualizer" element={<TxVisualizer />} />
-            <Route path="/block-visualizer" element={<BlockVisualizer />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
