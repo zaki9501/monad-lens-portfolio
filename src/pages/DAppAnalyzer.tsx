@@ -30,10 +30,10 @@ const DAppAnalyzer = () => {
   const fetchAmbientData = async (address: string) => {
     console.log('🔍 Fetching data for address:', address);
     
+    // Updated queries without the 'user' field, fetching more records to increase chances of finding user activity
     const swapsQuery = `
       query GetSwaps {
-        Ambiant_CrocSwap(limit: 100) {
-          user
+        Ambiant_CrocSwap(limit: 1000, order_by: {time: desc}) {
           baseFlow
           quoteFlow
           time
@@ -55,8 +55,7 @@ const DAppAnalyzer = () => {
 
     const microSwapsQuery = `
       query GetMicroSwaps {
-        Ambiant_CrocMicroSwap(limit: 100) {
-          user
+        Ambiant_CrocMicroSwap(limit: 1000, order_by: {time: desc}) {
           baseFlow
           quoteFlow
           time
@@ -78,8 +77,7 @@ const DAppAnalyzer = () => {
 
     const ambientMintsQuery = `
       query GetAmbientMints {
-        Ambiant_CrocMicroMintAmbient(limit: 100) {
-          user
+        Ambiant_CrocMicroMintAmbient(limit: 1000, order_by: {time: desc}) {
           baseFlow
           quoteFlow
           time
@@ -97,8 +95,7 @@ const DAppAnalyzer = () => {
 
     const rangeMintsQuery = `
       query GetRangeMints {
-        Ambiant_CrocMicroMintRange(limit: 100) {
-          user
+        Ambiant_CrocMicroMintRange(limit: 1000, order_by: {time: desc}) {
           baseFlow
           quoteFlow
           time
@@ -116,8 +113,7 @@ const DAppAnalyzer = () => {
 
     const ambientBurnsQuery = `
       query GetAmbientBurns {
-        Ambiant_CrocMicroBurnAmbient(limit: 100) {
-          user
+        Ambiant_CrocMicroBurnAmbient(limit: 1000, order_by: {time: desc}) {
           baseFlow
           quoteFlow
           time
@@ -135,8 +131,7 @@ const DAppAnalyzer = () => {
 
     const rangeBurnsQuery = `
       query GetRangeBurns {
-        Ambiant_CrocMicroBurnRange(limit: 100) {
-          user
+        Ambiant_CrocMicroBurnRange(limit: 1000, order_by: {time: desc}) {
           baseFlow
           quoteFlow
           time
@@ -152,9 +147,30 @@ const DAppAnalyzer = () => {
       }
     `;
 
+    // New query to get transaction-level data which might contain the user/from address
+    const transactionQuery = `
+      query GetTransactions {
+        raw_events(
+          limit: 1000
+          order_by: {block_number: desc}
+          where: {
+            contract_name: {_like: "%Ambient%"}
+          }
+        ) {
+          transaction_hash
+          transaction_from_address
+          block_number
+          block_timestamp
+          contract_name
+          event_name
+          log_index
+        }
+      }
+    `;
+
     try {
-      // Execute all queries
-      const [swapsResponse, microSwapsResponse, ambientMintsResponse, rangeMintsResponse, ambientBurnsResponse, rangeBurnsResponse] = await Promise.all([
+      // Execute all queries including the new transaction query
+      const [swapsResponse, microSwapsResponse, ambientMintsResponse, rangeMintsResponse, ambientBurnsResponse, rangeBurnsResponse, transactionResponse] = await Promise.all([
         fetch(GRAPHQL_ENDPOINT, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -184,16 +200,22 @@ const DAppAnalyzer = () => {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ query: rangeBurnsQuery })
+        }),
+        fetch(GRAPHQL_ENDPOINT, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query: transactionQuery })
         })
       ]);
 
-      const [swapsData, microSwapsData, ambientMintsData, rangeMintsData, ambientBurnsData, rangeBurnsData] = await Promise.all([
+      const [swapsData, microSwapsData, ambientMintsData, rangeMintsData, ambientBurnsData, rangeBurnsData, transactionData] = await Promise.all([
         swapsResponse.json(),
         microSwapsResponse.json(),
         ambientMintsResponse.json(),
         rangeMintsResponse.json(),
         ambientBurnsResponse.json(),
-        rangeBurnsResponse.json()
+        rangeBurnsResponse.json(),
+        transactionResponse.json()
       ]);
 
       console.log('📊 Raw API responses:');
@@ -203,9 +225,10 @@ const DAppAnalyzer = () => {
       console.log('Range mints:', rangeMintsData);
       console.log('Ambient burns:', ambientBurnsData);
       console.log('Range burns:', rangeBurnsData);
+      console.log('Transactions:', transactionData);
 
       // Check for errors
-      const responses = [swapsData, microSwapsData, ambientMintsData, rangeMintsData, ambientBurnsData, rangeBurnsData];
+      const responses = [swapsData, microSwapsData, ambientMintsData, rangeMintsData, ambientBurnsData, rangeBurnsData, transactionData];
       const errors = responses.filter(response => response.errors);
       
       if (errors.length > 0) {
@@ -224,6 +247,7 @@ const DAppAnalyzer = () => {
       const rangeMints = rangeMintsData?.data?.Ambiant_CrocMicroMintRange || [];
       const ambientBurns = ambientBurnsData?.data?.Ambiant_CrocMicroBurnAmbient || [];
       const rangeBurns = rangeBurnsData?.data?.Ambiant_CrocMicroBurnRange || [];
+      const transactions = transactionData?.data?.raw_events || [];
 
       console.log('📈 Data lengths before filtering:');
       console.log(`Swaps: ${swaps.length}`);
@@ -232,32 +256,48 @@ const DAppAnalyzer = () => {
       console.log(`Range mints: ${rangeMints.length}`);
       console.log(`Ambient burns: ${ambientBurns.length}`);
       console.log(`Range burns: ${rangeBurns.length}`);
+      console.log(`Transactions: ${transactions.length}`);
 
-      // Log some sample records to see the structure
+      // Log sample records to understand the data structure
       if (swaps.length > 0) {
         console.log('📝 Sample swap record:', swaps[0]);
+        console.log('📝 Swap record keys:', Object.keys(swaps[0]));
       }
       if (microSwaps.length > 0) {
         console.log('📝 Sample microswap record:', microSwaps[0]);
+        console.log('📝 MicroSwap record keys:', Object.keys(microSwaps[0]));
+      }
+      if (transactions.length > 0) {
+        console.log('📝 Sample transaction record:', transactions[0]);
+        console.log('📝 Transaction record keys:', Object.keys(transactions[0]));
       }
 
-      // Filter by user address
-      const filterByUser = (data) => {
+      // Get user's transaction hashes from raw_events
+      const userTransactionHashes = transactions
+        .filter(tx => tx.transaction_from_address && 
+                     tx.transaction_from_address.toLowerCase() === address.toLowerCase())
+        .map(tx => tx.transaction_hash);
+
+      console.log('🎯 User transaction hashes:', userTransactionHashes);
+      console.log('🔍 Looking for address:', address.toLowerCase());
+
+      // Filter all data by matching transaction hashes
+      const filterByTxHash = (data) => {
         if (!Array.isArray(data)) return [];
         const filtered = data.filter(item => 
-          item.user && item.user.toLowerCase() === address.toLowerCase()
+          item.txHash && userTransactionHashes.includes(item.txHash)
         );
         return filtered;
       };
 
-      const filteredSwaps = filterByUser(swaps);
-      const filteredMicroSwaps = filterByUser(microSwaps);
-      const filteredAmbientMints = filterByUser(ambientMints);
-      const filteredRangeMints = filterByUser(rangeMints);
-      const filteredAmbientBurns = filterByUser(ambientBurns);
-      const filteredRangeBurns = filterByUser(rangeBurns);
+      const filteredSwaps = filterByTxHash(swaps);
+      const filteredMicroSwaps = filterByTxHash(microSwaps);
+      const filteredAmbientMints = filterByTxHash(ambientMints);
+      const filteredRangeMints = filterByTxHash(rangeMints);
+      const filteredAmbientBurns = filterByTxHash(ambientBurns);
+      const filteredRangeBurns = filterByTxHash(rangeBurns);
 
-      console.log('🎯 Data lengths after filtering by address:');
+      console.log('🎯 Data lengths after filtering by transaction hash:');
       console.log(`Filtered swaps: ${filteredSwaps.length}`);
       console.log(`Filtered microSwaps: ${filteredMicroSwaps.length}`);
       console.log(`Filtered ambient mints: ${filteredAmbientMints.length}`);
@@ -265,11 +305,10 @@ const DAppAnalyzer = () => {
       console.log(`Filtered ambient burns: ${filteredAmbientBurns.length}`);
       console.log(`Filtered range burns: ${filteredRangeBurns.length}`);
 
-      // Log some unique user addresses to help debug
-      const allUsers = [...swaps, ...microSwaps].map(item => item.user).filter(Boolean);
-      const uniqueUsers = [...new Set(allUsers)];
-      console.log('👥 Sample user addresses found:', uniqueUsers.slice(0, 10));
-      console.log('🔍 Looking for address:', address.toLowerCase());
+      // Log some sample transaction from addresses to help debug
+      const allFromAddresses = transactions.map(tx => tx.transaction_from_address).filter(Boolean);
+      const uniqueFromAddresses = [...new Set(allFromAddresses)];
+      console.log('👥 Sample from addresses found:', uniqueFromAddresses.slice(0, 10));
 
       return {
         swaps: filteredSwaps,
@@ -284,7 +323,8 @@ const DAppAnalyzer = () => {
           ambientMintsData,
           rangeMintsData,
           ambientBurnsData,
-          rangeBurnsData
+          rangeBurnsData,
+          transactionData
         }
       };
     } catch (error) {
