@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Card, CardContent } from "@/components/ui/card";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowUp, ArrowDown, Send, Download, Code, Zap, Filter } from "lucide-react";
+import { ArrowUp, ArrowDown, Send, Download, Code, Zap } from "lucide-react";
 import Ballpit from './Ballpit';
 
 interface Transaction {
@@ -29,9 +28,8 @@ const BallPitTransactionVisualization: React.FC<BallPitTransactionVisualizationP
 }) => {
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [transactionLimit, setTransactionLimit] = useState<number>(30);
 
-  const allTransactions = useMemo(() => {
+  const transactions = useMemo(() => {
     if (!data?.result?.data) return [];
     
     const activities = data.result.data;
@@ -90,26 +88,15 @@ const BallPitTransactionVisualization: React.FC<BallPitTransactionVisualizationP
       });
     });
 
-    console.log(`Processed ${txs.length} total transactions:`, {
+    console.log(`Processed ${txs.length} transactions:`, {
       send: txs.filter(t => t.type === 'send').length,
       receive: txs.filter(t => t.type === 'receive').length,
-      contract: txs.filter(t => t.type === 'contract').length
+      contract: txs.filter(t => t.type === 'contract').length,
+      breakdown: txs.map(t => ({ type: t.type, hash: t.hash.slice(0, 8) }))
     });
     
     return txs;
   }, [data]);
-
-  // Filter transactions based on selected limit
-  const transactions = useMemo(() => {
-    const filtered = allTransactions.slice(0, transactionLimit);
-    console.log(`🔥 FILTER UPDATE: Showing ${filtered.length} out of ${allTransactions.length} total transactions (limit: ${transactionLimit})`);
-    console.log('Transaction types in filtered set:', {
-      send: filtered.filter(t => t.type === 'send').length,
-      receive: filtered.filter(t => t.type === 'receive').length,
-      contract: filtered.filter(t => t.type === 'contract').length
-    });
-    return filtered;
-  }, [allTransactions, transactionLimit]);
 
   useEffect(() => {
     const timer = setTimeout(() => setIsLoading(false), 1000);
@@ -161,7 +148,7 @@ const BallPitTransactionVisualization: React.FC<BallPitTransactionVisualizationP
       colors.push(typeColors[tx.type] || 0x8b5cf6);
     });
 
-    console.log(`🎨 Ball colors generated for ${colors.length} balls:`, {
+    console.log('Ball colors generated:', colors.length, 'transactions:', transactions.length, {
       send: colors.filter(c => c === typeColors.send).length,
       receive: colors.filter(c => c === typeColors.receive).length,
       contract: colors.filter(c => c === typeColors.contract).length
@@ -179,7 +166,7 @@ const BallPitTransactionVisualization: React.FC<BallPitTransactionVisualizationP
   }
 
   // Show message if no transactions
-  if (allTransactions.length === 0) {
+  if (transactions.length === 0) {
     return (
       <div className="h-96 flex items-center justify-center">
         <div className={`text-center ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
@@ -192,45 +179,10 @@ const BallPitTransactionVisualization: React.FC<BallPitTransactionVisualizationP
 
   return (
     <div className="relative w-full h-[600px]">
-      {/* Filter Controls */}
-      <div className="absolute top-4 right-4 z-20">
-        <div className={`flex items-center space-x-2 px-3 py-2 rounded-lg backdrop-blur-sm ${
-          isDarkMode ? 'bg-slate-800/80 border border-slate-700' : 'bg-white/80 border border-gray-200'
-        }`}>
-          <Filter className={`w-4 h-4 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`} />
-          <span className={`text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-            Show last:
-          </span>
-          <Select 
-            value={transactionLimit.toString()} 
-            onValueChange={(value) => {
-              const newLimit = Number(value);
-              console.log(`🎯 Filter changed from ${transactionLimit} to ${newLimit}`);
-              setTransactionLimit(newLimit);
-            }}
-          >
-            <SelectTrigger className={`w-20 h-8 ${
-              isDarkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-white border-gray-300'
-            }`}>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="30">30</SelectItem>
-              <SelectItem value="60">60</SelectItem>
-              <SelectItem value="130">130</SelectItem>
-            </SelectContent>
-          </Select>
-          <span className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-            txs
-          </span>
-        </div>
-      </div>
-
       {/* Ball Pit Container */}
       <div className="absolute inset-0">
         <div style={{position: 'relative', overflow: 'hidden', minHeight: '500px', maxHeight: '500px', width: '100%'}}>
           <Ballpit
-            key={`ballpit-${transactionLimit}-${transactions.length}-${Date.now()}`}
             count={transactions.length}
             gravity={1.8}
             friction={0.8}
@@ -248,15 +200,6 @@ const BallPitTransactionVisualization: React.FC<BallPitTransactionVisualizationP
         <h3 className={`text-lg font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'} bg-black/20 backdrop-blur-sm rounded px-3 py-1`}>
           {isLoreMode ? "Mind Ball Pit" : "Transaction Ball Pit"} ({transactions.length} balls)
         </h3>
-      </div>
-
-      {/* Filter Status Indicator */}
-      <div className="absolute top-16 left-1/2 transform -translate-x-1/2 z-10">
-        <div className={`text-sm px-3 py-1 rounded-full ${
-          isDarkMode ? 'bg-purple-900/60 text-purple-300 border border-purple-500/30' : 'bg-purple-100 text-purple-700 border border-purple-300'
-        } animate-pulse`}>
-          Showing {transactions.length} of {allTransactions.length} transactions
-        </div>
       </div>
 
       {/* Transaction Details Panel */}

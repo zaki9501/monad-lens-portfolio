@@ -13,9 +13,8 @@ import WalletScoreCard from "@/components/WalletScoreCard";
 import ScanningAnimation from "@/components/ScanningAnimation";
 import AnalysisResults from "@/components/AnalysisResults";
 
-const fetchAccountActivities = async (address, apiKey, limit = 500) => {
+const fetchAccountActivities = async (address, apiKey, limit = 130) => {
   const url = `https://api.blockvision.org/v2/monad/account/activities?address=${address}&limit=${limit}`;
-  console.log(`🔥 API REQUEST: Fetching ${limit} transactions for ${address}`);
   const res = await fetch(url, {
     headers: {
       'accept': 'application/json',
@@ -23,9 +22,7 @@ const fetchAccountActivities = async (address, apiKey, limit = 500) => {
     },
   });
   if (!res.ok) throw new Error('Failed to fetch activities');
-  const data = await res.json();
-  console.log(`🔥 API RESPONSE: Received ${data?.result?.data?.length || 0} transactions out of ${data?.result?.total || 0} total`);
-  return data;
+  return res.json();
 };
 
 const fetchTotalTransactions = async (address, apiKey) => {
@@ -112,13 +109,7 @@ const TxVisualizer = () => {
         setScanProgress(i);
       }
       const apiKey = import.meta.env.VITE_BLOCKVISION_API_KEY;
-      // Fetch up to 500 transactions with explicit logging
-      console.log('🚀 Starting transaction fetch with limit 500');
-      const data = await fetchAccountActivities(addressToUse, apiKey, 500);
-      console.log('📊 Transaction data received:', {
-        totalActivities: data?.result?.data?.length || 0,
-        totalAvailable: data?.result?.total || 0
-      });
+      const data = await fetchAccountActivities(addressToUse, apiKey, 130);
       setTransactionData(data);
       setAnalysisData(null);
 
@@ -132,7 +123,6 @@ const TxVisualizer = () => {
         .filter(tx => tx.transactionFee)
         .reduce((sum, tx) => sum + Number(tx.transactionFee), 0);
     } catch (e) {
-      console.error('❌ Error fetching transactions:', e);
       setTransactionData(null);
       setAnalysisData(null);
     } finally {
