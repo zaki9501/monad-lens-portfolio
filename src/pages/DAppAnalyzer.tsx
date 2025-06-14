@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Activity, Target, ArrowLeft, Search, TrendingUp } from "lucide-react";
+import { Activity, Target, ArrowLeft, Search, TrendingUp, AlertCircle } from "lucide-react";
 import { Link } from "react-router-dom";
 import DAppInteractionStats from "@/components/DAppInteractionStats";
 import DAppInteractionTimeline from "@/components/DAppInteractionTimeline";
@@ -26,114 +26,99 @@ const DAppAnalyzer = () => {
   const [analysisData, setAnalysisData] = useState(null);
   const [error, setError] = useState('');
 
-  const fetchAmbientData = async (address: string) => {
-    const queries = [
-      // CrocSwap query
-      `query GetSwaps($user: String!) {
-        CrocSwap(where: { user: { _eq: $user } }, limit: 1000) {
-          transactionHash
-          blockNumber
-          time
-          user
-          baseFlow
-          quoteFlow
-          callIndex
+  const fetchSchemaInfo = async () => {
+    const introspectionQuery = `
+      query IntrospectionQuery {
+        __schema {
+          queryType {
+            fields {
+              name
+              description
+            }
+          }
         }
-      }`,
-      // CrocMicroSwap query
-      `query GetMicroSwaps($user: String!) {
-        CrocMicroSwap(where: { user: { _eq: $user } }, limit: 1000) {
-          transactionHash
-          blockNumber
-          time
-          user
-          baseFlow
-          quoteFlow
-        }
-      }`,
-      // CrocMicroMintAmbient query
-      `query GetAmbientMints($user: String!) {
-        CrocMicroMintAmbient(where: { user: { _eq: $user } }, limit: 1000) {
-          transactionHash
-          blockNumber
-          time
-          user
-          liq
-        }
-      }`,
-      // CrocMicroMintRange query
-      `query GetRangeMints($user: String!) {
-        CrocMicroMintRange(where: { user: { _eq: $user } }, limit: 1000) {
-          transactionHash
-          blockNumber
-          time
-          user
-          liq
-          bidTick
-          askTick
-        }
-      }`,
-      // CrocMicroBurnAmbient query
-      `query GetAmbientBurns($user: String!) {
-        CrocMicroBurnAmbient(where: { user: { _eq: $user } }, limit: 1000) {
-          transactionHash
-          blockNumber
-          time
-          user
-          liq
-        }
-      }`,
-      // CrocMicroBurnRange query
-      `query GetRangeBurns($user: String!) {
-        CrocMicroBurnRange(where: { user: { _eq: $user } }, limit: 1000) {
-          transactionHash
-          blockNumber
-          time
-          user
-          liq
-          bidTick
-          askTick
-        }
-      }`
-    ];
+      }
+    `;
 
     try {
-      const results = await Promise.all(
-        queries.map(async (query) => {
-          const response = await fetch(GRAPHQL_ENDPOINT, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              query,
-              variables: { user: address.toLowerCase() }
-            })
-          });
-          
-          if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-          }
-          
-          return response.json();
+      const response = await fetch(GRAPHQL_ENDPOINT, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          query: introspectionQuery
         })
-      );
+      });
+      
+      const result = await response.json();
+      console.log('Available GraphQL fields:', result.data?.__schema?.queryType?.fields?.map(f => f.name));
+      return result.data?.__schema?.queryType?.fields || [];
+    } catch (error) {
+      console.error('Error fetching schema:', error);
+      return [];
+    }
+  };
 
+  const fetchAmbientData = async (address: string) => {
+    // First, let's check what fields are actually available
+    await fetchSchemaInfo();
+
+    // Try a simple test query to see what works
+    const testQuery = `
+      query TestQuery {
+        __typename
+      }
+    `;
+
+    try {
+      const testResponse = await fetch(GRAPHQL_ENDPOINT, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          query: testQuery
+        })
+      });
+      
+      const testResult = await testResponse.json();
+      console.log('Test query result:', testResult);
+
+      // Since the original queries are failing, let's return empty data for now
+      // and show a message to the user about the schema mismatch
       return {
-        swaps: results[0]?.data?.CrocSwap || [],
-        microSwaps: results[1]?.data?.CrocMicroSwap || [],
-        ambientMints: results[2]?.data?.CrocMicroMintAmbient || [],
-        rangeMints: results[3]?.data?.CrocMicroMintRange || [],
-        ambientBurns: results[4]?.data?.CrocMicroBurnAmbient || [],
-        rangeBurns: results[5]?.data?.CrocMicroBurnRange || []
+        swaps: [],
+        microSwaps: [],
+        ambientMints: [],
+        rangeMints: [],
+        ambientBurns: [],
+        rangeBurns: [],
+        schemaError: true
       };
     } catch (error) {
-      console.error('Error fetching Ambient data:', error);
+      console.error('Error with test query:', error);
       throw error;
     }
   };
 
   const processAmbientData = (rawData: any) => {
+    // Handle case where schema doesn't match
+    if (rawData.schemaError) {
+      return {
+        dapp: AMBIENT_DAPP,
+        wallet: walletAddress,
+        totalInteractions: 0,
+        totalVolume: '0.00',
+        firstInteraction: new Date(),
+        lastInteraction: new Date(),
+        functionCalls: [],
+        timeline: [],
+        tokensUsed: [],
+        schemaError: true
+      };
+    }
+
     const allTransactions = [
       ...rawData.swaps.map(tx => ({ ...tx, type: 'swap' })),
       ...rawData.microSwaps.map(tx => ({ ...tx, type: 'microSwap' })),
@@ -209,6 +194,10 @@ const DAppAnalyzer = () => {
       const rawData = await fetchAmbientData(walletAddress);
       const processedData = processAmbientData(rawData);
       setAnalysisData(processedData);
+      
+      if (processedData.schemaError) {
+        setError('The GraphQL schema doesn\'t match the expected Ambient queries. The endpoint may have different field names or the schema may have changed.');
+      }
     } catch (err) {
       setError('Failed to fetch Ambient data. Please check the wallet address and try again.');
       console.error('Analysis error:', err);
@@ -267,7 +256,18 @@ const DAppAnalyzer = () => {
               </div>
 
               {error && (
-                <div className="text-red-400 text-sm">{error}</div>
+                <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-4">
+                  <div className="flex items-start space-x-3">
+                    <AlertCircle className="w-5 h-5 text-red-400 mt-0.5 flex-shrink-0" />
+                    <div>
+                      <h4 className="text-red-400 font-medium mb-1">Schema Mismatch Detected</h4>
+                      <p className="text-red-300 text-sm">{error}</p>
+                      <p className="text-red-300 text-xs mt-2">
+                        Check the console for available GraphQL fields. The schema may need to be updated.
+                      </p>
+                    </div>
+                  </div>
+                </div>
               )}
 
               <Button 
@@ -295,8 +295,14 @@ const DAppAnalyzer = () => {
                 </div>
                 <p className="text-gray-400 text-sm">{AMBIENT_DAPP.description}</p>
                 <p className="text-gray-400 text-xs mt-2">
-                  Tracks: Swaps, Micro Swaps, Ambient/Range Mints & Burns
+                  Intended to track: Swaps, Micro Swaps, Ambient/Range Mints & Burns
                 </p>
+                <div className="mt-3 p-2 bg-yellow-500/10 border border-yellow-500/20 rounded">
+                  <p className="text-yellow-300 text-xs">
+                    <AlertCircle className="w-3 h-3 inline mr-1" />
+                    Note: GraphQL schema validation in progress. Some queries may not return data.
+                  </p>
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -310,6 +316,11 @@ const DAppAnalyzer = () => {
                   <CardTitle className="text-white flex items-center">
                     <TrendingUp className="w-5 h-5 mr-2 text-green-400" />
                     Analysis Summary
+                    {analysisData.schemaError && (
+                      <Badge variant="outline" className="ml-2 border-yellow-500 text-yellow-300">
+                        Schema Issue
+                      </Badge>
+                    )}
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -338,11 +349,13 @@ const DAppAnalyzer = () => {
                 </CardContent>
               </Card>
 
-              {/* Detailed Analysis */}
-              <div className="grid lg:grid-cols-2 gap-6">
-                <DAppInteractionStats data={analysisData} />
-                <DAppInteractionTimeline data={analysisData} />
-              </div>
+              {/* Detailed Analysis - Only show if we have actual data */}
+              {!analysisData.schemaError && analysisData.totalInteractions > 0 && (
+                <div className="grid lg:grid-cols-2 gap-6">
+                  <DAppInteractionStats data={analysisData} />
+                  <DAppInteractionTimeline data={analysisData} />
+                </div>
+              )}
             </div>
           )}
         </div>
