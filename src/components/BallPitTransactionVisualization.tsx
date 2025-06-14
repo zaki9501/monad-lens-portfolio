@@ -35,19 +35,44 @@ const BallPitTransactionVisualization: React.FC<BallPitTransactionVisualizationP
     const activities = data.result.data;
     const txs: Transaction[] = [];
     
-    // Process ONLY actual transactions - no synthetic ones
+    // Process transactions with proper type detection
     activities.forEach((activity: any, index: number) => {
       let type: 'send' | 'receive' | 'contract' = 'contract';
       let amount = Number(activity.transactionFee || 0);
-      let color = '#8b5cf6';
+      let color = '#8b5cf6'; // Purple for contract
       
-      if (activity.from) {
-        type = 'send';
-        color = '#ef4444';
-      } else if (activity.addTokens?.length > 0) {
-        type = 'receive';
-        color = '#10b981';
-        amount = activity.addTokens.reduce((sum: number, token: any) => sum + Number(token.amount || 0), 0);
+      // Check if it's a send transaction (wallet is the sender)
+      if (activity.from && activity.from.toLowerCase()) {
+        // If the transaction has recipients (to field or removeTokens), it's a send
+        if (activity.to || (activity.removeTokens && activity.removeTokens.length > 0)) {
+          type = 'send';
+          color = '#ef4444'; // Red for send
+          // Calculate sent amount from removeTokens
+          if (activity.removeTokens && activity.removeTokens.length > 0) {
+            amount = activity.removeTokens.reduce((sum: number, token: any) => sum + Number(token.amount || 0), 0);
+          }
+        } else {
+          // Transaction from wallet but no clear recipient - likely contract interaction
+          type = 'contract';
+          color = '#8b5cf6'; // Purple for contract
+        }
+      }
+      
+      // Check if it's a receive transaction (wallet receives tokens)
+      if (activity.addTokens && activity.addTokens.length > 0) {
+        // Check if any token is being added to the wallet
+        const hasIncomingTokens = activity.addTokens.some((token: any) => token.amount && Number(token.amount) > 0);
+        if (hasIncomingTokens) {
+          type = 'receive';
+          color = '#10b981'; // Green for receive
+          amount = activity.addTokens.reduce((sum: number, token: any) => sum + Number(token.amount || 0), 0);
+        }
+      }
+      
+      // If it's a contract interaction without clear send/receive, keep as contract
+      if (activity.type && (activity.type.includes('contract') || activity.type.includes('call'))) {
+        type = 'contract';
+        color = '#8b5cf6'; // Purple for contract
       }
       
       txs.push({
@@ -63,10 +88,11 @@ const BallPitTransactionVisualization: React.FC<BallPitTransactionVisualizationP
       });
     });
 
-    console.log(`Real transactions only: ${txs.length} transactions:`, {
+    console.log(`Processed ${txs.length} transactions:`, {
       send: txs.filter(t => t.type === 'send').length,
       receive: txs.filter(t => t.type === 'receive').length,
-      contract: txs.filter(t => t.type === 'contract').length
+      contract: txs.filter(t => t.type === 'contract').length,
+      breakdown: txs.map(t => ({ type: t.type, hash: t.hash.slice(0, 8) }))
     });
     
     return txs;
@@ -113,16 +139,16 @@ const BallPitTransactionVisualization: React.FC<BallPitTransactionVisualizationP
   const ballColors = useMemo(() => {
     const colors: number[] = [];
     const typeColors = {
-      send: 0xef4444,
-      receive: 0x10b981,
-      contract: 0x8b5cf6
+      send: 0xef4444,      // Red
+      receive: 0x10b981,   // Green
+      contract: 0x8b5cf6   // Purple
     };
 
     transactions.forEach((tx) => {
       colors.push(typeColors[tx.type] || 0x8b5cf6);
     });
 
-    console.log('Ball colors (1:1 with real transactions):', colors.length, 'transactions:', transactions.length, {
+    console.log('Ball colors generated:', colors.length, 'transactions:', transactions.length, {
       send: colors.filter(c => c === typeColors.send).length,
       receive: colors.filter(c => c === typeColors.receive).length,
       contract: colors.filter(c => c === typeColors.contract).length
