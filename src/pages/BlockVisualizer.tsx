@@ -1,10 +1,10 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Box, Activity, Clock, Hash, ArrowLeft, Eye, Radio, Zap } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { usePrivy } from "@privy-io/react-auth";
+import Hyperspeed from "../components/Hyperspeed/Hyperspeed";
 
 const fetchLatestBlock = async () => {
   const response = await fetch('https://testnet-rpc.monad.xyz/', {
@@ -50,11 +50,12 @@ const BlockVisualizer = () => {
   
   const [latestBlock, setLatestBlock] = useState(null);
   const [blockNumber, setBlockNumber] = useState(null);
-  const [isLive, setIsLive] = useState(true); // Start with live mode enabled
+  const [isLive, setIsLive] = useState(true);
   const [isDarkMode, setIsDarkMode] = useState(true);
   const [isLoreMode, setIsLoreMode] = useState(false);
   const [lastUpdate, setLastUpdate] = useState(null);
   const [connectionStatus, setConnectionStatus] = useState('connecting');
+  const [hyperspeedSpeed, setHyperspeedSpeed] = useState(0);
 
   const handleBackClick = () => {
     navigate('/');
@@ -74,6 +75,10 @@ const BlockVisualizer = () => {
       setBlockNumber(number);
       setLastUpdate(new Date());
       setConnectionStatus('connected');
+      
+      // Trigger hyperspeed effect on new block
+      setHyperspeedSpeed(prev => prev + 1);
+      
       console.log('Block data updated:', { blockNumber: number, blockHash: block?.hash });
     } catch (error) {
       console.error('Failed to fetch block data:', error);
@@ -81,17 +86,6 @@ const BlockVisualizer = () => {
     }
   };
 
-  const startLiveMode = () => {
-    setIsLive(true);
-    fetchBlockData();
-  };
-
-  const stopLiveMode = () => {
-    setIsLive(false);
-    setConnectionStatus('stopped');
-  };
-
-  // Auto-start live mode when component mounts
   useEffect(() => {
     fetchBlockData();
   }, []);
@@ -99,7 +93,7 @@ const BlockVisualizer = () => {
   useEffect(() => {
     let interval;
     if (isLive) {
-      interval = setInterval(fetchBlockData, 3000); // Update every 3 seconds
+      interval = setInterval(fetchBlockData, 3000);
     }
     return () => {
       if (interval) clearInterval(interval);
@@ -137,310 +131,287 @@ const BlockVisualizer = () => {
     }
   };
 
-  return (
-    <div className={`min-h-screen transition-all duration-500 ${
-      isDarkMode 
-        ? 'bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900' 
-        : 'bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50'
-    }`}>
-      <div className="container mx-auto px-4 py-8">
-        {/* Header */}
-        <div className="flex justify-between items-center mb-6">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleBackClick}
-            className={`${
-              isDarkMode 
-                ? 'border-slate-600 bg-slate-800/50 text-white hover:bg-slate-700/50' 
-                : 'border-gray-300 bg-white/80 text-gray-900 hover:bg-gray-50'
-            } animate-fade-in`}
-          >
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Back
-          </Button>
+  // Hyperspeed effect options that react to block generation
+  const hyperspeedOptions = {
+    distortion: 'turbulentDistortion',
+    length: 400,
+    roadWidth: 12,
+    islandWidth: 2,
+    lanesPerRoad: 3,
+    fov: 90,
+    fovSpeedUp: 150,
+    speedUp: connectionStatus === 'connected' ? 2 + hyperspeedSpeed * 0.1 : 1,
+    carLightsFade: 0.4,
+    totalSideLightSticks: 30,
+    lightPairsPerRoadWay: 50,
+    colors: {
+      roadColor: 0x080808,
+      islandColor: 0x0a0a0a,
+      background: 0x000000,
+      shoulderLines: isDarkMode ? 0x131318 : 0xffffff,
+      brokenLines: isDarkMode ? 0x131318 : 0xffffff,
+      leftCars: isLoreMode 
+        ? [0xD856BF, 0x6750A2, 0xC247AC]
+        : [0x03B3C3, 0x0E5EA5, 0x324555],
+      rightCars: isLoreMode
+        ? [0xFF322F, 0xA33010, 0xA81508] 
+        : [0xD856BF, 0x6750A2, 0xC247AC],
+      sticks: isDarkMode ? 0x03B3C3 : 0x6750A2,
+    }
+  };
 
-          {/* Live Status */}
-          <div className="flex items-center space-x-4">
-            <div className={`flex items-center space-x-2 px-3 py-2 rounded-lg ${
-              isDarkMode ? 'bg-slate-800/50 border border-slate-700' : 'bg-white/80 border border-gray-200'
-            }`}>
-              <div className={`w-2 h-2 rounded-full ${getStatusColor()} ${connectionStatus === 'connecting' ? 'animate-pulse' : ''}`} />
-              <span className={`text-sm font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                {getStatusText()}
-              </span>
-              {lastUpdate && connectionStatus === 'connected' && (
-                <span className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                  {lastUpdate.toLocaleTimeString()}
+  return (
+    <div className="min-h-screen relative overflow-hidden">
+      {/* Hyperspeed Background */}
+      <div className="absolute inset-0 z-0">
+        <Hyperspeed effectOptions={hyperspeedOptions} />
+      </div>
+      
+      {/* Dark overlay for better text readability */}
+      <div className="absolute inset-0 z-10 bg-black/50" />
+      
+      {/* Content */}
+      <div className={`relative z-20 min-h-screen transition-all duration-500`}>
+        <div className="container mx-auto px-4 py-8">
+          {/* Header */}
+          <div className="flex justify-between items-center mb-6">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleBackClick}
+              className="border-slate-600 bg-slate-800/80 text-white hover:bg-slate-700/80 backdrop-blur-sm animate-fade-in"
+            >
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Back
+            </Button>
+
+            {/* Live Status */}
+            <div className="flex items-center space-x-4">
+              <div className="flex items-center space-x-2 px-3 py-2 rounded-lg bg-slate-800/80 border border-slate-700 backdrop-blur-sm">
+                <div className={`w-2 h-2 rounded-full ${getStatusColor()} ${connectionStatus === 'connecting' ? 'animate-pulse' : ''}`} />
+                <span className="text-sm font-medium text-white">
+                  {getStatusText()}
                 </span>
-              )}
+                {lastUpdate && connectionStatus === 'connected' && (
+                  <span className="text-xs text-gray-400">
+                    {lastUpdate.toLocaleTimeString()}
+                  </span>
+                )}
+              </div>
             </div>
           </div>
-        </div>
 
-        {/* Main Header */}
-        <div className="text-center mb-12 animate-fade-in">
-          <div className="flex items-center justify-center mb-4">
-            <Box className={`w-12 h-12 mr-4 ${isDarkMode ? 'text-purple-400' : 'text-purple-600'} animate-pulse`} />
-            <h1 className={`text-5xl font-bold ${
-              isLoreMode 
-                ? 'bg-gradient-to-r from-purple-400 via-pink-400 to-blue-400 bg-clip-text text-transparent'
-                : isDarkMode 
-                  ? 'text-white' 
-                  : 'text-gray-900'
-            }`}>
-              {isLoreMode ? 'Chain Oracle' : 'Block Visualizer'}
-            </h1>
-          </div>
-          <p className={`text-xl ${isDarkMode ? 'text-gray-300' : 'text-gray-600'} mb-6`}>
-            {isLoreMode 
-              ? 'Witness the birth of digital consensus in real-time' 
-              : 'Real-time Monad testnet block monitoring and visualization'
-            }
-          </p>
-          
-          {/* Mode Toggles */}
-          <div className="flex justify-center space-x-4 mb-8">
-            <Button
-              variant={isDarkMode ? "default" : "outline"}
-              size="sm"
-              onClick={() => setIsDarkMode(!isDarkMode)}
-              className="animate-scale-in"
-            >
-              {isDarkMode ? '🌙' : '☀️'} {isDarkMode ? 'Dark' : 'Light'}
-            </Button>
-            <Button
-              variant={isLoreMode ? "default" : "outline"}
-              size="sm"
-              onClick={() => setIsLoreMode(!isLoreMode)}
-              className="animate-scale-in"
-            >
-              <Eye className="w-4 h-4 mr-2" />
-              {isLoreMode ? 'Lore Mode' : 'Standard'}
-            </Button>
-          </div>
-        </div>
-
-        {/* Connection Error Message */}
-        {connectionStatus === 'error' && (
-          <Card className={`max-w-2xl mx-auto mb-8 ${
-            isDarkMode ? 'bg-red-900/50 border-red-700' : 'bg-red-50/80 border-red-200'
-          }`}>
-            <CardContent className="p-6 text-center">
-              <p className={`${isDarkMode ? 'text-red-300' : 'text-red-700'} mb-4`}>
-                Unable to connect to Monad testnet. Retrying automatically...
-              </p>
-              <Button 
-                onClick={fetchBlockData}
-                className="bg-red-600 hover:bg-red-700"
+          {/* Main Header */}
+          <div className="text-center mb-12 animate-fade-in">
+            <div className="flex items-center justify-center mb-4">
+              <Box className="w-12 h-12 mr-4 text-purple-400 animate-pulse" />
+              <h1 className={`text-5xl font-bold ${
+                isLoreMode 
+                  ? 'bg-gradient-to-r from-purple-400 via-pink-400 to-blue-400 bg-clip-text text-transparent'
+                  : 'text-white'
+              }`}>
+                {isLoreMode ? 'Chain Oracle' : 'Block Visualizer'}
+              </h1>
+            </div>
+            <p className="text-xl text-gray-300 mb-6">
+              {isLoreMode 
+                ? 'Witness the birth of digital consensus in hyperspeed' 
+                : 'Real-time Monad testnet block monitoring with hyperspeed visualization'
+              }
+            </p>
+            
+            {/* Mode Toggles */}
+            <div className="flex justify-center space-x-4 mb-8">
+              <Button
+                variant={isDarkMode ? "default" : "outline"}
+                size="sm"
+                onClick={() => setIsDarkMode(!isDarkMode)}
+                className="animate-scale-in bg-slate-800/80 backdrop-blur-sm"
               >
-                Retry Connection
+                {isDarkMode ? '🌙' : '☀️'} {isDarkMode ? 'Dark' : 'Light'}
               </Button>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Live Control - Only show when stopped */}
-        {!isLive && (
-          <Card className={`max-w-2xl mx-auto mb-8 animate-slide-in-right ${
-            isDarkMode ? 'bg-slate-800/50 border-slate-700' : 'bg-white/80 border-gray-200'
-          }`}>
-            <CardHeader>
-              <CardTitle className={`text-center ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                {isLoreMode ? 'Initiate Chain Oracle' : 'Live Block Monitor'}
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex justify-center space-x-4">
-                <Button 
-                  onClick={startLiveMode}
-                  className="bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700"
-                >
-                  <Radio className="w-4 h-4 mr-2" />
-                  {isLoreMode ? 'Begin Observation' : 'Start Live Feed'}
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Stop Button - Only show when live */}
-        {isLive && (
-          <div className="flex justify-center mb-8">
-            <Button 
-              onClick={stopLiveMode}
-              variant="outline"
-              className={`${isDarkMode ? 'border-slate-600 text-gray-300 hover:bg-slate-700/50' : 'border-gray-300 hover:bg-gray-50'}`}
-            >
-              Stop Live Feed
-            </Button>
+              <Button
+                variant={isLoreMode ? "default" : "outline"}
+                size="sm"
+                onClick={() => setIsLoreMode(!isLoreMode)}
+                className="animate-scale-in bg-slate-800/80 backdrop-blur-sm"
+              >
+                <Eye className="w-4 h-4 mr-2" />
+                {isLoreMode ? 'Lore Mode' : 'Standard'}
+              </Button>
+            </div>
           </div>
-        )}
 
-        {/* Block Data */}
-        {latestBlock && (
-          <div className="space-y-8 animate-fade-in">
-            {/* Block Stats */}
-            <div className="grid gap-6 md:grid-cols-4">
-              {[
-                { label: 'Block Number', value: formatNumber(latestBlock.number), icon: Box },
-                { label: 'Transactions', value: latestBlock.transactions?.length || 0, icon: Activity },
-                { label: 'Gas Used', value: formatNumber(latestBlock.gasUsed), icon: Zap },
-                { label: 'Timestamp', value: formatTimestamp(latestBlock.timestamp), icon: Clock }
-              ].map((stat, index) => (
-                <Card key={index} className={`${
-                  isDarkMode ? 'bg-slate-800/50 border-slate-700' : 'bg-white/80 border-gray-200'
-                } hover-scale`}>
-                  <CardContent className="p-6">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                          {stat.label}
-                        </p>
-                        <p className={`text-lg font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                          {stat.value}
-                        </p>
+          {/* Connection Error Message */}
+          {connectionStatus === 'error' && (
+            <Card className="max-w-2xl mx-auto mb-8 bg-red-900/80 border-red-700 backdrop-blur-sm">
+              <CardContent className="p-6 text-center">
+                <p className="text-red-300 mb-4">
+                  Unable to connect to Monad testnet. Retrying automatically...
+                </p>
+                <Button 
+                  onClick={fetchBlockData}
+                  className="bg-red-600 hover:bg-red-700"
+                >
+                  Retry Connection
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Block Data */}
+          {latestBlock && (
+            <div className="space-y-8 animate-fade-in">
+              {/* Block Stats */}
+              <div className="grid gap-6 md:grid-cols-4">
+                {[
+                  { label: 'Block Number', value: formatNumber(latestBlock.number), icon: Box },
+                  { label: 'Transactions', value: latestBlock.transactions?.length || 0, icon: Activity },
+                  { label: 'Gas Used', value: formatNumber(latestBlock.gasUsed), icon: Zap },
+                  { label: 'Timestamp', value: formatTimestamp(latestBlock.timestamp), icon: Clock }
+                ].map((stat, index) => (
+                  <Card key={index} className="bg-slate-800/80 border-slate-700 backdrop-blur-sm hover-scale">
+                    <CardContent className="p-6">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm text-gray-400">
+                            {stat.label}
+                          </p>
+                          <p className="text-lg font-bold text-white">
+                            {stat.value}
+                          </p>
+                        </div>
+                        <stat.icon className="w-6 h-6 text-purple-400" />
                       </div>
-                      <stat.icon className={`w-6 h-6 ${isDarkMode ? 'text-purple-400' : 'text-purple-600'}`} />
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+
+              {/* Block Details */}
+              <Card className="bg-slate-800/80 border-slate-700 backdrop-blur-sm animate-fade-in">
+                <CardHeader>
+                  <CardTitle className="text-white">
+                    {isLoreMode ? 'Block Genesis Data' : 'Latest Block Details'}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div>
+                      <p className="text-sm font-medium text-gray-400">
+                        Block Hash
+                      </p>
+                      <p className="font-mono text-sm break-all text-white">
+                        {latestBlock.hash}
+                      </p>
                     </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-400">
+                        Parent Hash
+                      </p>
+                      <p className="font-mono text-sm break-all text-white">
+                        {latestBlock.parentHash}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-400">
+                        Miner/Validator
+                      </p>
+                      <p className="font-mono text-sm break-all text-white">
+                        {latestBlock.miner}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-400">
+                        Gas Limit
+                      </p>
+                      <p className="font-mono text-sm text-white">
+                        {formatNumber(latestBlock.gasLimit)}
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Transaction List */}
+              {latestBlock.transactions && latestBlock.transactions.length > 0 && (
+                <Card className="bg-slate-800/80 border-slate-700 backdrop-blur-sm animate-fade-in">
+                  <CardHeader>
+                    <CardTitle className="text-white">
+                      Recent Transactions ({latestBlock.transactions.length})
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-2 max-h-64 overflow-y-auto">
+                      {latestBlock.transactions.slice(0, 10).map((tx, index) => (
+                        <div key={index} className="p-3 rounded-lg bg-slate-700/50 backdrop-blur-sm">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center space-x-3">
+                              <Hash className="w-4 h-4 text-purple-400" />
+                              <span className="font-mono text-sm text-white">
+                                {typeof tx === 'string' ? tx.slice(0, 10) + '...' : tx.hash?.slice(0, 10) + '...'}
+                              </span>
+                            </div>
+                            {typeof tx === 'object' && tx.value && (
+                              <span className="text-sm text-gray-400">
+                                {(parseInt(tx.value, 16) / 1e18).toFixed(4)} MON
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+          )}
+
+          {/* Features Section when no block data */}
+          {!latestBlock && connectionStatus !== 'error' && (
+            <div className="mt-16 grid gap-8 md:grid-cols-3 animate-fade-in">
+              {[
+                {
+                  title: isLoreMode ? "Genesis Witness" : "Real-time Blocks",
+                  description: isLoreMode 
+                    ? "Observe the creation of new realities in hyperspeed"
+                    : "Monitor blocks as they are mined in real-time with visual effects",
+                  icon: Box
+                },
+                {
+                  title: isLoreMode ? "Transaction Streams" : "Live Transactions", 
+                  description: isLoreMode
+                    ? "Watch the flow of digital intentions across the network"
+                    : "See transactions included in each new block with hyperspeed visualization",
+                  icon: Activity
+                },
+                {
+                  title: isLoreMode ? "Network Pulse" : "Network Stats",
+                  description: isLoreMode
+                    ? "Feel the heartbeat of the decentralized consciousness"
+                    : "Track gas usage, block times, and network activity in hyperspeed",
+                  icon: Zap
+                }
+              ].map((feature, index) => (
+                <Card key={index} className="bg-slate-800/80 border-slate-700 backdrop-blur-sm hover-scale">
+                  <CardHeader>
+                    <div className="w-12 h-12 bg-gradient-to-r from-purple-500 to-blue-500 rounded-lg flex items-center justify-center mb-4">
+                      <feature.icon className="w-6 h-6 text-white" />
+                    </div>
+                    <CardTitle className="text-white">
+                      {feature.title}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-gray-400">
+                      {feature.description}
+                    </p>
                   </CardContent>
                 </Card>
               ))}
             </div>
-
-            {/* Block Details */}
-            <Card className={`${
-              isDarkMode ? 'bg-slate-800/50 border-slate-700' : 'bg-white/80 border-gray-200'
-            } animate-fade-in`}>
-              <CardHeader>
-                <CardTitle className={isDarkMode ? 'text-white' : 'text-gray-900'}>
-                  {isLoreMode ? 'Block Genesis Data' : 'Latest Block Details'}
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div>
-                    <p className={`text-sm font-medium ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                      Block Hash
-                    </p>
-                    <p className={`font-mono text-sm break-all ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                      {latestBlock.hash}
-                    </p>
-                  </div>
-                  <div>
-                    <p className={`text-sm font-medium ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                      Parent Hash
-                    </p>
-                    <p className={`font-mono text-sm break-all ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                      {latestBlock.parentHash}
-                    </p>
-                  </div>
-                  <div>
-                    <p className={`text-sm font-medium ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                      Miner/Validator
-                    </p>
-                    <p className={`font-mono text-sm break-all ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                      {latestBlock.miner}
-                    </p>
-                  </div>
-                  <div>
-                    <p className={`text-sm font-medium ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                      Gas Limit
-                    </p>
-                    <p className={`font-mono text-sm ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                      {formatNumber(latestBlock.gasLimit)}
-                    </p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Transaction List */}
-            {latestBlock.transactions && latestBlock.transactions.length > 0 && (
-              <Card className={`${
-                isDarkMode ? 'bg-slate-800/50 border-slate-700' : 'bg-white/80 border-gray-200'
-              } animate-fade-in`}>
-                <CardHeader>
-                  <CardTitle className={isDarkMode ? 'text-white' : 'text-gray-900'}>
-                    Recent Transactions ({latestBlock.transactions.length})
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-2 max-h-64 overflow-y-auto">
-                    {latestBlock.transactions.slice(0, 10).map((tx, index) => (
-                      <div key={index} className={`p-3 rounded-lg ${
-                        isDarkMode ? 'bg-slate-700/50' : 'bg-gray-50'
-                      }`}>
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center space-x-3">
-                            <Hash className={`w-4 h-4 ${isDarkMode ? 'text-purple-400' : 'text-purple-600'}`} />
-                            <span className={`font-mono text-sm ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                              {typeof tx === 'string' ? tx.slice(0, 10) + '...' : tx.hash?.slice(0, 10) + '...'}
-                            </span>
-                          </div>
-                          {typeof tx === 'object' && tx.value && (
-                            <span className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                              {(parseInt(tx.value, 16) / 1e18).toFixed(4)} MON
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-          </div>
-        )}
-
-        {/* Features Section */}
-        {!latestBlock && connectionStatus !== 'error' && (
-          <div className="mt-16 grid gap-8 md:grid-cols-3 animate-fade-in">
-            {[
-              {
-                title: isLoreMode ? "Genesis Witness" : "Real-time Blocks",
-                description: isLoreMode 
-                  ? "Observe the creation of new realities in the blockchain"
-                  : "Monitor blocks as they are mined in real-time",
-                icon: Box
-              },
-              {
-                title: isLoreMode ? "Transaction Streams" : "Live Transactions", 
-                description: isLoreMode
-                  ? "Watch the flow of digital intentions across the network"
-                  : "See transactions included in each new block",
-                icon: Activity
-              },
-              {
-                title: isLoreMode ? "Network Pulse" : "Network Stats",
-                description: isLoreMode
-                  ? "Feel the heartbeat of the decentralized consciousness"
-                  : "Track gas usage, block times, and network activity",
-                icon: Zap
-              }
-            ].map((feature, index) => (
-              <Card key={index} className={`${
-                isDarkMode ? 'bg-slate-800/50 border-slate-700' : 'bg-white/80 border-gray-200'
-              } hover-scale`}>
-                <CardHeader>
-                  <div className={`w-12 h-12 ${
-                    isDarkMode ? 'bg-gradient-to-r from-purple-500 to-blue-500' : 'bg-gradient-to-r from-purple-400 to-blue-400'
-                  } rounded-lg flex items-center justify-center mb-4`}>
-                    <feature.icon className="w-6 h-6 text-white" />
-                  </div>
-                  <CardTitle className={isDarkMode ? 'text-white' : 'text-gray-900'}>
-                    {feature.title}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className={isDarkMode ? 'text-gray-400' : 'text-gray-600'}>
-                    {feature.description}
-                  </p>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        )}
+          )}
+        </div>
       </div>
     </div>
   );
