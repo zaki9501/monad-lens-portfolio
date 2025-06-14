@@ -1,10 +1,11 @@
-import React, { useState, useEffect, useRef } from 'react';
+
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Box, Activity, Clock, Hash, ArrowLeft, Eye, Radio, Zap } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { usePrivy } from "@privy-io/react-auth";
-import Hyperspeed, { HyperspeedRef } from "../components/Hyperspeed/Hyperspeed";
+import Hyperspeed from "../components/Hyperspeed/Hyperspeed";
 
 const fetchLatestBlock = async () => {
   const response = await fetch('https://testnet-rpc.monad.xyz/', {
@@ -47,7 +48,6 @@ const fetchBlockNumber = async () => {
 const BlockVisualizer = () => {
   const navigate = useNavigate();
   const { authenticated } = usePrivy();
-  const hyperspeedRef = useRef<HyperspeedRef>(null);
   
   const [latestBlock, setLatestBlock] = useState(null);
   const [blockNumber, setBlockNumber] = useState(null);
@@ -80,10 +80,8 @@ const BlockVisualizer = () => {
       setLastUpdate(new Date());
       setConnectionStatus('connected');
       
-      // Add light ray for new blocks
-      if (isNewBlock && hyperspeedRef.current) {
-        console.log('New block detected, adding light ray:', block.hash);
-        hyperspeedRef.current.addBlockLightRay(block);
+      if (isNewBlock) {
+        console.log('New block detected:', block.hash);
       }
       
       setLastBlockHash(block?.hash || null);
@@ -144,15 +142,27 @@ const BlockVisualizer = () => {
   const hyperspeedOptions = {
     distortion: 'turbulentDistortion',
     length: 400,
-    roadWidth: 12,
+    roadWidth: 10,
     islandWidth: 2,
-    lanesPerRoad: 3,
+    lanesPerRoad: 4,
     fov: 90,
     fovSpeedUp: 150,
     speedUp: connectionStatus === 'connected' ? 2 : 1,
     carLightsFade: 0.4,
-    totalSideLightSticks: 30,
-    lightPairsPerRoadWay: 50,
+    totalSideLightSticks: 20,
+    lightPairsPerRoadWay: 40,
+    shoulderLinesWidthPercentage: 0.05,
+    brokenLinesWidthPercentage: 0.1,
+    brokenLinesLengthPercentage: 0.5,
+    lightStickWidth: [0.12, 0.5],
+    lightStickHeight: [1.3, 1.7],
+    movingAwaySpeed: [60, 80],
+    movingCloserSpeed: [-120, -160],
+    carLightsLength: [400 * 0.03, 400 * 0.2],
+    carLightsRadius: [0.05, 0.14],
+    carWidthPercentage: [0.3, 0.5],
+    carShiftX: [-0.8, 0.8],
+    carFloorSeparation: [0, 5],
     colors: {
       roadColor: 0x080808,
       islandColor: 0x0a0a0a,
@@ -173,7 +183,7 @@ const BlockVisualizer = () => {
     <div className="min-h-screen relative overflow-hidden">
       {/* Hyperspeed Background */}
       <div className="absolute inset-0 z-0">
-        <Hyperspeed ref={hyperspeedRef} effectOptions={hyperspeedOptions} />
+        <Hyperspeed effectOptions={hyperspeedOptions} />
       </div>
       
       {/* Dark overlay for better text readability */}
