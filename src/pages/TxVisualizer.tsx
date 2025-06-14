@@ -13,7 +13,7 @@ import WalletScoreCard from "@/components/WalletScoreCard";
 import ScanningAnimation from "@/components/ScanningAnimation";
 import AnalysisResults from "@/components/AnalysisResults";
 
-const fetchAccountActivities = async (address, apiKey, limit = 130) => {
+const fetchAccountActivities = async (address, apiKey, limit = 500) => {
   const url = `https://api.blockvision.org/v2/monad/account/activities?address=${address}&limit=${limit}`;
   const res = await fetch(url, {
     headers: {
@@ -109,7 +109,8 @@ const TxVisualizer = () => {
         setScanProgress(i);
       }
       const apiKey = import.meta.env.VITE_BLOCKVISION_API_KEY;
-      const data = await fetchAccountActivities(addressToUse, apiKey, 130);
+      // Fetch up to 500 transactions instead of 130
+      const data = await fetchAccountActivities(addressToUse, apiKey, 500);
       setTransactionData(data);
       setAnalysisData(null);
 
