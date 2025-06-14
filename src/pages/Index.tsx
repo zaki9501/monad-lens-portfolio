@@ -217,15 +217,6 @@ const Index = () => {
             {/* Portfolio Overview */}
             <PortfolioOverview walletAddress={viewingAddress} />
 
-            {/* Quick Actions and Market Overview Row */}
-            <div className="grid gap-6 md:grid-cols-2">
-              <QuickActions walletAddress={viewingAddress} />
-              <MarketOverview />
-            </div>
-
-            {/* Recent Activity */}
-            <RecentActivity walletAddress={viewingAddress} />
-
             {/* Main Dashboard */}
             <Tabs defaultValue="portfolio" className="space-y-6">
               <TabsList className="grid w-full grid-cols-5 bg-slate-800/50">
@@ -308,6 +299,15 @@ const Index = () => {
                 <BadgeCollection walletAddress={viewingAddress} />
               </TabsContent>
             </Tabs>
+
+            {/* Quick Actions, Recent Activity, and Market Overview - Now positioned after main tabs */}
+            <div className="grid gap-6 md:grid-cols-2">
+              <QuickActions walletAddress={viewingAddress} />
+              <MarketOverview />
+            </div>
+
+            {/* Recent Activity */}
+            <RecentActivity walletAddress={viewingAddress} />
           </div>}
 
         {/* Built by Piki Section */}
