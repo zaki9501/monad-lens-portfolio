@@ -20,6 +20,9 @@ import { Link, useSearchParams } from "react-router-dom";
 import { getAccountTokens } from "@/lib/blockvision";
 import { ethers } from "ethers";
 import LiquidStakingDerivatives from "@/components/LiquidStakingDerivatives";
+import QuickActions from "@/components/QuickActions";
+import RecentActivity from "@/components/RecentActivity";
+import MarketOverview from "@/components/MarketOverview";
 const CopyAddressButton = ({
   address
 }: {
@@ -213,6 +216,15 @@ const Index = () => {
 
             {/* Portfolio Overview */}
             <PortfolioOverview walletAddress={viewingAddress} />
+
+            {/* Quick Actions and Market Overview Row */}
+            <div className="grid gap-6 md:grid-cols-2">
+              <QuickActions walletAddress={viewingAddress} />
+              <MarketOverview />
+            </div>
+
+            {/* Recent Activity */}
+            <RecentActivity walletAddress={viewingAddress} />
 
             {/* Main Dashboard */}
             <Tabs defaultValue="portfolio" className="space-y-6">
