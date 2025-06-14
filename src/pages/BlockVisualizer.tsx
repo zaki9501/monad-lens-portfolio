@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import Navigation from "@/components/Navigation";
 import { usePrivy } from "@privy-io/react-auth";
-import { Loader2, Cube, Clock, Hash, Users } from "lucide-react";
+import { Loader2, Box, Clock, Hash, Users } from "lucide-react";
 
 interface Block {
   number: string;
@@ -116,7 +116,7 @@ const BlockVisualizer = () => {
             <Card className="bg-slate-900/50 border-slate-700">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-purple-400">
-                  <Cube className="h-5 w-5" />
+                  <Box className="h-5 w-5" />
                   Latest Block #{latestBlock.number}
                 </CardTitle>
               </CardHeader>
@@ -179,7 +179,7 @@ const BlockVisualizer = () => {
                 <CardContent className="p-4">
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-2">
-                      <Cube className="h-4 w-4 text-purple-400" />
+                      <Box className="h-4 w-4 text-purple-400" />
                       <span className="font-semibold">Block #{block.number}</span>
                       {index === 0 && <Badge className="bg-green-600">Latest</Badge>}
                     </div>
