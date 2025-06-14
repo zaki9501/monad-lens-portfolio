@@ -50,7 +50,7 @@ const BlockVisualizer = () => {
   
   const [latestBlock, setLatestBlock] = useState(null);
   const [blockNumber, setBlockNumber] = useState(null);
-  const [isLive, setIsLive] = useState(false);
+  const [isLive, setIsLive] = useState(true); // Start with live mode enabled
   const [isDarkMode, setIsDarkMode] = useState(true);
   const [isLoreMode, setIsLoreMode] = useState(false);
   const [lastUpdate, setLastUpdate] = useState(null);
@@ -83,6 +83,11 @@ const BlockVisualizer = () => {
   const stopLiveMode = () => {
     setIsLive(false);
   };
+
+  // Auto-start live mode when component mounts
+  useEffect(() => {
+    fetchBlockData();
+  }, []);
 
   useEffect(() => {
     let interval;
@@ -189,36 +194,42 @@ const BlockVisualizer = () => {
           </div>
         </div>
 
-        {/* Live Control */}
-        <Card className={`max-w-2xl mx-auto mb-8 animate-slide-in-right ${
-          isDarkMode ? 'bg-slate-800/50 border-slate-700' : 'bg-white/80 border-gray-200'
-        }`}>
-          <CardHeader>
-            <CardTitle className={`text-center ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-              {isLoreMode ? 'Initiate Chain Oracle' : 'Live Block Monitor'}
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex justify-center space-x-4">
-              <Button 
-                onClick={startLiveMode}
-                disabled={isLive}
-                className="bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700"
-              >
-                <Radio className="w-4 h-4 mr-2" />
-                {isLoreMode ? 'Begin Observation' : 'Start Live Feed'}
-              </Button>
-              <Button 
-                onClick={stopLiveMode}
-                disabled={!isLive}
-                variant="outline"
-                className={isDarkMode ? 'border-slate-600 text-gray-300' : 'border-gray-300'}
-              >
-                Stop
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+        {/* Live Control - Only show when stopped */}
+        {!isLive && (
+          <Card className={`max-w-2xl mx-auto mb-8 animate-slide-in-right ${
+            isDarkMode ? 'bg-slate-800/50 border-slate-700' : 'bg-white/80 border-gray-200'
+          }`}>
+            <CardHeader>
+              <CardTitle className={`text-center ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                {isLoreMode ? 'Initiate Chain Oracle' : 'Live Block Monitor'}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex justify-center space-x-4">
+                <Button 
+                  onClick={startLiveMode}
+                  className="bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700"
+                >
+                  <Radio className="w-4 h-4 mr-2" />
+                  {isLoreMode ? 'Begin Observation' : 'Start Live Feed'}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Stop Button - Only show when live */}
+        {isLive && (
+          <div className="flex justify-center mb-8">
+            <Button 
+              onClick={stopLiveMode}
+              variant="outline"
+              className={`${isDarkMode ? 'border-slate-600 text-gray-300 hover:bg-slate-700/50' : 'border-gray-300 hover:bg-gray-50'}`}
+            >
+              Stop Live Feed
+            </Button>
+          </div>
+        )}
 
         {/* Block Data */}
         {latestBlock && (
