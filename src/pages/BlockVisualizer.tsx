@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -6,7 +7,7 @@ import { useNavigate } from "react-router-dom";
 import { usePrivy } from "@privy-io/react-auth";
 
 const fetchLatestBlock = async () => {
-  const response = await fetch('https://testnet1.monad.xyz/', {
+  const response = await fetch('https://testnet-rpc.monad.xyz/', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -25,7 +26,7 @@ const fetchLatestBlock = async () => {
 };
 
 const fetchBlockNumber = async () => {
-  const response = await fetch('https://testnet1.monad.xyz/', {
+  const response = await fetch('https://testnet-rpc.monad.xyz/', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
