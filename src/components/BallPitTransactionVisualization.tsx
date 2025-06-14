@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -223,6 +224,7 @@ const BallPitTransactionVisualization: React.FC<BallPitTransactionVisualizationP
       <div className="absolute inset-0">
         <div style={{position: 'relative', overflow: 'hidden', minHeight: '500px', maxHeight: '500px', width: '100%'}}>
           <Ballpit
+            key={`ballpit-${transactionLimit}-${transactions.length}`}
             count={transactions.length}
             gravity={1.8}
             friction={0.8}
