@@ -1,10 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Box, Activity, Clock, Hash, ArrowLeft, Eye, Radio, Zap } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { usePrivy } from "@privy-io/react-auth";
-import Hyperspeed from "../components/Hyperspeed/Hyperspeed";
+import Hyperspeed, { HyperspeedRef } from "../components/Hyperspeed/Hyperspeed";
 
 const fetchLatestBlock = async () => {
   const response = await fetch('https://testnet-rpc.monad.xyz/', {
@@ -47,6 +47,7 @@ const fetchBlockNumber = async () => {
 const BlockVisualizer = () => {
   const navigate = useNavigate();
   const { authenticated } = usePrivy();
+  const hyperspeedRef = useRef<HyperspeedRef>(null);
   
   const [latestBlock, setLatestBlock] = useState(null);
   const [blockNumber, setBlockNumber] = useState(null);
@@ -55,7 +56,7 @@ const BlockVisualizer = () => {
   const [isLoreMode, setIsLoreMode] = useState(false);
   const [lastUpdate, setLastUpdate] = useState(null);
   const [connectionStatus, setConnectionStatus] = useState('connecting');
-  const [hyperspeedSpeed, setHyperspeedSpeed] = useState(0);
+  const [lastBlockHash, setLastBlockHash] = useState<string | null>(null);
 
   const handleBackClick = () => {
     navigate('/');
@@ -71,13 +72,21 @@ const BlockVisualizer = () => {
         fetchBlockNumber()
       ]);
       
+      // Check if this is a new block
+      const isNewBlock = lastBlockHash && block?.hash && block.hash !== lastBlockHash;
+      
       setLatestBlock(block);
       setBlockNumber(number);
       setLastUpdate(new Date());
       setConnectionStatus('connected');
       
-      // Trigger hyperspeed effect on new block
-      setHyperspeedSpeed(prev => prev + 1);
+      // Add light ray for new blocks
+      if (isNewBlock && hyperspeedRef.current) {
+        console.log('New block detected, adding light ray:', block.hash);
+        hyperspeedRef.current.addBlockLightRay(block);
+      }
+      
+      setLastBlockHash(block?.hash || null);
       
       console.log('Block data updated:', { blockNumber: number, blockHash: block?.hash });
     } catch (error) {
@@ -98,7 +107,7 @@ const BlockVisualizer = () => {
     return () => {
       if (interval) clearInterval(interval);
     };
-  }, [isLive]);
+  }, [isLive, lastBlockHash]);
 
   const formatTimestamp = (timestamp) => {
     if (!timestamp) return 'N/A';
@@ -131,7 +140,7 @@ const BlockVisualizer = () => {
     }
   };
 
-  // Hyperspeed effect options that react to block generation
+  // Hyperspeed effect options
   const hyperspeedOptions = {
     distortion: 'turbulentDistortion',
     length: 400,
@@ -140,7 +149,7 @@ const BlockVisualizer = () => {
     lanesPerRoad: 3,
     fov: 90,
     fovSpeedUp: 150,
-    speedUp: connectionStatus === 'connected' ? 2 + hyperspeedSpeed * 0.1 : 1,
+    speedUp: connectionStatus === 'connected' ? 2 : 1,
     carLightsFade: 0.4,
     totalSideLightSticks: 30,
     lightPairsPerRoadWay: 50,
@@ -164,7 +173,7 @@ const BlockVisualizer = () => {
     <div className="min-h-screen relative overflow-hidden">
       {/* Hyperspeed Background */}
       <div className="absolute inset-0 z-0">
-        <Hyperspeed effectOptions={hyperspeedOptions} />
+        <Hyperspeed ref={hyperspeedRef} effectOptions={hyperspeedOptions} />
       </div>
       
       {/* Dark overlay for better text readability */}
@@ -215,8 +224,8 @@ const BlockVisualizer = () => {
             </div>
             <p className="text-xl text-gray-300 mb-6">
               {isLoreMode 
-                ? 'Witness the birth of digital consensus in hyperspeed' 
-                : 'Real-time Monad testnet block monitoring with hyperspeed visualization'
+                ? 'Witness blockchain genesis as light rays pierce the hyperspeed void' 
+                : 'Watch live Monad blocks as light rays in hyperspeed visualization'
               }
             </p>
             
@@ -372,24 +381,24 @@ const BlockVisualizer = () => {
             <div className="mt-16 grid gap-8 md:grid-cols-3 animate-fade-in">
               {[
                 {
-                  title: isLoreMode ? "Genesis Witness" : "Real-time Blocks",
+                  title: isLoreMode ? "Genesis Light Rays" : "Block Light Rays",
                   description: isLoreMode 
-                    ? "Observe the creation of new realities in hyperspeed"
-                    : "Monitor blocks as they are mined in real-time with visual effects",
+                    ? "Each new block manifests as a brilliant light ray piercing through hyperspeed reality"
+                    : "Watch new blocks appear as dynamic light rays shooting through the hyperspeed visualization",
                   icon: Box
                 },
                 {
                   title: isLoreMode ? "Transaction Streams" : "Live Transactions", 
                   description: isLoreMode
-                    ? "Watch the flow of digital intentions across the network"
-                    : "See transactions included in each new block with hyperspeed visualization",
+                    ? "Observe the flow of digital intentions across the network in real-time"
+                    : "See transactions included in each new block with detailed hyperspeed visualization",
                   icon: Activity
                 },
                 {
                   title: isLoreMode ? "Network Pulse" : "Network Stats",
                   description: isLoreMode
-                    ? "Feel the heartbeat of the decentralized consciousness"
-                    : "Track gas usage, block times, and network activity in hyperspeed",
+                    ? "Feel the heartbeat of the decentralized consciousness through light and motion"
+                    : "Track gas usage, block times, and network activity with immersive visual effects",
                   icon: Zap
                 }
               ].map((feature, index) => (
