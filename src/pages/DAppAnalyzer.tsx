@@ -4,88 +4,217 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Activity, Target, ArrowLeft, Search, TrendingUp } from "lucide-react";
 import { Link } from "react-router-dom";
 import DAppInteractionStats from "@/components/DAppInteractionStats";
 import DAppInteractionTimeline from "@/components/DAppInteractionTimeline";
 
-const AVAILABLE_DAPPS = [
-  {
-    id: 'uniswap',
-    name: 'Uniswap',
-    description: 'Decentralized Exchange',
-    category: 'DEX',
-    contracts: ['0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45', '0xE592427A0AEce92De3Edee1F18E0157C05861564']
-  },
-  {
-    id: 'aave',
-    name: 'Aave',
-    description: 'Lending Protocol',
-    category: 'Lending',
-    contracts: ['0x7d2768dE32b0b80b7a3454c06BdAc94A69DDc7A9', '0x87870Bca3F3fD6335C3F4ce8392D69350B4fA4E2']
-  },
-  {
-    id: 'compound',
-    name: 'Compound',
-    description: 'Lending & Borrowing',
-    category: 'Lending',
-    contracts: ['0x3d9819210A31b4961b30EF54bE2aeD79B9c9Cd3B', '0xc3e5607cd4ca0d5ac9427e1d8ec4f9af2075d02f']
-  },
-  {
-    id: 'opensea',
-    name: 'OpenSea',
-    description: 'NFT Marketplace',
-    category: 'NFT',
-    contracts: ['0x00000000006c3852cbEf3e08E8dF289169EdE581', '0x00000000000C2E074eC69A0dFb2997BA6C7d2e1e']
-  },
-  {
-    id: 'sushiswap',
-    name: 'SushiSwap',
-    description: 'DEX & DeFi Platform',
-    category: 'DEX',
-    contracts: ['0xd9e1cE17f2641f24aE83637ab66a2cca9C378B9F', '0x1b02dA8Cb0d097eB8D57A175b88c7D8b47997506']
-  }
-];
+const AMBIENT_DAPP = {
+  id: 'ambient',
+  name: 'Ambient',
+  description: 'Concentrated Liquidity DEX',
+  category: 'DEX',
+  contracts: []
+};
+
+const GRAPHQL_ENDPOINT = 'https://indexer.dev.hyperindex.xyz/298979c/v1/graphql';
 
 const DAppAnalyzer = () => {
   const [walletAddress, setWalletAddress] = useState('');
-  const [selectedDApp, setSelectedDApp] = useState('');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisData, setAnalysisData] = useState(null);
+  const [error, setError] = useState('');
+
+  const fetchAmbientData = async (address: string) => {
+    const queries = [
+      // CrocSwap query
+      `query GetSwaps($user: String!) {
+        CrocSwap(where: { user: { _eq: $user } }, limit: 1000) {
+          transactionHash
+          blockNumber
+          time
+          user
+          baseFlow
+          quoteFlow
+          callIndex
+        }
+      }`,
+      // CrocMicroSwap query
+      `query GetMicroSwaps($user: String!) {
+        CrocMicroSwap(where: { user: { _eq: $user } }, limit: 1000) {
+          transactionHash
+          blockNumber
+          time
+          user
+          baseFlow
+          quoteFlow
+        }
+      }`,
+      // CrocMicroMintAmbient query
+      `query GetAmbientMints($user: String!) {
+        CrocMicroMintAmbient(where: { user: { _eq: $user } }, limit: 1000) {
+          transactionHash
+          blockNumber
+          time
+          user
+          liq
+        }
+      }`,
+      // CrocMicroMintRange query
+      `query GetRangeMints($user: String!) {
+        CrocMicroMintRange(where: { user: { _eq: $user } }, limit: 1000) {
+          transactionHash
+          blockNumber
+          time
+          user
+          liq
+          bidTick
+          askTick
+        }
+      }`,
+      // CrocMicroBurnAmbient query
+      `query GetAmbientBurns($user: String!) {
+        CrocMicroBurnAmbient(where: { user: { _eq: $user } }, limit: 1000) {
+          transactionHash
+          blockNumber
+          time
+          user
+          liq
+        }
+      }`,
+      // CrocMicroBurnRange query
+      `query GetRangeBurns($user: String!) {
+        CrocMicroBurnRange(where: { user: { _eq: $user } }, limit: 1000) {
+          transactionHash
+          blockNumber
+          time
+          user
+          liq
+          bidTick
+          askTick
+        }
+      }`
+    ];
+
+    try {
+      const results = await Promise.all(
+        queries.map(async (query) => {
+          const response = await fetch(GRAPHQL_ENDPOINT, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              query,
+              variables: { user: address.toLowerCase() }
+            })
+          });
+          
+          if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+          }
+          
+          return response.json();
+        })
+      );
+
+      return {
+        swaps: results[0]?.data?.CrocSwap || [],
+        microSwaps: results[1]?.data?.CrocMicroSwap || [],
+        ambientMints: results[2]?.data?.CrocMicroMintAmbient || [],
+        rangeMints: results[3]?.data?.CrocMicroMintRange || [],
+        ambientBurns: results[4]?.data?.CrocMicroBurnAmbient || [],
+        rangeBurns: results[5]?.data?.CrocMicroBurnRange || []
+      };
+    } catch (error) {
+      console.error('Error fetching Ambient data:', error);
+      throw error;
+    }
+  };
+
+  const processAmbientData = (rawData: any) => {
+    const allTransactions = [
+      ...rawData.swaps.map(tx => ({ ...tx, type: 'swap' })),
+      ...rawData.microSwaps.map(tx => ({ ...tx, type: 'microSwap' })),
+      ...rawData.ambientMints.map(tx => ({ ...tx, type: 'ambientMint' })),
+      ...rawData.rangeMints.map(tx => ({ ...tx, type: 'rangeMint' })),
+      ...rawData.ambientBurns.map(tx => ({ ...tx, type: 'ambientBurn' })),
+      ...rawData.rangeBurns.map(tx => ({ ...tx, type: 'rangeBurn' }))
+    ];
+
+    // Sort by time
+    allTransactions.sort((a, b) => b.time - a.time);
+
+    // Calculate function calls distribution
+    const functionCalls = [
+      { name: 'Swaps', count: rawData.swaps.length + rawData.microSwaps.length },
+      { name: 'Ambient Mints', count: rawData.ambientMints.length },
+      { name: 'Range Mints', count: rawData.rangeMints.length },
+      { name: 'Ambient Burns', count: rawData.ambientBurns.length },
+      { name: 'Range Burns', count: rawData.rangeBurns.length }
+    ].filter(item => item.count > 0);
+
+    // Calculate volume (simplified)
+    const totalVolume = allTransactions.reduce((sum, tx) => {
+      if (tx.baseFlow && tx.quoteFlow) {
+        return sum + Math.abs(parseFloat(tx.baseFlow)) + Math.abs(parseFloat(tx.quoteFlow));
+      }
+      return sum;
+    }, 0);
+
+    // Create timeline data
+    const timelineMap = new Map();
+    allTransactions.forEach(tx => {
+      const date = new Date(tx.time * 1000).toDateString();
+      timelineMap.set(date, (timelineMap.get(date) || 0) + 1);
+    });
+
+    const timeline = Array.from(timelineMap.entries())
+      .map(([date, interactions]) => ({
+        date: new Date(date),
+        interactions,
+        type: interactions > 5 ? 'heavy_use' : interactions > 2 ? 'regular_use' : 'recent_use'
+      }))
+      .sort((a, b) => a.date.getTime() - b.date.getTime());
+
+    const firstInteraction = allTransactions.length > 0 
+      ? new Date(allTransactions[allTransactions.length - 1].time * 1000)
+      : new Date();
+    
+    const lastInteraction = allTransactions.length > 0 
+      ? new Date(allTransactions[0].time * 1000)
+      : new Date();
+
+    return {
+      dapp: AMBIENT_DAPP,
+      wallet: walletAddress,
+      totalInteractions: allTransactions.length,
+      totalVolume: totalVolume.toFixed(2),
+      firstInteraction,
+      lastInteraction,
+      functionCalls,
+      timeline,
+      tokensUsed: ['ETH', 'USDC'] // Simplified - could be extracted from actual data
+    };
+  };
 
   const handleAnalyze = async () => {
-    if (!walletAddress || !selectedDApp) return;
+    if (!walletAddress) return;
     
     setIsAnalyzing(true);
+    setError('');
     
-    // Simulate analysis - in real app, this would call an API
-    setTimeout(() => {
-      const mockData = {
-        dapp: AVAILABLE_DAPPS.find(d => d.id === selectedDApp),
-        wallet: walletAddress,
-        totalInteractions: Math.floor(Math.random() * 100) + 10,
-        totalVolume: (Math.random() * 10000).toFixed(2),
-        firstInteraction: new Date(Date.now() - Math.random() * 365 * 24 * 60 * 60 * 1000),
-        lastInteraction: new Date(Date.now() - Math.random() * 30 * 24 * 60 * 60 * 1000),
-        functionCalls: [
-          { name: 'swap', count: Math.floor(Math.random() * 50) + 5 },
-          { name: 'addLiquidity', count: Math.floor(Math.random() * 20) + 2 },
-          { name: 'removeLiquidity', count: Math.floor(Math.random() * 15) + 1 },
-          { name: 'approve', count: Math.floor(Math.random() * 30) + 3 }
-        ],
-        timeline: Array.from({ length: 30 }, (_, i) => ({
-          date: new Date(Date.now() - i * 24 * 60 * 60 * 1000),
-          interactions: Math.floor(Math.random() * 10),
-          type: i < 5 ? 'recent_use' : i < 10 ? 'regular_use' : i > 25 ? 'first_use' : 'heavy_use'
-        })).reverse(),
-        tokensUsed: ['ETH', 'USDC', 'WBTC', 'USDT', 'DAI']
-      };
-      
-      setAnalysisData(mockData);
+    try {
+      const rawData = await fetchAmbientData(walletAddress);
+      const processedData = processAmbientData(rawData);
+      setAnalysisData(processedData);
+    } catch (err) {
+      setError('Failed to fetch Ambient data. Please check the wallet address and try again.');
+      console.error('Analysis error:', err);
+    } finally {
       setIsAnalyzing(false);
-    }, 2000);
+    }
   };
 
   return (
@@ -107,7 +236,7 @@ const DAppAnalyzer = () => {
                 </div>
                 <h1 className="text-2xl font-bold text-white">DApp Analyzer</h1>
                 <Badge variant="outline" className="border-green-500 text-green-300">
-                  Beta
+                  Ambient
                 </Badge>
               </div>
             </div>
@@ -122,79 +251,52 @@ const DAppAnalyzer = () => {
             <CardHeader>
               <CardTitle className="text-white flex items-center">
                 <Search className="w-5 h-5 mr-2 text-blue-400" />
-                Analyze DApp Activity
+                Analyze Ambient Activity
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
-              <div className="grid md:grid-cols-2 gap-6">
-                <div className="space-y-2">
-                  <Label htmlFor="wallet" className="text-white">Wallet Address</Label>
-                  <Input
-                    id="wallet"
-                    placeholder="0x..."
-                    value={walletAddress}
-                    onChange={(e) => setWalletAddress(e.target.value)}
-                    className="bg-slate-700 border-slate-600 text-white"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="dapp" className="text-white">Select DApp</Label>
-                  <Select value={selectedDApp} onValueChange={setSelectedDApp}>
-                    <SelectTrigger className="bg-slate-700 border-slate-600 text-white">
-                      <SelectValue placeholder="Choose a DApp to analyze" />
-                    </SelectTrigger>
-                    <SelectContent className="bg-slate-700 border-slate-600">
-                      {AVAILABLE_DAPPS.map((dapp) => (
-                        <SelectItem key={dapp.id} value={dapp.id} className="text-white hover:bg-slate-600">
-                          <div className="flex items-center space-x-2">
-                            <span>{dapp.name}</span>
-                            <Badge variant="outline" className="text-xs">
-                              {dapp.category}
-                            </Badge>
-                          </div>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+              <div className="space-y-2">
+                <Label htmlFor="wallet" className="text-white">Wallet Address</Label>
+                <Input
+                  id="wallet"
+                  placeholder="0x..."
+                  value={walletAddress}
+                  onChange={(e) => setWalletAddress(e.target.value)}
+                  className="bg-slate-700 border-slate-600 text-white"
+                />
               </div>
+
+              {error && (
+                <div className="text-red-400 text-sm">{error}</div>
+              )}
 
               <Button 
                 onClick={handleAnalyze}
-                disabled={!walletAddress || !selectedDApp || isAnalyzing}
+                disabled={!walletAddress || isAnalyzing}
                 className="w-full bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700"
               >
-                {isAnalyzing ? 'Analyzing...' : 'Analyze Activity'}
+                {isAnalyzing ? 'Analyzing Ambient Activity...' : 'Analyze Ambient Activity'}
               </Button>
             </CardContent>
           </Card>
 
-          {/* Available DApps */}
+          {/* Ambient Protocol Info */}
           <Card className="bg-slate-800/50 border-slate-700">
             <CardHeader>
-              <CardTitle className="text-white">Available DApps</CardTitle>
+              <CardTitle className="text-white">About Ambient Protocol</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {AVAILABLE_DAPPS.map((dapp) => (
-                  <div
-                    key={dapp.id}
-                    className={`p-4 rounded-lg border transition-all cursor-pointer ${
-                      selectedDApp === dapp.id
-                        ? 'border-green-500 bg-green-500/10'
-                        : 'border-slate-600 bg-slate-700/30 hover:border-slate-500'
-                    }`}
-                    onClick={() => setSelectedDApp(dapp.id)}
-                  >
-                    <div className="flex items-start justify-between mb-2">
-                      <h3 className="font-semibold text-white">{dapp.name}</h3>
-                      <Badge variant="outline" className="text-xs">
-                        {dapp.category}
-                      </Badge>
-                    </div>
-                    <p className="text-gray-400 text-sm">{dapp.description}</p>
-                  </div>
-                ))}
+              <div className="p-4 rounded-lg border border-green-500/20 bg-green-500/10">
+                <div className="flex items-start justify-between mb-2">
+                  <h3 className="font-semibold text-white">{AMBIENT_DAPP.name}</h3>
+                  <Badge variant="outline" className="text-xs border-green-500 text-green-300">
+                    {AMBIENT_DAPP.category}
+                  </Badge>
+                </div>
+                <p className="text-gray-400 text-sm">{AMBIENT_DAPP.description}</p>
+                <p className="text-gray-400 text-xs mt-2">
+                  Tracks: Swaps, Micro Swaps, Ambient/Range Mints & Burns
+                </p>
               </div>
             </CardContent>
           </Card>
@@ -217,18 +319,18 @@ const DAppAnalyzer = () => {
                       <div className="text-gray-400 text-sm">Total Interactions</div>
                     </div>
                     <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-4">
-                      <div className="text-2xl font-bold text-green-400">${analysisData.totalVolume}</div>
+                      <div className="text-2xl font-bold text-green-400">{analysisData.totalVolume}</div>
                       <div className="text-gray-400 text-sm">Total Volume</div>
                     </div>
                     <div className="bg-purple-500/10 border border-purple-500/20 rounded-lg p-4">
                       <div className="text-2xl font-bold text-purple-400">
-                        {Math.floor((Date.now() - analysisData.firstInteraction) / (1000 * 60 * 60 * 24))}d
+                        {Math.floor((Date.now() - analysisData.firstInteraction.getTime()) / (1000 * 60 * 60 * 24))}d
                       </div>
                       <div className="text-gray-400 text-sm">Days Active</div>
                     </div>
                     <div className="bg-orange-500/10 border border-orange-500/20 rounded-lg p-4">
                       <div className="text-2xl font-bold text-orange-400">
-                        {Math.floor((Date.now() - analysisData.lastInteraction) / (1000 * 60 * 60 * 24))}d
+                        {Math.floor((Date.now() - analysisData.lastInteraction.getTime()) / (1000 * 60 * 60 * 24))}d
                       </div>
                       <div className="text-gray-400 text-sm">Days Since Last</div>
                     </div>
