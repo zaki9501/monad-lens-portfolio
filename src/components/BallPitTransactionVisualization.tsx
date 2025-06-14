@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Card, CardContent } from "@/components/ui/card";
-import { ArrowUp, ArrowDown, Send, Download, Code, Zap } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ArrowUp, ArrowDown, Send, Download, Code, Zap, Filter } from "lucide-react";
 import Ballpit from './Ballpit';
 
 interface Transaction {
@@ -28,8 +29,9 @@ const BallPitTransactionVisualization: React.FC<BallPitTransactionVisualizationP
 }) => {
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [transactionLimit, setTransactionLimit] = useState<number>(130);
 
-  const transactions = useMemo(() => {
+  const allTransactions = useMemo(() => {
     if (!data?.result?.data) return [];
     
     const activities = data.result.data;
@@ -88,15 +90,26 @@ const BallPitTransactionVisualization: React.FC<BallPitTransactionVisualizationP
       });
     });
 
-    console.log(`Processed ${txs.length} transactions:`, {
+    console.log(`Processed ${txs.length} total transactions:`, {
       send: txs.filter(t => t.type === 'send').length,
       receive: txs.filter(t => t.type === 'receive').length,
-      contract: txs.filter(t => t.type === 'contract').length,
-      breakdown: txs.map(t => ({ type: t.type, hash: t.hash.slice(0, 8) }))
+      contract: txs.filter(t => t.type === 'contract').length
     });
     
     return txs;
   }, [data]);
+
+  // Filter transactions based on selected limit
+  const transactions = useMemo(() => {
+    const filtered = allTransactions.slice(0, transactionLimit);
+    console.log(`Filtered to ${filtered.length} transactions (limit: ${transactionLimit}):`, {
+      send: filtered.filter(t => t.type === 'send').length,
+      receive: filtered.filter(t => t.type === 'receive').length,
+      contract: filtered.filter(t => t.type === 'contract').length,
+      breakdown: filtered.map(t => ({ type: t.type, hash: t.hash.slice(0, 8) }))
+    });
+    return filtered;
+  }, [allTransactions, transactionLimit]);
 
   useEffect(() => {
     const timer = setTimeout(() => setIsLoading(false), 1000);
@@ -166,7 +179,7 @@ const BallPitTransactionVisualization: React.FC<BallPitTransactionVisualizationP
   }
 
   // Show message if no transactions
-  if (transactions.length === 0) {
+  if (allTransactions.length === 0) {
     return (
       <div className="h-96 flex items-center justify-center">
         <div className={`text-center ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
@@ -179,6 +192,33 @@ const BallPitTransactionVisualization: React.FC<BallPitTransactionVisualizationP
 
   return (
     <div className="relative w-full h-[600px]">
+      {/* Filter Controls */}
+      <div className="absolute top-4 right-4 z-20">
+        <div className={`flex items-center space-x-2 px-3 py-2 rounded-lg backdrop-blur-sm ${
+          isDarkMode ? 'bg-slate-800/80 border border-slate-700' : 'bg-white/80 border border-gray-200'
+        }`}>
+          <Filter className={`w-4 h-4 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`} />
+          <span className={`text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+            Show last:
+          </span>
+          <Select value={transactionLimit.toString()} onValueChange={(value) => setTransactionLimit(Number(value))}>
+            <SelectTrigger className={`w-20 h-8 ${
+              isDarkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-white border-gray-300'
+            }`}>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="30">30</SelectItem>
+              <SelectItem value="60">60</SelectItem>
+              <SelectItem value="130">130</SelectItem>
+            </SelectContent>
+          </Select>
+          <span className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+            txs
+          </span>
+        </div>
+      </div>
+
       {/* Ball Pit Container */}
       <div className="absolute inset-0">
         <div style={{position: 'relative', overflow: 'hidden', minHeight: '500px', maxHeight: '500px', width: '100%'}}>
