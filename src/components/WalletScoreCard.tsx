@@ -1,10 +1,11 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
-import { Shield, TrendingUp, Activity, Users, Calendar, Zap, Target, Star, AlertTriangle, CheckCircle, Palette, Info, Wallet } from "lucide-react";
-import { getAccountTransactions, getAccountActivities } from "@/lib/blockvision";
+import { Shield, TrendingUp, Activity, Users, Calendar, Zap, Target, Star, AlertTriangle, CheckCircle, Palette, Info, Wallet, Image, Code2, Coins } from "lucide-react";
+import { getAccountTransactions, getAccountActivities, getAccountNFTs } from "@/lib/blockvision";
 import ReputationArtGenerator from "./ReputationArtGenerator";
 
 interface WalletScoreProps {
@@ -27,6 +28,10 @@ interface ScoreMetrics {
   transactionFrequency: number;
   firstTransactionAge: number;
   diversityScore: number;
+  // New metrics
+  nftActivities: number;
+  contractsDeployed: number;
+  stakingAmount: number;
 }
 
 interface ScoreBreakdown {
@@ -36,6 +41,10 @@ interface ScoreBreakdown {
   diversity: number;
   longevity: number;
   gasEfficiency: number;
+  // New breakdown scores
+  nftEngagement: number;
+  deploymentScore: number;
+  stakingScore: number;
 }
 
 const WalletScoreCard = ({
@@ -63,26 +72,30 @@ const WalletScoreCard = ({
   const fetchAllTransactions = async (address: string, maxLimit = 1000) => {
     console.log('Fetching all transactions for comprehensive analysis...');
 
-    const [txData, activityData] = await Promise.all([
+    const [txData, activityData, nftData] = await Promise.all([
       getAccountTransactions(address, maxLimit),
-      getAccountActivities(address, maxLimit)
+      getAccountActivities(address, maxLimit),
+      getAccountNFTs(address, 1).catch(() => ({ result: { data: [] } })) // Handle rate limit gracefully
     ]);
 
     console.log('Raw transaction data:', txData);
     console.log('Raw activity data:', activityData);
+    console.log('Raw NFT data:', nftData);
 
     const transactions = txData?.result?.data || [];
     const activities = activityData?.result?.data || [];
+    const nfts = nftData?.result?.data || [];
 
     const totalFromTxApi = txData?.result?.total || transactions.length;
     const totalFromActivityApi = activityData?.result?.total || activities.length;
 
-    console.log(`API reported totals - Transactions: ${totalFromTxApi}, Activities: ${totalFromActivityApi}`);
-    console.log(`Fetched - Transactions: ${transactions.length}, Activities: ${activities.length}`);
+    console.log(`API reported totals - Transactions: ${totalFromTxApi}, Activities: ${totalFromActivityApi}, NFTs: ${nfts.length}`);
+    console.log(`Fetched - Transactions: ${transactions.length}, Activities: ${activities.length}, NFTs: ${nfts.length}`);
 
     return {
       transactions,
       activities,
+      nfts,
       totalFromTxApi,
       totalFromActivityApi
     };
@@ -98,6 +111,7 @@ const WalletScoreCard = ({
       const {
         transactions,
         activities,
+        nfts,
         totalFromTxApi
       } = await fetchAllTransactions(walletAddress, 1000);
 
@@ -113,7 +127,7 @@ const WalletScoreCard = ({
         return;
       }
 
-      const calculatedMetrics = calculateMetrics(transactions, activities, totalFromTxApi);
+      const calculatedMetrics = calculateMetrics(transactions, activities, nfts, totalFromTxApi);
       console.log('Calculated metrics:', calculatedMetrics);
       
       const breakdown = calculateScoreBreakdown(calculatedMetrics);
@@ -134,7 +148,7 @@ const WalletScoreCard = ({
     }
   };
 
-  const calculateMetrics = (transactions: any[], activities: any[], apiTotalTx: number): ScoreMetrics => {
+  const calculateMetrics = (transactions: any[], activities: any[], nfts: any[], apiTotalTx: number): ScoreMetrics => {
     const totalTransactions = Math.max(apiTotalTx, transactions.length + activities.length);
     console.log(`Total transactions: ${totalTransactions} (API: ${apiTotalTx}, Fetched: ${transactions.length + activities.length})`);
 
@@ -184,6 +198,7 @@ const WalletScoreCard = ({
 
     const contractAddresses = new Set<string>();
     let contractsInteracted = 0;
+    let contractsDeployed = 0;
     allTxs.forEach(tx => {
       const isContractTx = tx.isContract || tx.contractAddress || 
         tx.to && tx.to !== walletAddress && tx.to !== '' && tx.to !== '0x0000000000000000000000000000000000000000' ||
@@ -197,9 +212,57 @@ const WalletScoreCard = ({
           contractAddresses.add(contractAddr.toLowerCase());
         }
       }
+
+      // Check for contract deployment (transaction with no 'to' address and creates contract)
+      if ((tx.to === '' || tx.to === null || tx.to === '0x0000000000000000000000000000000000000000') && tx.contractAddress) {
+        contractsDeployed++;
+        console.log(`Contract deployment detected: ${tx.contractAddress}`);
+      }
     });
     const uniqueContracts = contractAddresses.size;
-    console.log(`Contracts: ${contractsInteracted} interactions, ${uniqueContracts} unique`);
+    console.log(`Contracts: ${contractsInteracted} interactions, ${uniqueContracts} unique, ${contractsDeployed} deployed`);
+
+    // Calculate NFT activities
+    let nftActivities = 0;
+    allTxs.forEach(tx => {
+      // Check for NFT-related activities (transfers, mints, sales)
+      if (tx.txName && (
+        tx.txName.toLowerCase().includes('mint') ||
+        tx.txName.toLowerCase().includes('transfer') ||
+        tx.txName.toLowerCase().includes('buy') ||
+        tx.txName.toLowerCase().includes('sell') ||
+        tx.txName.toLowerCase().includes('nft')
+      )) {
+        nftActivities++;
+      }
+      
+      // Check method names for ERC721/ERC1155 activities
+      if (tx.methodName && (
+        tx.methodName === 'mint' ||
+        tx.methodName === 'safeMint' ||
+        tx.methodName === 'transferFrom' ||
+        tx.methodName === 'safeTransferFrom'
+      )) {
+        nftActivities++;
+      }
+    });
+    nftActivities += nfts.length; // Add owned NFTs
+    console.log(`NFT activities: ${nftActivities} (including ${nfts.length} owned NFTs)`);
+
+    // Calculate staking amount
+    let stakingAmount = 0;
+    const stakingTokens = ['shMON', 'sMON', 'gMON', 'aprMON']; // Common staking tokens on Monad
+    allTxs.forEach(tx => {
+      if (tx.addTokens && Array.isArray(tx.addTokens)) {
+        tx.addTokens.forEach((token: any) => {
+          if (stakingTokens.includes(token.symbol)) {
+            stakingAmount += Number(token.amount || 0);
+            console.log(`Staking token received: ${token.amount} ${token.symbol}`);
+          }
+        });
+      }
+    });
+    console.log(`Total staking amount: ${stakingAmount}`);
 
     const dates = new Set<string>();
     allTxs.forEach(tx => {
@@ -239,7 +302,10 @@ const WalletScoreCard = ({
       averageGasPrice,
       transactionFrequency,
       firstTransactionAge,
-      diversityScore
+      diversityScore,
+      nftActivities,
+      contractsDeployed,
+      stakingAmount
     };
 
     console.log('Final metrics:', result);
@@ -269,24 +335,35 @@ const WalletScoreCard = ({
     const avgGasPerTx = metrics.totalTransactions > 0 ? metrics.gasSpent / metrics.totalTransactions : 0;
     const gasEfficiencyScore = Math.max(0, Math.min(100, 100 - avgGasPerTx * 50));
 
+    // New scoring factors
+    const nftEngagement = Math.min(100, metrics.nftActivities * 5);
+    const deploymentScore = Math.min(100, metrics.contractsDeployed * 20);
+    const stakingScore = Math.min(100, Math.log10(Math.max(1, metrics.stakingAmount + 1)) * 30);
+
     return {
       activity: Math.max(0, activityScore),
       volume: Math.max(0, volumeScore),
       consistency: Math.max(0, consistencyScore),
       diversity: Math.max(0, diversityScore),
       longevity: Math.max(0, longevityScore),
-      gasEfficiency: Math.max(0, gasEfficiencyScore)
+      gasEfficiency: Math.max(0, gasEfficiencyScore),
+      nftEngagement: Math.max(0, nftEngagement),
+      deploymentScore: Math.max(0, deploymentScore),
+      stakingScore: Math.max(0, stakingScore)
     };
   };
 
   const calculateOverallScore = (breakdown: ScoreBreakdown): number => {
     const weights = {
-      activity: 0.25,
-      volume: 0.15,
-      consistency: 0.20,
-      diversity: 0.15,
-      longevity: 0.15,
-      gasEfficiency: 0.10
+      activity: 0.20,
+      volume: 0.12,
+      consistency: 0.15,
+      diversity: 0.12,
+      longevity: 0.12,
+      gasEfficiency: 0.08,
+      nftEngagement: 0.08,
+      deploymentScore: 0.08,
+      stakingScore: 0.05
     };
 
     return Math.round(
@@ -295,7 +372,10 @@ const WalletScoreCard = ({
       breakdown.consistency * weights.consistency +
       breakdown.diversity * weights.diversity +
       breakdown.longevity * weights.longevity +
-      breakdown.gasEfficiency * weights.gasEfficiency
+      breakdown.gasEfficiency * weights.gasEfficiency +
+      breakdown.nftEngagement * weights.nftEngagement +
+      breakdown.deploymentScore * weights.deploymentScore +
+      breakdown.stakingScore * weights.stakingScore
     );
   };
 
@@ -557,6 +637,37 @@ const WalletScoreCard = ({
                     </div>
                     <div className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
                       Account Age (Days)
+                    </div>
+                  </div>
+
+                  {/* New Metrics */}
+                  <div className={`text-center p-3 rounded-lg ${isDarkMode ? 'bg-slate-700/30' : 'bg-gray-50'}`}>
+                    <Image className="w-6 h-6 mx-auto mb-2 text-emerald-400" />
+                    <div className={`text-xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                      {metrics.nftActivities}
+                    </div>
+                    <div className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                      NFT Activities
+                    </div>
+                  </div>
+
+                  <div className={`text-center p-3 rounded-lg ${isDarkMode ? 'bg-slate-700/30' : 'bg-gray-50'}`}>
+                    <Code2 className="w-6 h-6 mx-auto mb-2 text-violet-400" />
+                    <div className={`text-xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                      {metrics.contractsDeployed}
+                    </div>
+                    <div className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                      Contracts Deployed
+                    </div>
+                  </div>
+
+                  <div className={`text-center p-3 rounded-lg ${isDarkMode ? 'bg-slate-700/30' : 'bg-gray-50'}`}>
+                    <Coins className="w-6 h-6 mx-auto mb-2 text-amber-400" />
+                    <div className={`text-xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                      {metrics.stakingAmount.toFixed(2)}
+                    </div>
+                    <div className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                      Staking Amount (MON)
                     </div>
                   </div>
                 </div>
