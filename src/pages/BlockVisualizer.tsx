@@ -74,14 +74,6 @@ const BlockVisualizer = () => {
       
       {/* Block Tooltip */}
       {hoveredRay && <BlockTooltip ray={hoveredRay} />}
-      
-      {/* Add some CSS for animations */}
-      <style jsx>{`
-        @keyframes float {
-          0%, 100% { transform: translateY(0px); }
-          50% { transform: translateY(-10px); }
-        }
-      `}</style>
     </div>
   );
 };
