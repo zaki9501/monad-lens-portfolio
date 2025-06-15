@@ -471,13 +471,13 @@ const BlockVisualizer = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-x-10 gap-y-2 text-base">
                 <div>
                   <span className="text-green-600">From:</span>
-                  <span className="ml-2 text-cyan-300 select-all break-all" title={searchResult.from}>
+                  <span className="ml-2 text-cyan-400 select-all break-all" title={searchResult.from}>
                     {searchResult.from}
                   </span>
                 </div>
                 <div>
                   <span className="text-green-600">To:</span>
-                  <span className="ml-2 text-cyan-300 select-all break-all" title={searchResult.to}>
+                  <span className="ml-2 text-cyan-400 select-all break-all" title={searchResult.to}>
                     {searchResult.to || 'N/A'}
                   </span>
                 </div>
@@ -689,16 +689,19 @@ const BlockVisualizer = () => {
 
         {/* Center - 3D Globe Visualization & Details */}
         <div className="col-span-6 relative">
-          <Card className="bg-gray-900/30 border-green-900/50 h-full">
+          <Card className="bg-gray-900/30 border-green-900/50 h-full max-h-[500px] flex flex-col">
             <CardHeader className="pb-2">
               <CardTitle className="text-green-400 text-sm flex items-center gap-2">
                 <Globe className="h-4 w-4" />
                 MONAD NETWORK PULSE
               </CardTitle>
             </CardHeader>
-            <CardContent className="p-0 h-[calc(100%-60px)] relative">
+            <CardContent className="p-0 flex-1 relative">
               {/* --- GLOBE VISUALIZATION --- */}
-              <div className="flex items-center justify-center w-full relative" style={{ minHeight: 400 }}>
+              <div
+                className="flex items-center justify-center w-full relative"
+                style={{ height: 400, maxHeight: 400 }}
+              >
                 <div className="absolute inset-0 w-full h-full pointer-events-none opacity-60">
                   <Globe3D blocks={recentBlocks} onBlockClick={handleBlockClick} />
                 </div>
