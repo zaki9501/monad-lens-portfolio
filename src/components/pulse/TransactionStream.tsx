@@ -35,7 +35,10 @@ const TransactionStream: React.FC<TransactionStreamProps> = ({ currentBlock }) =
     return eth > 0.001 ? `${eth.toFixed(4)} ETH` : `${wei.toLocaleString()} wei`;
   };
 
-  const formatAddress = (address: string) => {
+  const formatAddress = (address: string | null | undefined) => {
+    if (!address || typeof address !== 'string') {
+      return 'N/A';
+    }
     return `${address.slice(0, 6)}...${address.slice(-4)}`;
   };
 
