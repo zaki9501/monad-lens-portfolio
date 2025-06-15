@@ -1,7 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
 import Hyperspeed from "../components/Hyperspeed/Hyperspeed";
-import InteractiveRay from '../components/InteractiveRay';
 import BlockTooltip from '../components/BlockTooltip';
 import { useBlockRays } from '../hooks/useBlockRays';
 
@@ -47,6 +46,8 @@ const BlockVisualizer = () => {
     carWidthPercentage: [0.3, 0.5] as [number, number],
     carShiftX: [-0.8, 0.8] as [number, number],
     carFloorSeparation: [0, 5] as [number, number],
+    blockData: blockRays, // Pass block data to hyperspeed
+    onRayHover: setHoveredRay, // Pass hover handler
     colors: {
       roadColor: 0x080808,
       islandColor: 0x0a0a0a,
@@ -62,15 +63,6 @@ const BlockVisualizer = () => {
   return (
     <div className="w-full h-screen overflow-hidden bg-black relative">
       <Hyperspeed effectOptions={hyperspeedOptions} />
-      
-      {/* Interactive Block Rays */}
-      {blockRays.map((ray) => (
-        <InteractiveRay
-          key={ray.id}
-          ray={ray}
-          onHover={setHoveredRay}
-        />
-      ))}
       
       {/* Block Tooltip */}
       {hoveredRay && <BlockTooltip ray={hoveredRay} />}

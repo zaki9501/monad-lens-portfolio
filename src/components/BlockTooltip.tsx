@@ -16,16 +16,18 @@ interface BlockTooltipProps {
 }
 
 const BlockTooltip: React.FC<BlockTooltipProps> = ({ ray }) => {
-  const { block, position } = ray;
+  const { block } = ray;
   
+  // Position tooltip in center-right area for better visibility
   const tooltipStyle = {
-    left: position.x + (ray.side === 'left' ? 50 : -350),
-    top: position.y - 50,
+    right: '20px',
+    top: '50%',
+    transform: 'translateY(-50%)',
   };
 
   return (
     <div
-      className="absolute z-30 animate-in fade-in-0 zoom-in-95 duration-200"
+      className="fixed z-30 animate-in fade-in-0 zoom-in-95 duration-200"
       style={tooltipStyle}
     >
       <Card className="bg-slate-900/95 border-purple-500/50 backdrop-blur-md shadow-2xl w-80">
