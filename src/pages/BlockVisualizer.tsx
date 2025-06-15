@@ -45,6 +45,10 @@ const BlockVisualizer = () => {
   const [isSearchingTx, setIsSearchingTx] = useState(false);
   const [txSearchError, setTxSearchError] = useState('');
   const { toast } = useToast();
+  const [contractSearch, setContractSearch] = useState('');
+  const [isSearchingContract, setIsSearchingContract] = useState(false);
+  const [contractResult, setContractResult] = useState<any | null>(null);
+  const [contractSearchError, setContractSearchError] = useState('');
 
   useEffect(() => {
     const fetchData = async () => {
@@ -83,6 +87,50 @@ const BlockVisualizer = () => {
     const interval = setInterval(fetchData, 3000);
     return () => clearInterval(interval);
   }, []);
+
+  // Contract search logic
+  const handleContractSearch = async () => {
+    setContractResult(null);
+    setContractSearchError('');
+    const address = contractSearch.trim();
+
+    if (!/^0x[a-fA-F0-9]{40}$/.test(address)) {
+      setContractSearchError("Please enter a valid contract address.");
+      return;
+    }
+    setIsSearchingContract(true);
+    try {
+      const response = await fetch('https://testnet-rpc.monad.xyz/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          jsonrpc: '2.0',
+          method: 'eth_getCode',
+          params: [address, 'latest'],
+          id: 2
+        })
+      });
+      if (!response.ok) throw new Error('Network error');
+      const data = await response.json();
+      // data.result is contract code as hex. If '0x', not a contract.
+      if (data?.result && data.result !== "0x" && data.result !== "0X") {
+        setContractResult({
+          address,
+          code: data.result,
+        });
+      } else {
+        setContractSearchError('Address is not a contract.');
+      }
+    } catch (err) {
+      setContractSearchError('Failed to fetch contract.');
+    } finally {
+      setIsSearchingContract(false);
+    }
+  };
+
+  const handleContractInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") handleContractSearch();
+  };
 
   // Transaction search function
   const handleTxSearch = async () => {
@@ -167,10 +215,11 @@ const BlockVisualizer = () => {
               <span>REAL-TIME</span>
             </div>
           </div>
-          {/* Search bar for transaction hash */}
+          {/* Search bar for transaction hash and contract */}
           <div className="flex items-center gap-2 ml-auto">
+            {/* TX Search */}
             <Input
-              className="w-[240px] text-xs font-mono border-green-900/60 bg-gray-800/80"
+              className="w-[220px] text-xs font-mono border-green-900/60 bg-gray-800/80"
               placeholder="Search TX hash…"
               value={transactionSearch}
               onChange={e => { setTransactionSearch(e.target.value); setTxSearchError(''); }}
@@ -179,18 +228,39 @@ const BlockVisualizer = () => {
             />
             <Button
               size="sm"
-              className="bg-gradient-to-r from-green-700 to-cyan-600 text-white h-8 px-4"
+              className="bg-gradient-to-r from-green-700 to-cyan-600 text-white h-8 px-3"
               onClick={handleTxSearch}
               disabled={isSearchingTx}
             >
               <Search className="w-4 h-4 mr-1" />
               {isSearchingTx ? "Searching..." : "Search"}
             </Button>
+            {/* Contract Search */}
+            <Input
+              className="w-[190px] text-xs font-mono border-cyan-900/60 bg-gray-800/80"
+              placeholder="Search contract address…"
+              value={contractSearch}
+              onChange={e => { setContractSearch(e.target.value); setContractSearchError(''); }}
+              onKeyDown={handleContractInputKeyDown}
+              disabled={isSearchingContract}
+            />
+            <Button
+              size="sm"
+              className="bg-gradient-to-r from-cyan-700 to-blue-600 text-white h-8 px-3"
+              onClick={handleContractSearch}
+              disabled={isSearchingContract}
+            >
+              <Search className="w-4 h-4 mr-1" />
+              {isSearchingContract ? "Searching..." : "Search"}
+            </Button>
           </div>
         </div>
-        {/* Optional: Show error message below search input */}
-        {txSearchError && (
-          <div className="text-xs text-red-500 mt-2">{txSearchError}</div>
+        {/* Error messages */}
+        {(txSearchError || contractSearchError) && (
+          <div className="text-xs text-red-500 mt-2 flex flex-row gap-4">
+            {txSearchError && <span>{txSearchError}</span>}
+            {contractSearchError && <span>{contractSearchError}</span>}
+          </div>
         )}
       </div>
 
@@ -274,6 +344,58 @@ const BlockVisualizer = () => {
         </div>
       )}
 
+      {/* Show contract result card if present */}
+      {contractResult && (
+        <div className="w-full flex justify-end mb-4 pr-2 animate-fade-in-up">
+          <Card className="border-blue-400 bg-black/95 p-6 max-w-2xl w-full rounded-xl shadow-2xl relative min-w-[420px]">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setContractResult(null)}
+              className="absolute right-3 top-3 text-blue-400/70 hover:text-cyan-300 p-2 h-auto"
+            >
+              {/* XCircle from lucide-react */}
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+            </Button>
+            <div className="text-blue-300 text-base font-mono space-y-2 pr-10">
+              <div className="flex flex-wrap items-center gap-3 mb-3">
+                <span className="text-blue-400 font-bold text-lg">Contract Details</span>
+                <span className="bg-blue-800/70 border border-blue-500 rounded-md px-3 py-1 font-mono text-blue-200 text-xs select-all break-all" title={contractResult.address}>
+                  Address: {contractResult.address}
+                </span>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-2 text-sm">
+                <div>
+                  <span className="text-blue-700">Code Size:</span>
+                  <span className="ml-2">{(contractResult.code.length / 2 - 1).toLocaleString()} bytes</span>
+                </div>
+                <div>
+                  <span className="text-blue-700">Is Proxy:</span>
+                  <span className="ml-2">N/A</span>
+                </div>
+                <div className="col-span-1 md:col-span-2 break-all">
+                  <span className="text-blue-700">Code Preview:</span>
+                  <pre className="block p-2 bg-gray-800 text-blue-200 rounded break-words max-h-32 overflow-auto mt-1 text-xs select-all">
+                    {contractResult.code.length > 120
+                      ? contractResult.code.slice(0, 120) + "..."
+                      : contractResult.code}
+                  </pre>
+                </div>
+                <div className="col-span-1 md:col-span-2 break-all">
+                  <span className="text-blue-700">Full Code:</span>
+                  <span className="ml-2 text-gray-400 select-all" title={contractResult.code.length > 1000 ? undefined : contractResult.code}>
+                    {contractResult.code.length > 1000
+                      ? `${contractResult.code.slice(0, 100)}... (${contractResult.code.length} chars)`
+                      : contractResult.code}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {/* The rest of the page */}
       <div className="grid grid-cols-12 gap-4 h-[calc(100vh-120px)]">
 
         {/* Left Panel */}
