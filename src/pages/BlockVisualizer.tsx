@@ -23,7 +23,7 @@ const BlockVisualizer = () => {
   }, [blockRays.length]);
 
   const hyperspeedOptions = {
-    distortion: 'turbulentDistortion',
+    distortion: 'turbulentDistortion' as const,
     length: 400,
     roadWidth: 10,
     islandWidth: 2,

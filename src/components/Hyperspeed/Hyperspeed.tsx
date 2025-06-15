@@ -1,3 +1,4 @@
+
 import React, { useRef, useMemo, useEffect } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { Mesh, Vector3, Group } from 'three';
@@ -76,7 +77,7 @@ const Island: React.FC<HyperspeedEffectOptions> = (options) => {
 };
 
 const Lines: React.FC<HyperspeedEffectOptions> = (options) => {
-  const lines = useRef<Mesh>(null!);
+  const lines = useRef<Group>(null!);
   const totalLines = options.lanesPerRoad;
   const lineWidth = options.roadWidth / totalLines;
   const lineOffset = lineWidth / 2;
@@ -110,7 +111,7 @@ const Lines: React.FC<HyperspeedEffectOptions> = (options) => {
 };
 
 const BrokenLines: React.FC<HyperspeedEffectOptions> = (options) => {
-  const brokenLines = useRef<Mesh>(null!);
+  const brokenLines = useRef<Group>(null!);
   const totalLines = options.lanesPerRoad;
   const lineWidth = options.roadWidth / totalLines;
   const lineOffset = lineWidth / 2;
@@ -144,7 +145,7 @@ const BrokenLines: React.FC<HyperspeedEffectOptions> = (options) => {
 };
 
 const Lights: React.FC<HyperspeedEffectOptions> = (options) => {
-  const lights = useRef<Mesh>(null!);
+  const lights = useRef<Group>(null!);
   const totalLights = options.lightPairsPerRoadWay;
   const lightsArray = useMemo(() => {
     const arr = [];
@@ -182,8 +183,8 @@ const Lights: React.FC<HyperspeedEffectOptions> = (options) => {
 };
 
 const Cars: React.FC<HyperspeedEffectOptions> = (options) => {
-  const carsLeft = useRef<Mesh>(null!);
-  const carsRight = useRef<Mesh>(null!);
+  const carsLeft = useRef<Group>(null!);
+  const carsRight = useRef<Group>(null!);
   const totalCars = options.totalSideLightSticks / 2;
 
   const carsLeftArray = useMemo(() => {
@@ -205,16 +206,28 @@ const Cars: React.FC<HyperspeedEffectOptions> = (options) => {
   useFrame(() => {
     carsLeft.current.children.forEach((car) => {
       car.position.z += getRandomFloat(options.movingAwaySpeed[0], options.movingAwaySpeed[1]);
-      car.children[0].material.opacity = Math.abs(Math.sin(car.position.z / options.length * Math.PI)) * options.carLightsFade;
-      car.children[1].material.opacity = Math.abs(Math.sin(car.position.z / options.length * Math.PI)) * options.carLightsFade;
+      const mesh1 = car.children[0] as Mesh;
+      const mesh2 = car.children[1] as Mesh;
+      if (mesh1?.material) {
+        (mesh1.material as any).opacity = Math.abs(Math.sin(car.position.z / options.length * Math.PI)) * options.carLightsFade;
+      }
+      if (mesh2?.material) {
+        (mesh2.material as any).opacity = Math.abs(Math.sin(car.position.z / options.length * Math.PI)) * options.carLightsFade;
+      }
       if (car.position.z > options.length / 2) {
         car.position.z = -options.length / 2;
       }
     });
     carsRight.current.children.forEach((car) => {
       car.position.z += getRandomFloat(options.movingCloserSpeed[0], options.movingCloserSpeed[1]);
-      car.children[0].material.opacity = Math.abs(Math.sin(car.position.z / options.length * Math.PI)) * options.carLightsFade;
-      car.children[1].material.opacity = Math.abs(Math.sin(car.position.z / options.length * Math.PI)) * options.carLightsFade;
+      const mesh1 = car.children[0] as Mesh;
+      const mesh2 = car.children[1] as Mesh;
+      if (mesh1?.material) {
+        (mesh1.material as any).opacity = Math.abs(Math.sin(car.position.z / options.length * Math.PI)) * options.carLightsFade;
+      }
+      if (mesh2?.material) {
+        (mesh2.material as any).opacity = Math.abs(Math.sin(car.position.z / options.length * Math.PI)) * options.carLightsFade;
+      }
       if (car.position.z < -options.length / 2) {
         car.position.z = options.length / 2;
       }
