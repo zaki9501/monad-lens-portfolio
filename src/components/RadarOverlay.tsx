@@ -1,7 +1,6 @@
-
 import React, { useRef, useEffect, useState } from "react";
 import { Card } from "@/components/ui/card";
-import { ship } from "lucide-react";
+import { Ship } from "lucide-react";
 
 interface BlockRadarBlip {
   id: string;
@@ -54,6 +53,7 @@ const RadarOverlay: React.FC<RadarOverlayProps> = ({ recentBlocks, onSelectBlock
   const [sweepAngle, setSweepAngle] = useState(0);
   const [dimensions, setDimensions] = useState({ w: 400, h: 400 });
   const waveData = useFakeWaveData();
+  const [selectedShip, setSelectedShip] = useState<BlockRadarBlip | null>(null);
 
   useEffect(() => {
     function handleResize() {
@@ -174,13 +174,12 @@ const RadarOverlay: React.FC<RadarOverlayProps> = ({ recentBlocks, onSelectBlock
       const bx = w / 2 + shipR * Math.cos(shipData.angle);
       const by = h / 2 + shipR * Math.sin(shipData.angle);
 
-      // Draw the "ship" SVG-like
       ctx.save();
       ctx.translate(bx, by);
       ctx.rotate(shipData.angle - Math.PI / 2); // up points to radar center
       ctx.globalAlpha = fade * (shipData.id === selectedBlockHash ? 1 : 0.85);
 
-      // Render lucide-react 'ship' icon using primitive drawing (simple triangle+tail)
+      // Draw "ship" icon using vector equivalent (as before, triangle+tail)
       ctx.beginPath();
       ctx.moveTo(0, -14); // nose
       ctx.lineTo(8, 10);
@@ -192,7 +191,7 @@ const RadarOverlay: React.FC<RadarOverlayProps> = ({ recentBlocks, onSelectBlock
       ctx.shadowBlur = shipData.id === selectedBlockHash ? 18 : 10;
       ctx.fill();
 
-      // Draw "tail"
+      // Tail
       ctx.beginPath();
       ctx.moveTo(0, 4);
       ctx.lineTo(3, 16);
@@ -207,29 +206,45 @@ const RadarOverlay: React.FC<RadarOverlayProps> = ({ recentBlocks, onSelectBlock
     }
   }, [ships, sweepAngle, dimensions, selectedBlockHash]);
 
-  // Register click to select block by ship position
+  // Register click to select block by ship position and set selected ship
   const handleRadarClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
     if (!canvasRef.current) return;
     const rect = canvasRef.current.getBoundingClientRect();
     const x = e.clientX - rect.left, y = e.clientY - rect.top;
     const { w, h } = dimensions;
-    // Find ship whose area covers the click and not at the center yet
     let found: BlockRadarBlip | null = null;
     ships.forEach((ship) => {
       const shipR = (w / 2) * ship.radius;
       const bx = w / 2 + shipR * Math.cos(ship.angle);
       const by = h / 2 + shipR * Math.sin(ship.angle);
       const dist = Math.sqrt((x - bx) ** 2 + (y - by) ** 2);
-      // Ship icon approx "fat" clickable: ~13px
       if (dist < 18 && (!found || ship.detectedAt > found.detectedAt)) found = ship;
     });
-    if (found) onSelectBlock(found.detail);
+    if (found) {
+      onSelectBlock(found.detail);
+      setSelectedShip(found);
+    }
   };
 
+  // Calculate latitude, longitude, radius of selected ship (if present)
+  let latitude = "--", longitude = "--", radiusPct = "--";
+  if (ships.length && selectedBlockHash) {
+    const sel = ships.find(s => s.id === selectedBlockHash);
+    if (sel) {
+      // Longitude: angle (radians) converted to degrees [-180, 180]
+      longitude = ((sel.angle * 180) / Math.PI - 180).toFixed(1);
+      // Latitude: simulate as "vertical" angle from center, scaling by radius
+      // For this radar, it's "0" at equator, so for demo:
+      latitude = (90 * sel.radius * Math.sin(sel.angle)).toFixed(1);
+      // Radius %: how close to edge
+      radiusPct = (100 * sel.radius).toFixed(1);
+    }
+  }
+
   return (
-    <div className="flex flex-row w-full max-w-5xl mx-auto min-h-[400px] relative gap-3">
-      {/* Radar canvas */}
-      <div className="relative" style={{ width: dimensions.w, height: dimensions.h }}>
+    <div className="flex flex-col items-center w-full max-w-5xl mx-auto min-h-[400px] relative gap-3">
+      {/* Centered Radar canvas */}
+      <div className="relative flex justify-center items-center" style={{ width: dimensions.w, height: dimensions.h }}>
         <canvas
           ref={canvasRef}
           width={dimensions.w}
@@ -245,20 +260,23 @@ const RadarOverlay: React.FC<RadarOverlayProps> = ({ recentBlocks, onSelectBlock
         <div className="absolute left-2 bottom-1 text-green-400 text-xs font-mono uppercase select-none opacity-70 pointer-events-none">Live Block Radar</div>
       </div>
 
-      {/* Right: block details + small chart */}
-      <div className="grow flex flex-col min-w-[220px] items-start">
-        {/* Block details panel */}
-        {selectedBlockHash ? (
-          <div className="w-full min-w-[220px] flex flex-col">
-            {/* Show selected block details */}
-            {/* Details panel and mini chart handled by parent */}
-          </div>
-        ) : (
-          <Card className="bg-black/30 border-green-700/40 p-4 mt-12 mb-2 text-green-600 font-mono text-xs select-none">
-            <div>Click on a ship to view block details</div>
-          </Card>
-        )}
+      {/* Overlays for geographic/radar details */}
+      <div className="w-full flex flex-row items-center justify-center gap-8 mt-2">
+        <div className="flex flex-col items-center font-mono text-xs text-green-400">
+          <span className="text-green-700">Longitude</span>
+          <span>{longitude}°</span>
+        </div>
+        <div className="flex flex-col items-center font-mono text-xs text-green-400">
+          <span className="text-green-700">Latitude</span>
+          <span>{latitude}°</span>
+        </div>
+        <div className="flex flex-col items-center font-mono text-xs text-green-400">
+          <span className="text-green-700">Radar Radius</span>
+          <span>{radiusPct}%</span>
+        </div>
       </div>
+
+      {/* Right: block details panel not rendered here; it's shown by caller */}
     </div>
   );
 };
