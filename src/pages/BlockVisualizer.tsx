@@ -1,69 +1,27 @@
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import Hyperspeed from "../components/Hyperspeed/Hyperspeed";
-import { Card, CardContent } from "@/components/ui/card";
-
-const fetchLatestBlock = async () => {
-  const response = await fetch('https://testnet-rpc.monad.xyz/', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      jsonrpc: '2.0',
-      method: 'eth_getBlockByNumber',
-      params: ['latest', true],
-      id: 1
-    })
-  });
-  
-  if (!response.ok) throw new Error('Failed to fetch block');
-  const data = await response.json();
-  return data.result;
-};
+import InteractiveRay from '../components/InteractiveRay';
+import BlockTooltip from '../components/BlockTooltip';
+import { useBlockRays } from '../hooks/useBlockRays';
 
 const BlockVisualizer = () => {
-  const [lastBlockHash, setLastBlockHash] = useState<string | null>(null);
   const [newBlockDetected, setNewBlockDetected] = useState(false);
   const [blockRayCount, setBlockRayCount] = useState(40);
-  const [currentBlock, setCurrentBlock] = useState<any>(null);
+  const { blockRays, hoveredRay, setHoveredRay } = useBlockRays();
 
-  const fetchBlockData = async () => {
-    try {
-      const block = await fetchLatestBlock();
+  // Simulate new block effects
+  useEffect(() => {
+    if (blockRays.length > 0) {
+      setNewBlockDetected(true);
+      setBlockRayCount(prev => prev + 5);
       
-      // Check if this is a new block
-      const isNewBlock = lastBlockHash && block?.hash && block.hash !== lastBlockHash;
-      
-      if (isNewBlock) {
-        console.log('New block detected:', block.hash);
-        setNewBlockDetected(true);
-        
-        // Add more light rays for the new block
-        setBlockRayCount(prev => prev + 5);
-        
-        // Reset after animation
-        setTimeout(() => {
-          setNewBlockDetected(false);
-          setBlockRayCount(40);
-        }, 2000);
-      }
-      
-      setLastBlockHash(block?.hash || null);
-      setCurrentBlock(block);
-    } catch (error) {
-      console.error('Failed to fetch block data:', error);
+      setTimeout(() => {
+        setNewBlockDetected(false);
+        setBlockRayCount(40);
+      }, 2000);
     }
-  };
-
-  useEffect(() => {
-    fetchBlockData();
-  }, []);
-
-  useEffect(() => {
-    const interval = setInterval(fetchBlockData, 3000);
-    return () => clearInterval(interval);
-  }, [lastBlockHash]);
+  }, [blockRays.length]);
 
   const hyperspeedOptions = {
     distortion: 'turbulentDistortion',
@@ -105,59 +63,25 @@ const BlockVisualizer = () => {
     <div className="w-full h-screen overflow-hidden bg-black relative">
       <Hyperspeed effectOptions={hyperspeedOptions} />
       
-      {/* Live Block Details - Left Corner */}
-      <div className="absolute top-4 left-4 z-10">
-        <Card className="bg-slate-900/90 border-purple-500/30 backdrop-blur-sm">
-          <CardContent className="p-4 text-white">
-            <h3 className="text-sm font-semibold text-purple-400 mb-2">Live Block</h3>
-            {currentBlock ? (
-              <div className="space-y-1 text-xs">
-                <div>
-                  <span className="text-gray-400">Number:</span>{' '}
-                  <span className="text-green-400">{parseInt(currentBlock.number, 16)}</span>
-                </div>
-                <div>
-                  <span className="text-gray-400">Hash:</span>{' '}
-                  <span className="text-blue-400 font-mono">
-                    {currentBlock.hash?.slice(0, 10)}...
-                  </span>
-                </div>
-                <div>
-                  <span className="text-gray-400">Gas Used:</span>{' '}
-                  <span className="text-yellow-400">{parseInt(currentBlock.gasUsed, 16).toLocaleString()}</span>
-                </div>
-                <div>
-                  <span className="text-gray-400">Timestamp:</span>{' '}
-                  <span className="text-cyan-400">
-                    {new Date(parseInt(currentBlock.timestamp, 16) * 1000).toLocaleTimeString()}
-                  </span>
-                </div>
-              </div>
-            ) : (
-              <div className="text-gray-400 text-xs">Loading...</div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Transaction Count - Right Corner */}
-      <div className="absolute top-4 right-4 z-10">
-        <Card className="bg-slate-900/90 border-purple-500/30 backdrop-blur-sm">
-          <CardContent className="p-4 text-white">
-            <h3 className="text-sm font-semibold text-purple-400 mb-2">Block Transactions</h3>
-            {currentBlock ? (
-              <div className="text-center">
-                <div className="text-2xl font-bold text-green-400">
-                  {currentBlock.transactions?.length || 0}
-                </div>
-                <div className="text-xs text-gray-400">Total TXs</div>
-              </div>
-            ) : (
-              <div className="text-gray-400 text-xs">Loading...</div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+      {/* Interactive Block Rays */}
+      {blockRays.map((ray) => (
+        <InteractiveRay
+          key={ray.id}
+          ray={ray}
+          onHover={setHoveredRay}
+        />
+      ))}
+      
+      {/* Block Tooltip */}
+      {hoveredRay && <BlockTooltip ray={hoveredRay} />}
+      
+      {/* Add some CSS for animations */}
+      <style jsx>{`
+        @keyframes float {
+          0%, 100% { transform: translateY(0px); }
+          50% { transform: translateY(-10px); }
+        }
+      `}</style>
     </div>
   );
 };
