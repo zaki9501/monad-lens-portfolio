@@ -43,7 +43,7 @@ const RadarBlockDetailPanel: React.FC<RadarBlockDetailPanelProps> = ({
         >
           ✕
         </button>
-        <div className="text-green-400 text-xs font-mono leading-[1.2] space-y-1">
+        <div className="text-green-400 text-xs font-mono leading-[1.2] space-y-1 break-all">
           <div>
             <b>Block</b> #{formatHex(block.number)}
           </div>
@@ -54,7 +54,16 @@ const RadarBlockDetailPanel: React.FC<RadarBlockDetailPanelProps> = ({
           </div>
           <div>
             <span className="text-green-600">Full Hash:</span>{" "}
-            <span className="text-cyan-400">{block.hash}</span>
+            <span
+              className="text-cyan-400 truncate max-w-[180px] inline-block align-top"
+              title={block.hash}
+              style={{
+                verticalAlign: 'middle',
+                wordBreak: 'break-all'
+              }}
+            >
+              {formatShortHash(block.hash)}
+            </span>
           </div>
           <div>
             <span className="text-green-600">Gas Used:</span>{" "}
@@ -77,3 +86,4 @@ const RadarBlockDetailPanel: React.FC<RadarBlockDetailPanelProps> = ({
 };
 
 export default RadarBlockDetailPanel;
+
