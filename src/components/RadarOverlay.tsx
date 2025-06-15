@@ -47,7 +47,11 @@ const getInitBlockRadius = (b: any) =>
   0.91 + 0.09 * (((typeof b.number === "string" ? parseInt(b.number, 16) : b.number || 7) % 700) / 700); // start near edge
 const finalRadius = 0.49; // ships go toward center to this limit
 
-const RadarOverlay: React.FC<RadarOverlayProps> = ({ recentBlocks, onSelectBlock, selectedBlockHash }) => {
+const RadarOverlay: React.FC<RadarOverlayProps> = ({
+  recentBlocks,
+  onSelectBlock,
+  selectedBlockHash,
+}) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [ships, setShips] = useState<BlockRadarBlip[]>([]);
   const [sweepAngle, setSweepAngle] = useState(0);
@@ -79,7 +83,7 @@ const RadarOverlay: React.FC<RadarOverlayProps> = ({ recentBlocks, onSelectBlock
     return () => cancelAnimationFrame(id);
   }, []);
 
-  // Update ships based on recentBlocks
+  // We will adapt the contract data to look like blocks for radar purposes
   useEffect(() => {
     if (!recentBlocks.length) return;
     const seen: { [hash: string]: boolean } = {};
@@ -87,10 +91,12 @@ const RadarOverlay: React.FC<RadarOverlayProps> = ({ recentBlocks, onSelectBlock
     let n = 0;
     for (let b of recentBlocks) {
       if (n > 6) break;
-      if (!b.hash || seen[b.hash]) continue;
-      seen[b.hash] = true;
+      // Use contract address as equivalent to block hash for uniqueness
+      const id = b.contract_address || b.hash;
+      if (!id || seen[id]) continue;
+      seen[id] = true;
       ret.push({
-        id: b.hash,
+        id: id,
         angle: getBlockAngle(b),
         radius: getInitBlockRadius(b),
         startingRadius: getInitBlockRadius(b),

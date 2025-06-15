@@ -61,6 +61,20 @@ async function fetchContractDeploymentInfo(address: string) {
   };
 }
 
+// New utility to fetch recent deployed contracts from Blockvision
+async function fetchRecentDeployedContracts(limit = 10) {
+  const url = `https://api.blockvision.org/v2/monad/contract/deployments?limit=${limit}`;
+  const res = await fetch(url, {
+    headers: {
+      "accept": "application/json",
+      "x-api-key": BLOCKVISION_API_KEY,
+    },
+  });
+  if (!res.ok) throw new Error("Failed to fetch deployed contracts");
+  const { data } = await res.json();
+  return data || [];
+}
+
 function formatDateTime(ts: string | number | null | undefined) {
   if (!ts) return "N/A";
   // Accept seconds or ms. Blockvision sends both sometimes
@@ -114,6 +128,11 @@ const BlockVisualizer = () => {
   const { toast } = useToast();
   const [miniWaveData, setMiniWaveData] = useState<{ t: number; v: number }[]>([]);
 
+  // New state for radar contracts and selected contract details
+  const [radarContracts, setRadarContracts] = useState<any[]>([]);
+  const [selectedRadarContract, setSelectedRadarContract] = useState<any | null>(null);
+  const [selectedRadarContractDetails, setSelectedRadarContractDetails] = useState<any | null>(null);
+
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -151,6 +170,45 @@ const BlockVisualizer = () => {
     const interval = setInterval(fetchData, 3000);
     return () => clearInterval(interval);
   }, []);
+
+  // Replace blocks on radar by recently deployed contracts
+  useEffect(() => {
+    let cancelled = false;
+    async function loadContracts() {
+      try {
+        const contracts = await fetchRecentDeployedContracts(8);
+        if (!cancelled) {
+          setRadarContracts(contracts);
+        }
+      } catch (err) {
+        // Optionally show toast or ignore
+      }
+    }
+    loadContracts();
+    const interval = setInterval(loadContracts, 4000);
+    return () => { cancelled = true; clearInterval(interval); };
+  }, []);
+
+  // When a contract is clicked on radar, load contract details from Blockvision
+  useEffect(() => {
+    if (!selectedRadarContract) {
+      setSelectedRadarContractDetails(null);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const info = await fetchContractDeploymentInfo(selectedRadarContract.contract_address);
+        if (!cancelled) setSelectedRadarContractDetails({
+          ...selectedRadarContract,
+          ...info,
+        });
+      } catch {
+        setSelectedRadarContractDetails(selectedRadarContract); // fallback
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [selectedRadarContract]);
 
   // Unified search for tx hash or contract address
   const handleSearch = async () => {
@@ -714,25 +772,35 @@ const BlockVisualizer = () => {
       {/* ------ RADAR & NETWORK DATA SECTION BELOW THE GRID ------ */}
       <section className="w-full flex flex-col items-center mt-16 mb-24">
         <h2 className="text-2xl font-bold text-green-400 mb-4 mt-2 text-center tracking-widest uppercase drop-shadow-lg">
-          MONAD BLOCK RADAR & FREQUENCY ANALYZER
+          MONAD CONTRACT RADAR & FREQUENCY ANALYZER
         </h2>
         <p className="text-green-600 text-center mb-6 max-w-lg">
-          Live block propagation visualized as sci-fi radar. New blocks are shown as ships slowly approaching the center; click a ship to view block details and frequency chart.
+          Live contract deployments visualized as sci-fi radar. New contracts are shown as ships slowly approaching the center; click to view contract details and deployment info.
         </p>
         <div className="flex flex-row w-full max-w-5xl justify-center">
           <RadarOverlay
-            recentBlocks={recentBlocks}
-            onSelectBlock={setSelectedRadarBlock}
-            selectedBlockHash={selectedRadarBlock?.hash || null}
+            recentBlocks={radarContracts} // renamed prop is still "recentBlocks" in legacy overlay
+            onSelectBlock={setSelectedRadarContract}
+            selectedBlockHash={selectedRadarContract?.contract_address || null}
+            // The overlay expects .hash to exist, so we must adapt it below!
           />
-          {/* Pass transactions to panel */}
-          {selectedRadarBlock && (
+          {selectedRadarContractDetails && (
             <div className="-ml-2">
               <RadarBlockDetailPanel
-                block={selectedRadarBlock}
+                block={{
+                  // Adapt shape for panel!
+                  ...selectedRadarContractDetails,
+                  number: selectedRadarContractDetails.block_number,
+                  hash: selectedRadarContractDetails.contract_address,
+                  miner: selectedRadarContractDetails.creator || selectedRadarContractDetails.from,
+                  timestamp: selectedRadarContractDetails.creationTime || selectedRadarContractDetails.time,
+                  transactions: [], // Optional, can fetch actual contract txns if desired
+                  gasUsed: selectedRadarContractDetails.gas_used || '0x0',
+                  gasLimit: selectedRadarContractDetails.gas_limit || '0x0',
+                }}
                 waveData={miniWaveData}
-                onClose={() => setSelectedRadarBlock(null)}
-                transactions={transactions}
+                onClose={() => setSelectedRadarContract(null)}
+                transactions={[]} // Optionally can fetch transactions for this contract
               />
             </div>
           )}
