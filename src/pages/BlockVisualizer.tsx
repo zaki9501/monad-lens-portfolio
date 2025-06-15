@@ -99,7 +99,7 @@ const BlockVisualizer = () => {
   };
 
   return (
-    <div className="w-full h-screen overflow-hidden">
+    <div className="w-full h-screen overflow-hidden bg-black">
       <Hyperspeed effectOptions={hyperspeedOptions} />
     </div>
   );
