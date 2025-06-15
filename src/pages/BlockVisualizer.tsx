@@ -42,7 +42,15 @@ const BlockVisualizer = () => {
       try {
         const block = await fetchLatestBlock();
         setCurrentBlock(block);
-        setRecentBlocks(prev => [block, ...prev.slice(0, 4)]);
+
+        // Deduplicate and update recentBlocks based on hash (avoid repeated blocks)
+        setRecentBlocks(prevBlocks => {
+          // Prepend the latest block, then append unique from previous (excluding same hash)
+          const allBlocks = [block, ...prevBlocks.filter(b => b.hash !== block.hash)];
+          // Keep only the N most recent unique blocks
+          return allBlocks.slice(0, 8); // set to show 8 recent blocks (adjust as you wish)
+        });
+
         if (block?.transactions) {
           setTransactions(block.transactions);
           setLiveGlobeTransactions(prevTransactions => {
