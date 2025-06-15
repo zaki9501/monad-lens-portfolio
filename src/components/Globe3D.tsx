@@ -32,22 +32,35 @@ const Globe = ({ transactions }: GlobeProps) => {
     const conns = [];
     for (let i = 0; i < nodes.length - 1; i++) {
       for (let j = i + 1; j < nodes.length; j++) {
-        const start = new THREE.Vector3(...nodes[i].position);
-        const end = new THREE.Vector3(...nodes[j].position);
-        
-        // Create curved path using quadratic bezier
-        const mid = start.clone().add(end).multiplyScalar(0.5);
-        mid.normalize().multiplyScalar(1.3); // Push outward for curve
-        
-        const curve = new THREE.QuadraticBezierCurve3(start, mid, end);
-        const points = curve.getPoints(50);
-        
-        conns.push({
-          points,
-          startNode: nodes[i].id,
-          endNode: nodes[j].id,
-          active: Math.random() > 0.3
-        });
+        try {
+          // Ensure we have valid position arrays
+          const startPos = nodes[i].position;
+          const endPos = nodes[j].position;
+          
+          if (!startPos || !endPos || startPos.length !== 3 || endPos.length !== 3) {
+            console.warn('Invalid node positions:', startPos, endPos);
+            continue;
+          }
+          
+          const start = new THREE.Vector3(startPos[0], startPos[1], startPos[2]);
+          const end = new THREE.Vector3(endPos[0], endPos[1], endPos[2]);
+          
+          // Create curved path using quadratic bezier
+          const mid = start.clone().add(end).multiplyScalar(0.5);
+          mid.normalize().multiplyScalar(1.3); // Push outward for curve
+          
+          const curve = new THREE.QuadraticBezierCurve3(start, mid, end);
+          const points = curve.getPoints(50);
+          
+          conns.push({
+            points,
+            startNode: nodes[i].id,
+            endNode: nodes[j].id,
+            active: Math.random() > 0.3
+          });
+        } catch (error) {
+          console.warn('Failed to create connection:', error);
+        }
       }
     }
     return conns;
@@ -118,24 +131,28 @@ const Globe = ({ transactions }: GlobeProps) => {
       
       {/* Connection rays using tube geometry */}
       <group ref={raysRef}>
-        {connections.map((connection, index) => (
-          connection.active && connection.points.length > 1 && (
-            <ConnectionRay
-              key={index}
-              points={connection.points}
-            />
-          )
+        {connections.filter(connection => connection.active && connection.points && connection.points.length > 1).map((connection, index) => (
+          <ConnectionRay
+            key={index}
+            points={connection.points}
+          />
         ))}
       </group>
       
       {/* Animated particles */}
-      {transactions.slice(0, 5).map((tx, index) => (
-        <AnimatedParticle
-          key={tx.hash + index}
-          path={connections[index % connections.length]?.points || []}
-          delay={index * 0.5}
-        />
-      ))}
+      {transactions.slice(0, 5).map((tx, index) => {
+        const validConnections = connections.filter(conn => conn.points && conn.points.length > 1);
+        const connectionIndex = index % validConnections.length;
+        const path = validConnections[connectionIndex]?.points || [];
+        
+        return path.length > 1 ? (
+          <AnimatedParticle
+            key={tx.hash + index}
+            path={path}
+            delay={index * 0.5}
+          />
+        ) : null;
+      })}
     </group>
   );
 };
@@ -144,20 +161,33 @@ const ConnectionRay = ({ points }: { points: THREE.Vector3[] }) => {
   const geometry = useMemo(() => {
     // Ensure we have valid points
     if (!points || points.length < 2) {
-      return new THREE.BufferGeometry();
+      return null;
+    }
+    
+    // Validate that all points are proper Vector3 objects
+    const validPoints = points.filter(point => 
+      point instanceof THREE.Vector3 && 
+      typeof point.x === 'number' && 
+      typeof point.y === 'number' && 
+      typeof point.z === 'number' &&
+      !isNaN(point.x) && !isNaN(point.y) && !isNaN(point.z)
+    );
+    
+    if (validPoints.length < 2) {
+      return null;
     }
     
     try {
-      const curve = new THREE.CatmullRomCurve3(points);
+      const curve = new THREE.CatmullRomCurve3(validPoints);
       return new THREE.TubeGeometry(curve, 50, 0.005, 8, false);
     } catch (error) {
       console.warn('Failed to create tube geometry:', error);
-      return new THREE.BufferGeometry();
+      return null;
     }
   }, [points]);
 
   // Don't render if we don't have a valid geometry
-  if (!geometry || geometry.attributes.position?.count === 0) {
+  if (!geometry) {
     return null;
   }
 
@@ -176,7 +206,7 @@ const AnimatedParticle = ({ path, delay }: { path: THREE.Vector3[]; delay: numbe
   const particleRef = useRef<THREE.Mesh>(null);
   
   useFrame(({ clock }) => {
-    if (!particleRef.current || !path.length) return;
+    if (!particleRef.current || !path || path.length < 2) return;
     
     const time = (clock.getElapsedTime() + delay) % 3;
     const progress = time / 3;
