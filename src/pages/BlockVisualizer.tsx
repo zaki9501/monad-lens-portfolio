@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Search, Globe, Zap, Activity, TrendingUp, Users, Hash, ArrowRight, Fuel } from "lucide-react";
+import { Search, Globe, Zap, Activity, TrendingUp, Users, Hash, ArrowRight, Fuel, XCircle } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import Globe3D from "@/components/Globe3D";
 
@@ -33,6 +33,8 @@ const BlockVisualizer = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [recentBlocks, setRecentBlocks] = useState<any[]>([]);
   const [transactions, setTransactions] = useState<any[]>([]);
+  const [liveGlobeTransactions, setLiveGlobeTransactions] = useState<any[]>([]);
+  const [selectedBlock, setSelectedBlock] = useState<any>(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -41,7 +43,16 @@ const BlockVisualizer = () => {
         setCurrentBlock(block);
         setRecentBlocks(prev => [block, ...prev.slice(0, 4)]);
         if (block?.transactions) {
-          setTransactions(block.transactions.slice(0, 10));
+          setTransactions(block.transactions);
+          setLiveGlobeTransactions(prevTransactions => {
+            const newTransactions = block.transactions || [];
+            const uniqueNewTransactions = newTransactions.filter(
+                (ntx: any) => !prevTransactions.some((ptx: any) => ptx.hash === ntx.hash)
+            );
+            const combinedTransactions = [...prevTransactions, ...uniqueNewTransactions];
+            const maxGlobeRays = 50;
+            return combinedTransactions.slice(-maxGlobeRays);
+          });
         }
         setIsLoading(false);
       } catch (error) {
@@ -66,6 +77,10 @@ const BlockVisualizer = () => {
       return 'N/A';
     }
     return `${address.slice(0, 6)}...${address.slice(-4)}`;
+  };
+
+  const handleBlockClick = (block: any) => {
+    setSelectedBlock(block);
   };
 
   return (
@@ -177,7 +192,7 @@ const BlockVisualizer = () => {
               </CardTitle>
             </CardHeader>
             <CardContent className="p-0 h-[calc(100%-60px)] relative">
-              <Globe3D transactions={transactions} />
+              <Globe3D transactions={liveGlobeTransactions} onBlockClick={handleBlockClick} />
               
               {/* Overlay info */}
               <div className="absolute top-4 left-4 text-xs space-y-1">
@@ -198,6 +213,49 @@ const BlockVisualizer = () => {
                   {transactions.length} active transactions
                 </div>
               </div>
+
+              {/* Selected Block Details Overlay within Globe Card */}
+              {selectedBlock && (
+                <div className="absolute bottom-4 left-4 bg-gray-900/70 border border-green-900/50 rounded-lg p-4 w-64 animate-fade-in-up shadow-lg">
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className="text-sm font-bold text-green-400">BLOCK DETAILS</h3>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setSelectedBlock(null)}
+                      className="text-green-600 hover:text-green-400 p-0 h-auto"
+                    >
+                      <XCircle className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  <div className="text-xs space-y-1">
+                    <div className="flex justify-between">
+                      <span className="text-green-600">Number:</span>
+                      <span className="text-green-400">{parseInt(selectedBlock.number, 16).toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-green-600">Hash:</span>
+                      <span className="text-green-400">{formatAddress(selectedBlock.hash)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-green-600">Time:</span>
+                      <span className="text-green-400">{new Date(parseInt(selectedBlock.timestamp, 16) * 1000).toLocaleTimeString()}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-green-600">TXs:</span>
+                      <span className="text-green-400">{selectedBlock.transactions?.length || 0}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-green-600">Gas Used:</span>
+                      <span className="text-green-400">{parseInt(selectedBlock.gasUsed, 16).toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-green-600">Miner:</span>
+                      <span className="text-green-400">{formatAddress(selectedBlock.miner)}</span>
+                    </div>
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>
@@ -245,7 +303,7 @@ const BlockVisualizer = () => {
             </CardContent>
           </Card>
 
-          {/* Network Performance */}
+          {/* Performance Card */}
           <Card className="bg-gray-900/30 border-green-900/50">
             <CardHeader className="pb-2">
               <CardTitle className="text-green-400 text-sm">PERFORMANCE</CardTitle>
