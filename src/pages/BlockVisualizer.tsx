@@ -70,7 +70,8 @@ const BlockVisualizer = () => {
   const formatValue = (value: string) => {
     const wei = parseInt(value, 16);
     const eth = wei / 1e18;
-    return eth > 0.001 ? `${eth.toFixed(4)} ETH` : `${wei.toLocaleString()} wei`;
+    // Change label from "ETH" to "MON"
+    return eth > 0.001 ? `${eth.toFixed(4)} MON` : `${wei.toLocaleString()} wei`;
   };
 
   const formatAddress = (address: string | null | undefined) => {
