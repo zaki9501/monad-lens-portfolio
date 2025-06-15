@@ -1,4 +1,3 @@
-
 import React from "react";
 import { Badge } from "@/components/ui/badge";
 
@@ -13,14 +12,16 @@ interface LiveContractDeploymentsProps {
   isLoading: boolean;
 }
 
-// Set a fixed height for the whole panel including header.
-const PANEL_HEIGHT = 195;
+const PANEL_HEIGHT_PX = 195;
 
 const LiveContractDeployments: React.FC<LiveContractDeploymentsProps> = ({
   deployments,
   isLoading,
 }) => (
-  <div className={`mb-0`} style={{ height: PANEL_HEIGHT }}>
+  <div
+    className="mb-0 h-[195px] min-h-[195px] max-h-[195px] flex flex-col"
+    style={{}}
+  >
     <div className="text-green-400 text-sm font-bold mb-2">
       LIVE CONTRACT DEPLOYMENTS
     </div>
@@ -29,13 +30,13 @@ const LiveContractDeployments: React.FC<LiveContractDeploymentsProps> = ({
         Scanning latest block...
       </div>
     )}
-    {/* Inner panel always fills all available height minus headers */}
-    <div className="relative" style={{
-      height: `calc(${PANEL_HEIGHT - 32}px)`, // 32px for header/margin
-      minHeight: 54,
-      overflowY: "auto",
-      transition: "height 0.2s",
-    }}>
+    {/* Inner content should scroll but not grow */}
+    <div
+      className="relative flex-1 overflow-y-auto"
+      style={{
+        minHeight: 0,
+      }}
+    >
       {deployments.length === 0 && !isLoading ? (
         <div className="text-green-800 text-xs">
           No contracts deployed in the latest block.
