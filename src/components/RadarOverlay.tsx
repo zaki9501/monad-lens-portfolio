@@ -46,7 +46,6 @@ const RadarOverlay: React.FC<RadarOverlayProps> = ({ recentBlocks }) => {
   const [dimensions, setDimensions] = useState({ w: 400, h: 400 });
   const freqData = useFakeWaveData();
 
-  // Resize canvas on mount and window resize
   useEffect(() => {
     function handleResize() {
       const size = Math.min(window.innerWidth, 400, window.innerHeight * 0.6);
@@ -57,7 +56,7 @@ const RadarOverlay: React.FC<RadarOverlayProps> = ({ recentBlocks }) => {
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
-  // Animated sweep
+  // Animated sweep, higher FPS
   useEffect(() => {
     let animationId: number;
     let lastStamp = performance.now();
@@ -71,10 +70,10 @@ const RadarOverlay: React.FC<RadarOverlayProps> = ({ recentBlocks }) => {
     return () => cancelAnimationFrame(animationId);
   }, []);
 
-  // Add block blips as blocks come in
+  // More accurate blip positioning and richer details
   useEffect(() => {
     if (!recentBlocks.length) return;
-    // Show only 6 latest unique blocks as blips
+    // Show only 7 latest unique blocks as blips (more dense than before)
     const unique: { [hash: string]: boolean } = {};
     const newBlips: BlockRadarBlip[] = [];
     let num = 0;
@@ -82,10 +81,21 @@ const RadarOverlay: React.FC<RadarOverlayProps> = ({ recentBlocks }) => {
       if (num > 6) break;
       if (!b.hash || unique[b.hash]) continue;
       unique[b.hash] = true;
-      // random angle/radius for visual effect based on block hash
-      const hashSeed = parseInt(b.hash?.slice(2, 10) || "", 16) || Math.floor(Math.random()*10000);
-      const angle = ((hashSeed % 1000) / 1000) * 2 * Math.PI;
-      const radius = 0.5 + 0.45 * ((hashSeed % 700) / 700); // [0.5, 0.95]
+
+      // New: deterministic angle using blockNumber & timestamp
+      // angle = (blockNumber * 117 + timestamp * 37) % TAU (TAU = 2pi)
+      const blockNum =
+        typeof b.number === "string"
+          ? parseInt(b.number, 16)
+          : typeof b.number === "number"
+          ? b.number
+          : 0;
+      const time = typeof b.timestamp === "string" ? parseInt(b.timestamp, 16) : 0;
+      const angle = (((blockNum || 1) * 117 + (time || 1) * 37) % 1000) / 1000 * 2 * Math.PI;
+
+      // New: radius varies smoothly with block number to make visually distributed
+      const radius = 0.52 + 0.44 * (((blockNum || 37) % 700) / 700); // [0.52, 0.96]
+
       newBlips.push({
         id: b.hash,
         angle,
@@ -98,18 +108,17 @@ const RadarOverlay: React.FC<RadarOverlayProps> = ({ recentBlocks }) => {
     setBlips(newBlips);
   }, [recentBlocks]);
 
-  // Draw radar
   useEffect(() => {
     const { w, h } = dimensions;
     const ctx = canvasRef.current?.getContext("2d");
     if (!ctx) return;
     ctx.clearRect(0, 0, w, h);
 
-    // Radar circle and grid
+    // Radar grid
     ctx.save();
     ctx.strokeStyle = "#00FF66";
     ctx.lineWidth = 1;
-    ctx.globalAlpha = 0.26;
+    ctx.globalAlpha = 0.23;
     for (let r = 1; r <= 4; r++) {
       ctx.beginPath();
       ctx.arc(w / 2, h / 2, (w / 2) * (r / 4), 0, 2 * Math.PI);
@@ -120,21 +129,18 @@ const RadarOverlay: React.FC<RadarOverlayProps> = ({ recentBlocks }) => {
       ctx.beginPath();
       const angle = a * (Math.PI / 2);
       ctx.moveTo(w / 2, h / 2);
-      ctx.lineTo(
-        w / 2 + (w / 2) * Math.cos(angle),
-        h / 2 + (h / 2) * Math.sin(angle)
-      );
+      ctx.lineTo(w / 2 + (w / 2) * Math.cos(angle), h / 2 + (h / 2) * Math.sin(angle));
       ctx.stroke();
     }
     ctx.restore();
 
     // Radar sweep
-    const grad = ctx.createRadialGradient(w / 2, h / 2, w / 20, w / 2, h / 2, w / 2);
+    const grad = ctx.createRadialGradient(w / 2, h / 2, w / 23, w / 2, h / 2, w / 2);
     grad.addColorStop(0, "rgba(0,255,70,0.14)");
-    grad.addColorStop(0.92, "rgba(0,255,100,0.1)");
+    grad.addColorStop(0.89, "rgba(0,255,100,0.15)");
     grad.addColorStop(1, "rgba(0,255, 50,0)");
     ctx.save();
-    ctx.globalAlpha = 0.80;
+    ctx.globalAlpha = 0.90;
     ctx.beginPath();
     ctx.moveTo(w / 2, h / 2);
     const sweepStart = sweepAngle;
@@ -147,23 +153,22 @@ const RadarOverlay: React.FC<RadarOverlayProps> = ({ recentBlocks }) => {
 
     // Blips
     for (let blip of blips) {
-      // Blip fades out after 4s
+      // Blip fades out after ~4s
       const dt = (Date.now() - blip.detectedAt) % RADAR_SWEEP_TIME;
-      if (dt > RADAR_SWEEP_TIME * 0.92) continue; // fade-out in last sweep
-      const fade = Math.max(0.2, 1 - dt / 3000);
-      const blipR = w / 2 * blip.radius;
-      const bx =
-        w / 2 + blipR * Math.cos(blip.angle);
-      const by =
-        h / 2 + blipR * Math.sin(blip.angle);
+      if (dt > RADAR_SWEEP_TIME * 0.95) continue; // fade-out very last sweep
+      // Make blip stronger just after "caught" and fade smoother
+      const fade = Math.max(0.13, 1.05 - dt / 3500);
+      const blipR = (w / 2) * blip.radius;
+      const bx = w / 2 + blipR * Math.cos(blip.angle);
+      const by = h / 2 + blipR * Math.sin(blip.angle);
 
       ctx.save();
       ctx.beginPath();
-      ctx.arc(bx, by, 8, 0, 2 * Math.PI);
-      ctx.globalAlpha = fade * 0.82;
-      ctx.fillStyle = "#00ff99";
-      ctx.shadowColor = "#00ff88";
-      ctx.shadowBlur = 12;
+      ctx.arc(bx, by, 9, 0, 2 * Math.PI);
+      ctx.globalAlpha = fade * 0.84;
+      ctx.fillStyle = "#00FFB3";
+      ctx.shadowColor = "#00ff97";
+      ctx.shadowBlur = 16;
       ctx.fill();
       ctx.restore();
     }
@@ -181,6 +186,21 @@ const RadarOverlay: React.FC<RadarOverlayProps> = ({ recentBlocks }) => {
       top: by,
     };
   });
+
+  // Helpers for details
+  const formatHex = (val: string | number | undefined) => {
+    if (!val) return "N/A";
+    if (typeof val === "string" && val.startsWith("0x")) return parseInt(val, 16).toLocaleString();
+    if (typeof val === "number") return val.toLocaleString();
+    return val.toString();
+  };
+  const formatShortHash = (hash: string) => (typeof hash === "string" ? hash.slice(0, 7) + "..." + hash.slice(-5) : "N/A");
+  const formatDateTime = (hex: string) => {
+    if (!hex) return "";
+    const ms = parseInt(hex, 16) * 1000;
+    const d = new Date(ms);
+    return d.toLocaleDateString() + " " + d.toLocaleTimeString();
+  };
 
   return (
     <div className="relative mx-auto flex flex-col items-center" style={{ width: w, height: h + 120 }}>
@@ -201,32 +221,43 @@ const RadarOverlay: React.FC<RadarOverlayProps> = ({ recentBlocks }) => {
       {blips.map((blip) => {
         const pos = blipPositions[blip.id];
         if (!pos) return null;
-        // Fade out popup on oldest detcted blocks
+        // Fade out popup on oldest detected blocks
         const age = (Date.now() - blip.detectedAt) % RADAR_SWEEP_TIME;
-        if (age > RADAR_SWEEP_TIME * 0.8) return null;
+        if (age > RADAR_SWEEP_TIME * 0.82) return null;
 
+        const { detail } = blip;
         return (
           <div
             key={blip.id}
             className={`absolute animate-fade-in-up pointer-events-none transition-all`}
             style={{
-              top: pos.top - 52,
-              left: pos.left + 16,
-              minWidth: 140,
+              top: pos.top - 66,
+              left: pos.left + 18,
+              minWidth: 158,
               zIndex: 10,
-              opacity: 1 - age / (RADAR_SWEEP_TIME * 0.8),
+              opacity: 1.1 - age / (RADAR_SWEEP_TIME * 0.8),
               filter: "drop-shadow(0 0 6px #18ff94cc)"
             }}
           >
-            <Card className="border-[1.5px] border-green-400/80 bg-black/80 rounded-lg px-2 py-1 backdrop-blur-[2px]">
-              <div className="text-green-400 text-xs font-mono leading-[1.25] space-y-[1px]">
-                <div><b>Block</b> #{parseInt(blip.detail.number, 16)}</div>
-                <div>{blip.detail.transactions?.length ?? 0} txs</div>
+            <Card className="border-[1.5px] border-green-400/80 bg-black/80 rounded-lg px-2 py-2 backdrop-blur-[2px]">
+              <div className="text-green-400 text-xs font-mono leading-[1.2] space-y-1">
+                <div><b>Block</b> #{formatHex(detail.number)}</div>
+                <div>{detail.transactions?.length ?? 0} txs &nbsp; <span className="text-green-700">by</span></div>
                 <div>
-                  <span className="text-green-800">Gas:</span>{" "}
-                  <span className="text-green-400">{parseInt(blip.detail.gasUsed, 16).toLocaleString()}</span>
+                  <span className="text-green-600">Miner:</span>{" "}
+                  <span className="text-green-400">{formatShortHash(detail.miner)}</span>
                 </div>
-                <div className="text-green-600">{new Date(parseInt(blip.detail.timestamp, 16) * 1000).toLocaleTimeString()}</div>
+                <div>
+                  <span className="text-green-600">Hash:</span>{" "}
+                  <span className="text-cyan-400">{formatShortHash(detail.hash)}</span>
+                </div>
+                <div>
+                  <span className="text-green-600">Gas Used:</span>{" "}
+                  <span className="">{formatHex(detail.gasUsed)}</span>
+                  <span className="text-green-700"> / </span>
+                  <span className="">{formatHex(detail.gasLimit)}</span>
+                </div>
+                <div className="text-green-600">{formatDateTime(detail.timestamp)}</div>
               </div>
             </Card>
           </div>
@@ -260,3 +291,4 @@ const RadarOverlay: React.FC<RadarOverlayProps> = ({ recentBlocks }) => {
 };
 
 export default RadarOverlay;
+
