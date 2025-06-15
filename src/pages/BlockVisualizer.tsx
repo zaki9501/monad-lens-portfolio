@@ -1,8 +1,17 @@
 
-import React, { useState, useEffect, useRef } from 'react';
-import Hyperspeed from "../components/Hyperspeed/Hyperspeed";
-import { Card, CardContent } from "@/components/ui/card";
+import React, { useState, useEffect } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Search, Zap, Activity, TrendingUp, Users } from "lucide-react";
+import LiveBlockFeed from "../components/pulse/LiveBlockFeed";
+import TransactionStream from "../components/pulse/TransactionStream";
+import ChartsSection from "../components/pulse/ChartsSection";
+import ValidatorLeaderboard from "../components/pulse/ValidatorLeaderboard";
+import AddressLookup from "../components/pulse/AddressLookup";
 
+// Mock data fetching function (replace with actual Monad API)
 const fetchLatestBlock = async () => {
   const response = await fetch('https://testnet-rpc.monad.xyz/', {
     method: 'POST',
@@ -23,140 +32,123 @@ const fetchLatestBlock = async () => {
 };
 
 const BlockVisualizer = () => {
-  const [lastBlockHash, setLastBlockHash] = useState<string | null>(null);
-  const [newBlockDetected, setNewBlockDetected] = useState(false);
-  const [blockRayCount, setBlockRayCount] = useState(40);
   const [currentBlock, setCurrentBlock] = useState<any>(null);
-
-  const fetchBlockData = async () => {
-    try {
-      const block = await fetchLatestBlock();
-      
-      // Check if this is a new block
-      const isNewBlock = lastBlockHash && block?.hash && block.hash !== lastBlockHash;
-      
-      if (isNewBlock) {
-        console.log('New block detected:', block.hash);
-        setNewBlockDetected(true);
-        
-        // Add more light rays for the new block
-        setBlockRayCount(prev => prev + 5);
-        
-        // Reset after animation
-        setTimeout(() => {
-          setNewBlockDetected(false);
-          setBlockRayCount(40);
-        }, 2000);
-      }
-      
-      setLastBlockHash(block?.hash || null);
-      setCurrentBlock(block);
-    } catch (error) {
-      console.error('Failed to fetch block data:', error);
-    }
-  };
+  const [searchAddress, setSearchAddress] = useState('');
+  const [selectedAddress, setSelectedAddress] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    fetchBlockData();
+    const fetchData = async () => {
+      try {
+        const block = await fetchLatestBlock();
+        setCurrentBlock(block);
+        setIsLoading(false);
+      } catch (error) {
+        console.error('Failed to fetch block data:', error);
+        setIsLoading(false);
+      }
+    };
+
+    fetchData();
+    const interval = setInterval(fetchData, 3000);
+    return () => clearInterval(interval);
   }, []);
 
-  useEffect(() => {
-    const interval = setInterval(fetchBlockData, 3000);
-    return () => clearInterval(interval);
-  }, [lastBlockHash]);
-
-  const hyperspeedOptions = {
-    distortion: 'turbulentDistortion',
-    length: 400,
-    roadWidth: 10,
-    islandWidth: 2,
-    lanesPerRoad: 4,
-    fov: 90,
-    fovSpeedUp: 150,
-    speedUp: newBlockDetected ? 4 : 2,
-    carLightsFade: 0.4,
-    totalSideLightSticks: 20,
-    lightPairsPerRoadWay: blockRayCount,
-    shoulderLinesWidthPercentage: 0.05,
-    brokenLinesWidthPercentage: 0.1,
-    brokenLinesLengthPercentage: 0.5,
-    lightStickWidth: [0.12, 0.5] as [number, number],
-    lightStickHeight: [1.3, 1.7] as [number, number],
-    movingAwaySpeed: [60, 120] as [number, number],
-    movingCloserSpeed: [-120, -200] as [number, number],
-    carLightsLength: [400 * 0.05, 400 * 0.3] as [number, number],
-    carLightsRadius: [0.08, 0.20] as [number, number],
-    carWidthPercentage: [0.3, 0.5] as [number, number],
-    carShiftX: [-0.8, 0.8] as [number, number],
-    carFloorSeparation: [0, 5] as [number, number],
-    colors: {
-      roadColor: 0x080808,
-      islandColor: 0x0a0a0a,
-      background: 0x000000,
-      shoulderLines: 0x131318,
-      brokenLines: 0x131318,
-      leftCars: [0x03B3C3, 0x6750A2, 0xD856BF, 0x0E5EA5, 0xC247AC],
-      rightCars: [0xD856BF, 0x6750A2, 0xC247AC, 0x03B3C3, 0x0E5EA5],
-      sticks: 0x03B3C3,
+  const handleAddressSearch = () => {
+    if (searchAddress.trim()) {
+      setSelectedAddress(searchAddress.trim());
     }
   };
 
   return (
-    <div className="w-full h-screen overflow-hidden bg-black relative">
-      <Hyperspeed effectOptions={hyperspeedOptions} />
-      
-      {/* Live Block Details - Left Corner */}
-      <div className="absolute top-4 left-4 z-10">
-        <Card className="bg-slate-900/90 border-purple-500/30 backdrop-blur-sm">
-          <CardContent className="p-4 text-white">
-            <h3 className="text-sm font-semibold text-purple-400 mb-2">Live Block</h3>
-            {currentBlock ? (
-              <div className="space-y-1 text-xs">
-                <div>
-                  <span className="text-gray-400">Number:</span>{' '}
-                  <span className="text-green-400">{parseInt(currentBlock.number, 16)}</span>
-                </div>
-                <div>
-                  <span className="text-gray-400">Hash:</span>{' '}
-                  <span className="text-blue-400 font-mono">
-                    {currentBlock.hash?.slice(0, 10)}...
-                  </span>
-                </div>
-                <div>
-                  <span className="text-gray-400">Gas Used:</span>{' '}
-                  <span className="text-yellow-400">{parseInt(currentBlock.gasUsed, 16).toLocaleString()}</span>
-                </div>
-                <div>
-                  <span className="text-gray-400">Timestamp:</span>{' '}
-                  <span className="text-cyan-400">
-                    {new Date(parseInt(currentBlock.timestamp, 16) * 1000).toLocaleTimeString()}
-                  </span>
-                </div>
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-purple-900 text-white">
+      {/* Header */}
+      <div className="border-b border-gray-800 bg-black/20 backdrop-blur-sm">
+        <div className="container mx-auto px-4 py-4">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2">
+                <Zap className="h-8 w-8 text-purple-400" />
+                <h1 className="text-2xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
+                  Monad Pulse
+                </h1>
               </div>
-            ) : (
-              <div className="text-gray-400 text-xs">Loading...</div>
-            )}
-          </CardContent>
-        </Card>
+              <div className="hidden md:flex items-center gap-1 text-sm text-gray-400">
+                <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                Live
+              </div>
+            </div>
+            
+            {/* Address Search */}
+            <div className="flex gap-2 max-w-md w-full md:w-auto">
+              <Input
+                placeholder="Search address (0x...)"
+                value={searchAddress}
+                onChange={(e) => setSearchAddress(e.target.value)}
+                className="bg-gray-800/50 border-gray-700 text-white placeholder-gray-400"
+                onKeyPress={(e) => e.key === 'Enter' && handleAddressSearch()}
+              />
+              <Button 
+                onClick={handleAddressSearch}
+                variant="secondary"
+                size="icon"
+                className="bg-purple-600 hover:bg-purple-700"
+              >
+                <Search className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        </div>
       </div>
 
-      {/* Transaction Count - Right Corner */}
-      <div className="absolute top-4 right-4 z-10">
-        <Card className="bg-slate-900/90 border-purple-500/30 backdrop-blur-sm">
-          <CardContent className="p-4 text-white">
-            <h3 className="text-sm font-semibold text-purple-400 mb-2">Block Transactions</h3>
-            {currentBlock ? (
-              <div className="text-center">
-                <div className="text-2xl font-bold text-green-400">
-                  {currentBlock.transactions?.length || 0}
-                </div>
-                <div className="text-xs text-gray-400">Total TXs</div>
+      {/* Main Dashboard */}
+      <div className="container mx-auto px-4 py-6">
+        <Tabs defaultValue="overview" className="space-y-6">
+          <TabsList className="grid w-full md:w-auto md:inline-grid grid-cols-2 md:grid-cols-4 bg-gray-800/50">
+            <TabsTrigger value="overview" className="flex items-center gap-2">
+              <Activity className="h-4 w-4" />
+              Overview
+            </TabsTrigger>
+            <TabsTrigger value="charts" className="flex items-center gap-2">
+              <TrendingUp className="h-4 w-4" />
+              Analytics
+            </TabsTrigger>
+            <TabsTrigger value="validators" className="flex items-center gap-2">
+              <Users className="h-4 w-4" />
+              Validators
+            </TabsTrigger>
+            <TabsTrigger value="address" className="flex items-center gap-2">
+              <Search className="h-4 w-4" />
+              Address
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="overview" className="space-y-6">
+            <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+              {/* Live Block Feed - Takes up 2 columns */}
+              <div className="xl:col-span-2">
+                <LiveBlockFeed currentBlock={currentBlock} isLoading={isLoading} />
               </div>
-            ) : (
-              <div className="text-gray-400 text-xs">Loading...</div>
-            )}
-          </CardContent>
-        </Card>
+              
+              {/* Transaction Stream - Takes up 1 column */}
+              <div className="xl:col-span-1">
+                <TransactionStream currentBlock={currentBlock} />
+              </div>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="charts">
+            <ChartsSection />
+          </TabsContent>
+
+          <TabsContent value="validators">
+            <ValidatorLeaderboard />
+          </TabsContent>
+
+          <TabsContent value="address">
+            <AddressLookup selectedAddress={selectedAddress} />
+          </TabsContent>
+        </Tabs>
       </div>
     </div>
   );
