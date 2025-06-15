@@ -372,7 +372,7 @@ const StarField = ({ count = 300 }) => {
       {positions.map((pos, idx) => (
         <mesh key={idx} position={pos}>
           <sphereGeometry args={[0.015, 6, 6]} />
-          <meshBasicMaterial color="#fff" emissive="#fff" emissiveIntensity={1} toneMapped={false} />
+          <meshBasicMaterial color="#fff" toneMapped={false} />
         </mesh>
       ))}
     </group>
