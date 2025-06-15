@@ -10,6 +10,8 @@ import StatsWaveChart from "@/components/pulse/StatsWaveChart";
 import RadarOverlay from "@/components/RadarOverlay";
 import RadarBlockDetailPanel from "@/components/RadarBlockDetailPanel";
 import { useToast } from "@/hooks/use-toast";
+// --- ADD BLOCKVISION IMPORT ---
+const BLOCKVISION_API_KEY = import.meta.env.VITE_BLOCKVISION_API_KEY as string;
 
 // Mock data fetching function (replace with actual Monad API)
 const fetchLatestBlock = async () => {
@@ -30,6 +32,71 @@ const fetchLatestBlock = async () => {
   const data = await response.json();
   return data.result;
 };
+
+// Add utility to fetch contract creation details from Blockvision
+async function fetchContractDeploymentInfo(address: string) {
+  // Docs: https://docs.blockvision.org/docs/api-monad-account-activities
+  const url = `https://api.blockvision.org/v2/monad/account/activities?address=${address}&limit=50`;
+  const res = await fetch(url, {
+    headers: {
+      "accept": "application/json",
+      "x-api-key": BLOCKVISION_API_KEY,
+    },
+  });
+  if (!res.ok) throw new Error("Failed to fetch contract activities");
+  const { data } = await res.json();
+  // Find the creation txn (first incoming tx with "create" type)
+  const creation = data?.find((d: any) => d.category === "create");
+  // Fallback to the earliest txn
+  const firstSeen = data ? data[data.length - 1] : null;
+  const lastSeen = data && data.length > 0 ? data[0] : null;
+
+  return {
+    creationTransactionHash: creation?.hash || firstSeen?.hash || null,
+    creator: creation?.from || null,
+    creationTime: creation?.time || firstSeen?.time || null,
+    numTxs: data?.length || 0,
+    firstSeen: firstSeen?.time || null,
+    lastSeen: lastSeen?.time || null,
+  };
+}
+
+function formatDateTime(ts: string | number | null | undefined) {
+  if (!ts) return "N/A";
+  // Accept seconds or ms. Blockvision sends both sometimes
+  const date =
+    typeof ts === "number"
+      ? new Date(ts * (ts < 1e12 ? 1000 : 1))
+      : new Date(parseInt(ts) * (ts.length < 13 ? 1000 : 1));
+  if (isNaN(date.getTime())) return "N/A";
+  return date.toLocaleString(undefined, {
+    month: "short",
+    day: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: true,
+  });
+}
+function timeAgo(ts: string | number | null | undefined) {
+  if (!ts) return "N/A";
+  const now = Date.now();
+  const time =
+    typeof ts === "number"
+      ? ts * (ts < 1e12 ? 1000 : 1)
+      : parseInt(ts) * (ts.length < 13 ? 1000 : 1);
+  const diff = now - time;
+  if (diff < 0) return "N/A";
+  const days = Math.floor(diff / 86400000);
+  const hrs = Math.floor((diff % 86400000) / 3600000);
+  if (days > 0) return `${days} d ${hrs} hrs ago`;
+  const mins = Math.floor((diff % 3600000) / 60000);
+  if (hrs > 0) return `${hrs} hrs ${mins} min ago`;
+  const secs = Math.floor((diff % 60000) / 1000);
+  if (mins > 0) return `${mins} min ago`;
+  return `${secs} secs ago`;
+}
 
 const BlockVisualizer = () => {
   const [currentBlock, setCurrentBlock] = useState<any>(null);
@@ -92,7 +159,6 @@ const BlockVisualizer = () => {
     setSearchError('');
     const text = searchValue.trim();
 
-    // Try to parse as tx hash
     const isHash = /^0x([A-Fa-f0-9]{64})$/.test(text);
     const isAddress = /^0x[a-fA-F0-9]{40}$/.test(text);
 
@@ -103,7 +169,6 @@ const BlockVisualizer = () => {
 
     setIsSearching(true);
 
-    // Try fetching tx first (if looks like hash)
     let triedTx = false;
     if (isHash) {
       try {
@@ -127,15 +192,16 @@ const BlockVisualizer = () => {
         }
         triedTx = true;
       } catch (err) {
-        triedTx = true; // still try contract if not found
+        triedTx = true;
       }
     }
-    // Try contract code (for hash if tx failed, or address)
+
+    // Contract search
     try {
       const addr = isAddress ? text : null;
       const possibleAddr = addr || (isHash ? text.slice(0, 42) : null);
-      // Only search contract if address pattern fits
       if (possibleAddr) {
+        // Fetch contract code
         const codeRes = await fetch('https://testnet-rpc.monad.xyz/', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -149,16 +215,22 @@ const BlockVisualizer = () => {
         if (!codeRes.ok) throw new Error('Network error');
         const codeData = await codeRes.json();
         if (codeData?.result && codeData.result !== "0x" && codeData.result !== "0X") {
+          // Fetch new details from Blockvision:
+          let info = null;
+          try {
+            info = await fetchContractDeploymentInfo(possibleAddr);
+          } catch {}
           setSearchResult({
             address: possibleAddr,
             code: codeData.result,
+            ...info,
           });
           setSearchType("contract");
           setIsSearching(false);
           return;
         } else {
-          if (triedTx) setSearchError('No transaction or contract found for input.');
-          else setSearchError('Not a contract.');
+          // No code, not a contract
+          setSearchError(triedTx ? 'No transaction or contract found for input.' : 'Not a contract.');
         }
       } else {
         setSearchError('No transaction or contract found.');
@@ -334,7 +406,7 @@ const BlockVisualizer = () => {
             >
               <XCircle className="h-5 w-5" />
             </Button>
-            <div className="text-blue-300 text-base font-mono space-y-3 pr-10">
+            <div className="text-blue-300 text-base font-mono space-y-4 pr-10">
               <div className="flex flex-wrap items-center gap-3 mb-4">
                 <span className="text-blue-400 font-bold text-xl">Contract Details</span>
                 <span className="bg-blue-800/70 border border-blue-500 rounded-md px-3 py-1 font-mono text-blue-200 text-base select-all break-all" title={searchResult.address}>
@@ -350,22 +422,54 @@ const BlockVisualizer = () => {
                   <span className="text-blue-700">Is Proxy:</span>
                   <span className="ml-2">N/A</span>
                 </div>
-                <div className="col-span-1 md:col-span-2 break-all">
-                  <span className="text-blue-700">Code Preview:</span>
-                  <pre className="block p-2 bg-gray-800 text-blue-200 rounded break-words max-h-44 overflow-auto mt-1 text-xs select-all">
-                    {searchResult.code.length > 220
-                      ? searchResult.code.slice(0, 220) + "..."
-                      : searchResult.code}
-                  </pre>
-                </div>
-                <div className="col-span-1 md:col-span-2 break-all">
-                  <span className="text-blue-700">Full Code:</span>
-                  <span className="ml-2 text-gray-400 select-all" title={searchResult.code.length > 1000 ? undefined : searchResult.code}>
-                    {searchResult.code.length > 1200
-                      ? `${searchResult.code.slice(0, 150)}... (${searchResult.code.length} chars)`
-                      : searchResult.code}
+                <div>
+                  <span className="text-blue-700">Contract Creator:</span>
+                  <span className="ml-2 text-blue-300 select-all" title={searchResult.creator}>
+                    {searchResult.creator
+                      ? `${searchResult.creator.slice(0, 7)}...${searchResult.creator.slice(-4)}`
+                      : "N/A"}
                   </span>
                 </div>
+                <div>
+                  <span className="text-blue-700">Creation Txn:</span>
+                  <span className="ml-2 text-blue-300 select-all" title={searchResult.creationTransactionHash}>
+                    {searchResult.creationTransactionHash
+                      ? `${searchResult.creationTransactionHash.slice(0, 7)}...${searchResult.creationTransactionHash.slice(-4)}`
+                      : "N/A"}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-blue-700">Creation Time:</span>
+                  <span className="ml-2 text-gray-200">{formatDateTime(searchResult.creationTime)}</span>
+                </div>
+                <div>
+                  <span className="text-blue-700">First Seen:</span>
+                  <span className="ml-2 text-gray-200">{timeAgo(searchResult.firstSeen)}</span>
+                </div>
+                <div>
+                  <span className="text-blue-700">Last Seen:</span>
+                  <span className="ml-2 text-gray-200">{timeAgo(searchResult.lastSeen)}</span>
+                </div>
+                <div>
+                  <span className="text-blue-700">Transactions:</span>
+                  <span className="ml-2 text-blue-200">{searchResult.numTxs?.toLocaleString() || "—"}</span>
+                </div>
+              </div>
+              <div className="col-span-1 md:col-span-2 break-all">
+                <span className="text-blue-700">Code Preview:</span>
+                <pre className="block p-2 bg-gray-800 text-blue-200 rounded break-words max-h-44 overflow-auto mt-1 text-xs select-all">
+                  {searchResult.code.length > 220
+                    ? searchResult.code.slice(0, 220) + "..."
+                    : searchResult.code}
+                </pre>
+              </div>
+              <div className="col-span-1 md:col-span-2 break-all">
+                <span className="text-blue-700">Full Code:</span>
+                <span className="ml-2 text-gray-400 select-all" title={searchResult.code.length > 1000 ? undefined : searchResult.code}>
+                  {searchResult.code.length > 1200
+                    ? `${searchResult.code.slice(0, 150)}... (${searchResult.code.length} chars)`
+                    : searchResult.code}
+                </span>
               </div>
             </div>
           </Card>
