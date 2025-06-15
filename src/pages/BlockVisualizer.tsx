@@ -1,216 +1,163 @@
 
-import React, { useState, useEffect } from 'react';
-import { Canvas } from '@react-three/fiber';
-import { Environment, PerspectiveCamera, OrbitControls } from '@react-three/drei';
+import React, { useState, useEffect, useRef } from 'react';
+import Hyperspeed from "../components/Hyperspeed/Hyperspeed";
 import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Volume2, VolumeX, ArrowLeft, Settings, Zap } from "lucide-react";
-import { useNavigate } from "react-router-dom";
-import { useBlockRays } from '../hooks/useBlockRays';
-import PixelatedRocket from '../components/retro/PixelatedRocket';
-import AlienDancers from '../components/retro/AlienDancers';
-import PixelGalaxyBackground from '../components/retro/PixelGalaxyBackground';
-import RetroDJ from '../components/retro/RetroDJ';
+
+const fetchLatestBlock = async () => {
+  const response = await fetch('https://testnet-rpc.monad.xyz/', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      jsonrpc: '2.0',
+      method: 'eth_getBlockByNumber',
+      params: ['latest', true],
+      id: 1
+    })
+  });
+  
+  if (!response.ok) throw new Error('Failed to fetch block');
+  const data = await response.json();
+  return data.result;
+};
 
 const BlockVisualizer = () => {
-  const navigate = useNavigate();
-  const { blockRays } = useBlockRays();
-  const [soundEnabled, setSoundEnabled] = useState(true);
-  const [djEnabled, setDjEnabled] = useState(true);
-  const [currentBlockIndex, setCurrentBlockIndex] = useState(0);
+  const [lastBlockHash, setLastBlockHash] = useState<string | null>(null);
+  const [newBlockDetected, setNewBlockDetected] = useState(false);
+  const [blockRayCount, setBlockRayCount] = useState(40);
+  const [currentBlock, setCurrentBlock] = useState<any>(null);
 
-  // Show last 8 blocks as rockets
-  const displayBlocks = blockRays.slice(-8);
-  const latestBlock = blockRays[blockRays.length - 1];
-
-  // Auto-cycle through blocks
-  useEffect(() => {
-    if (displayBlocks.length > 0) {
-      const interval = setInterval(() => {
-        setCurrentBlockIndex((prev) => (prev + 1) % displayBlocks.length);
-      }, 4000);
-      return () => clearInterval(interval);
+  const fetchBlockData = async () => {
+    try {
+      const block = await fetchLatestBlock();
+      
+      // Check if this is a new block
+      const isNewBlock = lastBlockHash && block?.hash && block.hash !== lastBlockHash;
+      
+      if (isNewBlock) {
+        console.log('New block detected:', block.hash);
+        setNewBlockDetected(true);
+        
+        // Add more light rays for the new block
+        setBlockRayCount(prev => prev + 5);
+        
+        // Reset after animation
+        setTimeout(() => {
+          setNewBlockDetected(false);
+          setBlockRayCount(40);
+        }, 2000);
+      }
+      
+      setLastBlockHash(block?.hash || null);
+      setCurrentBlock(block);
+    } catch (error) {
+      console.error('Failed to fetch block data:', error);
     }
-  }, [displayBlocks.length]);
-
-  const getRocketTrailColor = (block: any) => {
-    const transactionCount = block.block?.transactions?.length || 0;
-    const gasUsed = parseInt(block.block?.gasUsed || '0', 16);
-    
-    if (transactionCount > 100 || gasUsed > 25000000) return '#FF1493'; // Hot pink
-    if (transactionCount > 50 || gasUsed > 15000000) return '#00FFFF';  // Cyan  
-    return '#39FF14'; // Lime green
   };
 
-  const handleBackClick = () => {
-    navigate('/');
+  useEffect(() => {
+    fetchBlockData();
+  }, []);
+
+  useEffect(() => {
+    const interval = setInterval(fetchBlockData, 3000);
+    return () => clearInterval(interval);
+  }, [lastBlockHash]);
+
+  const hyperspeedOptions = {
+    distortion: 'turbulentDistortion',
+    length: 400,
+    roadWidth: 10,
+    islandWidth: 2,
+    lanesPerRoad: 4,
+    fov: 90,
+    fovSpeedUp: 150,
+    speedUp: newBlockDetected ? 4 : 2,
+    carLightsFade: 0.4,
+    totalSideLightSticks: 20,
+    lightPairsPerRoadWay: blockRayCount,
+    shoulderLinesWidthPercentage: 0.05,
+    brokenLinesWidthPercentage: 0.1,
+    brokenLinesLengthPercentage: 0.5,
+    lightStickWidth: [0.12, 0.5] as [number, number],
+    lightStickHeight: [1.3, 1.7] as [number, number],
+    movingAwaySpeed: [60, 120] as [number, number],
+    movingCloserSpeed: [-120, -200] as [number, number],
+    carLightsLength: [400 * 0.05, 400 * 0.3] as [number, number],
+    carLightsRadius: [0.08, 0.20] as [number, number],
+    carWidthPercentage: [0.3, 0.5] as [number, number],
+    carShiftX: [-0.8, 0.8] as [number, number],
+    carFloorSeparation: [0, 5] as [number, number],
+    colors: {
+      roadColor: 0x080808,
+      islandColor: 0x0a0a0a,
+      background: 0x000000,
+      shoulderLines: 0x131318,
+      brokenLines: 0x131318,
+      leftCars: [0x03B3C3, 0x6750A2, 0xD856BF, 0x0E5EA5, 0xC247AC],
+      rightCars: [0xD856BF, 0x6750A2, 0xC247AC, 0x03B3C3, 0x0E5EA5],
+      sticks: 0x03B3C3,
+    }
   };
 
   return (
-    <div className="w-full h-screen overflow-hidden bg-gradient-to-b from-purple-900 via-black to-blue-900 relative">
-      {/* Header Controls */}
-      <div className="absolute top-4 left-4 z-20 flex space-x-2">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={handleBackClick}
-          className="bg-black/70 border-cyan-500/50 text-cyan-400 hover:bg-cyan-600/30 font-mono"
-        >
-          <ArrowLeft className="w-4 h-4 mr-2" />
-          EXIT
-        </Button>
-      </div>
-
-      <div className="absolute top-4 right-4 z-20 flex space-x-2">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setSoundEnabled(!soundEnabled)}
-          className="bg-black/70 border-pink-500/50 text-pink-400 hover:bg-pink-600/30 font-mono"
-        >
-          {soundEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setDjEnabled(!djEnabled)}
-          className="bg-black/70 border-green-500/50 text-green-400 hover:bg-green-600/30 font-mono"
-        >
-          <Zap className="w-4 h-4" />
-        </Button>
-      </div>
-
-      {/* Retro Title */}
-      <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-20">
-        <h1 className="text-5xl font-bold font-mono bg-gradient-to-r from-cyan-400 via-pink-400 to-green-400 bg-clip-text text-transparent">
-          🚀 MONAD'S RETRO ROCKET RAVE 🕺
-        </h1>
-        <div className="text-center text-pink-400 text-sm font-mono mt-1 animate-pulse">
-          [ SYNTHWAVE BLOCKCHAIN DISCO ]
-        </div>
-      </div>
-
-      {/* Network Stats */}
-      <div className="absolute bottom-4 left-4 z-20">
-        <Card className="bg-black/80 border-cyan-500/50 backdrop-blur-md">
-          <CardContent className="p-4">
-            <div className="text-cyan-400 space-y-2 font-mono">
-              <div className="flex items-center space-x-2">
-                <div className="w-3 h-3 bg-pink-400 rounded-full animate-pulse"></div>
-                <span className="text-sm">LIVE ROCKET DISCO</span>
-              </div>
-              <div className="text-xs text-green-400">
-                {blockRays.length} ROCKETS LAUNCHED
-              </div>
-              {latestBlock && (
-                <div className="text-xs text-pink-400">
-                  BLOCK #{parseInt(latestBlock.block?.number || '0', 16)}
+    <div className="w-full h-screen overflow-hidden bg-black relative">
+      <Hyperspeed effectOptions={hyperspeedOptions} />
+      
+      {/* Live Block Details - Left Corner */}
+      <div className="absolute top-4 left-4 z-10">
+        <Card className="bg-slate-900/90 border-purple-500/30 backdrop-blur-sm">
+          <CardContent className="p-4 text-white">
+            <h3 className="text-sm font-semibold text-purple-400 mb-2">Live Block</h3>
+            {currentBlock ? (
+              <div className="space-y-1 text-xs">
+                <div>
+                  <span className="text-gray-400">Number:</span>{' '}
+                  <span className="text-green-400">{parseInt(currentBlock.number, 16)}</span>
                 </div>
-              )}
-            </div>
+                <div>
+                  <span className="text-gray-400">Hash:</span>{' '}
+                  <span className="text-blue-400 font-mono">
+                    {currentBlock.hash?.slice(0, 10)}...
+                  </span>
+                </div>
+                <div>
+                  <span className="text-gray-400">Gas Used:</span>{' '}
+                  <span className="text-yellow-400">{parseInt(currentBlock.gasUsed, 16).toLocaleString()}</span>
+                </div>
+                <div>
+                  <span className="text-gray-400">Timestamp:</span>{' '}
+                  <span className="text-cyan-400">
+                    {new Date(parseInt(currentBlock.timestamp, 16) * 1000).toLocaleTimeString()}
+                  </span>
+                </div>
+              </div>
+            ) : (
+              <div className="text-gray-400 text-xs">Loading...</div>
+            )}
           </CardContent>
         </Card>
       </div>
 
-      {/* Game Instructions */}
-      <div className="absolute bottom-4 right-4 z-20">
-        <Card className="bg-black/80 border-green-500/50 backdrop-blur-md">
-          <CardContent className="p-4">
-            <div className="text-green-400 text-sm space-y-1 font-mono">
-              <div className="text-pink-400 font-bold">🕹️ ARCADE CONTROLS</div>
-              <div className="text-xs">🚀 ROCKETS = BLOCKS</div>
-              <div className="text-xs">👽 ALIENS = TRANSACTIONS</div>
-              <div className="text-xs">🎵 DJ = LIVE ANNOUNCER</div>
-              <div className="text-xs">💿 RECORDS = VINYL PLANETS</div>
-              <div className="text-xs text-cyan-400">CLICK ALIENS TO ZAP!</div>
-            </div>
+      {/* Transaction Count - Right Corner */}
+      <div className="absolute top-4 right-4 z-10">
+        <Card className="bg-slate-900/90 border-purple-500/30 backdrop-blur-sm">
+          <CardContent className="p-4 text-white">
+            <h3 className="text-sm font-semibold text-purple-400 mb-2">Block Transactions</h3>
+            {currentBlock ? (
+              <div className="text-center">
+                <div className="text-2xl font-bold text-green-400">
+                  {currentBlock.transactions?.length || 0}
+                </div>
+                <div className="text-xs text-gray-400">Total TXs</div>
+              </div>
+            ) : (
+              <div className="text-gray-400 text-xs">Loading...</div>
+            )}
           </CardContent>
         </Card>
       </div>
-
-      {/* 3D Retro Space Disco */}
-      <Canvas className="w-full h-full">
-        <PerspectiveCamera makeDefault position={[0, 20, 30]} fov={75} />
-        <OrbitControls 
-          enablePan={true}
-          enableZoom={true}
-          enableRotate={true}
-          maxDistance={80}
-          minDistance={10}
-        />
-        
-        {/* Retro Neon Lighting */}
-        <ambientLight intensity={0.3} />
-        <directionalLight 
-          position={[20, 30, 10]} 
-          intensity={0.8} 
-          color="#FF1493" 
-        />
-        <pointLight 
-          position={[-20, 15, -15]} 
-          intensity={0.7} 
-          color="#00FFFF" 
-        />
-        <pointLight 
-          position={[20, 10, 15]} 
-          intensity={0.7} 
-          color="#39FF14" 
-        />
-        <pointLight 
-          position={[0, 25, 0]} 
-          intensity={0.5} 
-          color="#FFD700" 
-        />
-        
-        {/* Retro Environment */}
-        <Environment preset="night" />
-        <PixelGalaxyBackground />
-        
-        {/* Pixelated Rockets for Blocks */}
-        {displayBlocks.map((blockRay, index) => (
-          <PixelatedRocket
-            key={blockRay.id}
-            block={blockRay.block}
-            position={[
-              (index - displayBlocks.length / 2) * 12,
-              index * 2,
-              -index * 8
-            ]}
-            size={1.5 + (blockRay.block?.transactions?.length || 0) / 200}
-            trailColor={getRocketTrailColor(blockRay)}
-          />
-        ))}
-        
-        {/* Alien Dancers for Current Block */}
-        {displayBlocks[currentBlockIndex] && (
-          <AlienDancers
-            transactions={displayBlocks[currentBlockIndex].block?.transactions || []}
-            centerPosition={[
-              (currentBlockIndex - displayBlocks.length / 2) * 12,
-              0,
-              -currentBlockIndex * 8
-            ]}
-          />
-        )}
-        
-        {/* Retro DJ Announcer */}
-        <RetroDJ 
-          latestBlock={latestBlock?.block}
-          isEnabled={djEnabled}
-        />
-      </Canvas>
-
-      {/* Laser Show Effect for New Blocks */}
-      {latestBlock && (
-        <div className="absolute inset-0 pointer-events-none">
-          <div className="absolute top-1/3 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-8xl animate-pulse">
-            ⚡
-          </div>
-          <div className="absolute bottom-1/3 right-1/4 text-6xl animate-bounce">
-            🎵
-          </div>
-        </div>
-      )}
     </div>
   );
 };
