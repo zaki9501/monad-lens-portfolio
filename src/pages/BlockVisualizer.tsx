@@ -7,6 +7,7 @@ import { Search, Globe, Zap, Activity, TrendingUp, Users, Hash, ArrowRight, Fuel
 import { ScrollArea } from "@/components/ui/scroll-area";
 import Globe3D from "@/components/Globe3D";
 import StatsWaveChart from "@/components/pulse/StatsWaveChart";
+import RadarOverlay from "@/components/RadarOverlay";
 
 // Mock data fetching function (replace with actual Monad API)
 const fetchLatestBlock = async () => {
@@ -110,7 +111,8 @@ const BlockVisualizer = () => {
       </div>
 
       <div className="grid grid-cols-12 gap-4 h-[calc(100vh-120px)]">
-        {/* Left Panel - Stats */}
+
+        {/* Left Panel */}
         <div className="col-span-3 space-y-4">
           {/* Network Stats */}
           <Card className="bg-gray-900/30 border-green-900/50">
@@ -185,7 +187,7 @@ const BlockVisualizer = () => {
           </Card>
         </div>
 
-        {/* Center - 3D Globe Visualization */}
+        {/* Center - 3D Globe Visualization & Radar */}
         <div className="col-span-6 relative">
           <Card className="bg-gray-900/30 border-green-900/50 h-full">
             <CardHeader className="pb-2">
@@ -195,9 +197,14 @@ const BlockVisualizer = () => {
               </CardTitle>
             </CardHeader>
             <CardContent className="p-0 h-[calc(100%-60px)] relative">
-              {/* Pass recentBlocks as blocks to Globe3D */}
-              <Globe3D blocks={recentBlocks} onBlockClick={handleBlockClick} />
-
+              {/* --- RADAR OVERLAY --- */}
+              <div className="flex items-center justify-center w-full relative" style={{ minHeight: 400 }}>
+                <RadarOverlay recentBlocks={recentBlocks} />
+                {/* Below, overlay Globe3D for cool effect (consider z-index if needed) */}
+                <div className="absolute inset-0 w-full h-full pointer-events-none opacity-60">
+                  <Globe3D blocks={recentBlocks} onBlockClick={handleBlockClick} />
+                </div>
+              </div>
               {/* Overlay info */}
               <div className="absolute top-4 left-4 text-xs space-y-1">
                 <div className="text-green-400">Active Validators: <span className="text-cyan-400">99</span></div>
@@ -264,7 +271,7 @@ const BlockVisualizer = () => {
           </Card>
         </div>
 
-        {/* Right Panel - Live Activity */}
+        {/* Right Panel */}
         <div className="col-span-3 space-y-4">
           {/* Transaction Stream */}
           <Card className="bg-gray-900/30 border-green-900/50">
