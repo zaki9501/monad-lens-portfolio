@@ -316,9 +316,10 @@ const AnimatedConnectionRay = ({ points, blockData, onClick, color = "#00FFFF", 
 interface Globe3DProps {
   blocks: any[]; // Now uses blocks, not transactions
   onBlockClick: (block: any) => void;
+  autoRotate?: boolean; // NEW prop
 }
 
-const Globe3D = ({ blocks, onBlockClick }: Globe3DProps) => {
+const Globe3D = ({ blocks, onBlockClick, autoRotate = true }: Globe3DProps) => {
   return (
     <div className="w-full h-full">
       <Canvas
@@ -331,7 +332,14 @@ const Globe3D = ({ blocks, onBlockClick }: Globe3DProps) => {
         <pointLight position={[-10, -10, -10]} intensity={1.2} color="#00FF88" />
         {/* Pass blocks to Globe, not transactions */}
         <Globe blocks={blocks} onBlockClick={onBlockClick} />
-        <OrbitControls enableZoom={true} enablePan={false} autoRotate={true} autoRotateSpeed={0.5} minDistance={2} maxDistance={5} /> 
+        <OrbitControls
+          enableZoom={true}
+          enablePan={false}
+          autoRotate={autoRotate}
+          autoRotateSpeed={0.5}
+          minDistance={2}
+          maxDistance={5}
+        />
       </Canvas>
     </div>
   );
