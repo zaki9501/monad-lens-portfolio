@@ -9,6 +9,7 @@ import Globe3D from "@/components/Globe3D";
 import StatsWaveChart from "@/components/pulse/StatsWaveChart";
 import RadarOverlay from "@/components/RadarOverlay";
 import RadarBlockDetailPanel from "@/components/RadarBlockDetailPanel";
+import { useToast } from "@/hooks/use-toast";
 
 // Mock data fetching function (replace with actual Monad API)
 const fetchLatestBlock = async () => {
@@ -39,6 +40,11 @@ const BlockVisualizer = () => {
   const [liveGlobeTransactions, setLiveGlobeTransactions] = useState<any[]>([]);
   const [selectedBlock, setSelectedBlock] = useState<any>(null);
   const [selectedRadarBlock, setSelectedRadarBlock] = useState<any>(null);
+  const [transactionSearch, setTransactionSearch] = useState('');
+  const [transactionResult, setTransactionResult] = useState<any | null>(null);
+  const [isSearchingTx, setIsSearchingTx] = useState(false);
+  const [txSearchError, setTxSearchError] = useState('');
+  const { toast } = useToast();
 
   useEffect(() => {
     const fetchData = async () => {
@@ -77,6 +83,46 @@ const BlockVisualizer = () => {
     const interval = setInterval(fetchData, 3000);
     return () => clearInterval(interval);
   }, []);
+
+  // Transaction search function
+  const handleTxSearch = async () => {
+    setTransactionResult(null);
+    setTxSearchError('');
+    if (!/^0x([A-Fa-f0-9]{64})$/.test(transactionSearch.trim())) {
+      setTxSearchError('Please enter a valid transaction hash.');
+      return;
+    }
+    setIsSearchingTx(true);
+    try {
+      const response = await fetch('https://testnet-rpc.monad.xyz/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          jsonrpc: '2.0',
+          method: 'eth_getTransactionByHash',
+          params: [transactionSearch.trim()],
+          id: 1
+        })
+      });
+      if (!response.ok) throw new Error('Network error');
+      const data = await response.json();
+      if (data?.result) {
+        setTransactionResult(data.result);
+      } else {
+        setTxSearchError('Transaction not found.');
+        toast({ title: 'Not found', description: 'No transaction for this hash.' });
+      }
+    } catch (err) {
+      setTxSearchError('Failed to fetch transaction.');
+      toast({ title: 'Error', description: 'Could not search transaction.' });
+    } finally {
+      setIsSearchingTx(false);
+    }
+  };
+
+  const handleTxInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") handleTxSearch();
+  };
 
   const formatValue = (value: string) => {
     const wei = parseInt(value, 16);
@@ -121,9 +167,57 @@ const BlockVisualizer = () => {
               <span>REAL-TIME</span>
             </div>
           </div>
-          
+          {/* Search bar for transaction hash */}
+          <div className="flex items-center gap-2 ml-auto">
+            <Input
+              className="w-[240px] text-xs font-mono border-green-900/60 bg-gray-800/80"
+              placeholder="Search TX hash…"
+              value={transactionSearch}
+              onChange={e => { setTransactionSearch(e.target.value); setTxSearchError(''); }}
+              onKeyDown={handleTxInputKeyDown}
+              disabled={isSearchingTx}
+            />
+            <Button
+              size="sm"
+              className="bg-gradient-to-r from-green-700 to-cyan-600 text-white h-8 px-4"
+              onClick={handleTxSearch}
+              disabled={isSearchingTx}
+            >
+              <Search className="w-4 h-4 mr-1" />
+              {isSearchingTx ? "Searching..." : "Search"}
+            </Button>
+          </div>
         </div>
+        {/* Optional: Show error message below search input */}
+        {txSearchError && (
+          <div className="text-xs text-red-500 mt-2">{txSearchError}</div>
+        )}
       </div>
+
+      {/* Show transaction result card if present */}
+      {transactionResult && (
+        <div className="w-full flex justify-end mb-4 pr-2 animate-fade-in-up">
+          <Card className="border-cyan-400 bg-black/90 p-4 max-w-lg rounded-lg shadow-lg relative">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setTransactionResult(null)}
+              className="absolute right-2 top-2 text-cyan-400/60 hover:text-cyan-300 p-1 h-auto"
+            >
+              <XCircle className="h-4 w-4" />
+            </Button>
+            <div className="text-xs text-green-400 font-mono space-y-1 pr-8">
+              <div className="flex gap-2 items-center"><Hash className="w-3 h-3" /><span className="text-cyan-400">{formatAddress(transactionResult.hash)}</span></div>
+              <div className="flex gap-2 items-center"><span className="text-green-600">From:</span> <span>{formatAddress(transactionResult.from)}</span></div>
+              <div className="flex gap-2 items-center"><ArrowRight className="w-3 h-3" /><span className="text-green-600">To:</span> <span>{formatAddress(transactionResult.to)}</span></div>
+              <div className="flex gap-2 items-center"><span className="text-green-600">Value:</span> <span>{formatValue(transactionResult.value)}</span></div>
+              <div className="flex gap-2 items-center"><Fuel className="w-3 h-3" /><span className="text-green-600">Gas:</span> <span>{parseInt(transactionResult.gas, 16).toLocaleString()}</span></div>
+              <div className="flex gap-2 items-center"><span className="text-green-600">Nonce:</span> <span>{parseInt(transactionResult.nonce, 16)}</span></div>
+              <div className="flex gap-2 items-center"><span className="text-green-600">Block:</span> <span>{transactionResult.blockNumber ? parseInt(transactionResult.blockNumber, 16).toLocaleString() : 'Pending'}</span></div>
+            </div>
+          </Card>
+        </div>
+      )}
 
       <div className="grid grid-cols-12 gap-4 h-[calc(100vh-120px)]">
 
