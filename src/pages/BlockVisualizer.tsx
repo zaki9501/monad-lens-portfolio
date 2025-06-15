@@ -10,7 +10,8 @@ import StatsWaveChart from "@/components/pulse/StatsWaveChart";
 import RadarOverlay from "@/components/RadarOverlay";
 import RadarBlockDetailPanel from "@/components/RadarBlockDetailPanel";
 import { useToast } from "@/hooks/use-toast";
-// --- ADD BLOCKVISION IMPORT ---
+import LiveContractDeployments from "@/components/pulse/LiveContractDeployments";
+
 const BLOCKVISION_API_KEY = import.meta.env.VITE_BLOCKVISION_API_KEY as string;
 
 // Mock data fetching function (replace with actual Monad API)
@@ -134,6 +135,10 @@ const BlockVisualizer = () => {
   const [selectedRadarContractDetails, setSelectedRadarContractDetails] = useState<any | null>(null);
 
   const [detectedContracts, setDetectedContracts] = useState<any[]>([]); // New: detected contracts
+
+  // New state for live contract deployments
+  const [liveDeployments, setLiveDeployments] = useState<any[]>([]);
+  const [deploymentsLoading, setDeploymentsLoading] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -344,6 +349,64 @@ const BlockVisualizer = () => {
         : [{ ...contract }, ...prev].slice(0, 12) // keep only recent 12 detected
     );
   };
+
+  // New effect: For each new currentBlock, fetch receipts and detect contract deployments
+  useEffect(() => {
+    let cancelled = false;
+    async function fetchAndDetectContracts(block: any) {
+      if (!block || !block.transactions || block.transactions.length === 0) {
+        setLiveDeployments([]);
+        return;
+      }
+      setDeploymentsLoading(true);
+
+      // Fetch receipts for all txs in the latest block in parallel
+      const txs = Array.isArray(block.transactions) ? block.transactions : [];
+      try {
+        const results = await Promise.all(
+          txs.map(async (tx: any) => {
+            try {
+              const receiptRes = await fetch('https://testnet-rpc.monad.xyz/', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  jsonrpc: '2.0',
+                  method: 'eth_getTransactionReceipt',
+                  params: [tx.hash],
+                  id: 2,
+                }),
+              });
+              if (!receiptRes.ok) return null;
+              const receiptData = await receiptRes.json();
+              const contractAddress = receiptData?.result?.contractAddress;
+              if (contractAddress && contractAddress !== "0x0000000000000000000000000000000000000000") {
+                return {
+                  contractAddress,
+                  creator: tx.from,
+                  txHash: tx.hash,
+                  blockNumber: tx.blockNumber,
+                  timestamp: parseInt(block.timestamp, 16),
+                };
+              }
+              return null;
+            } catch (err) {
+              return null;
+            }
+          })
+        );
+        if (!cancelled) {
+          setLiveDeployments(results.filter(Boolean));
+        }
+      } finally {
+        setDeploymentsLoading(false);
+      }
+    }
+
+    if (currentBlock) {
+      fetchAndDetectContracts(currentBlock);
+    }
+    return () => { cancelled = true; };
+  }, [currentBlock]);
 
   return (
     <div className="min-h-screen bg-black text-green-400 p-4 font-mono">
@@ -746,6 +809,13 @@ const BlockVisualizer = () => {
                   ))}
                 </div>
               </ScrollArea>
+            </CardContent>
+          </Card>
+
+          {/* Live Contract Deployments (NEW) */}
+          <Card className="bg-gray-900/30 border-green-900/50">
+            <CardContent>
+              <LiveContractDeployments deployments={liveDeployments} isLoading={deploymentsLoading} />
             </CardContent>
           </Card>
 
