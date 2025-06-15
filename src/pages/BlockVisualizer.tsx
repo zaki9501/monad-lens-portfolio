@@ -133,6 +133,8 @@ const BlockVisualizer = () => {
   const [selectedRadarContract, setSelectedRadarContract] = useState<any | null>(null);
   const [selectedRadarContractDetails, setSelectedRadarContractDetails] = useState<any | null>(null);
 
+  const [detectedContracts, setDetectedContracts] = useState<any[]>([]); // New: detected contracts
+
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -332,6 +334,16 @@ const BlockVisualizer = () => {
     }, 270);
     return () => clearInterval(interval);
   }, []);
+
+  // Update: When contract selected, add to detectedContracts if not already present
+  const handleRadarContractSelect = (contract: any) => {
+    setSelectedRadarContract(contract);
+    setDetectedContracts(prev =>
+      prev.some(c => c.contract_address === contract.contract_address)
+        ? prev
+        : [{ ...contract }, ...prev].slice(0, 12) // keep only recent 12 detected
+    );
+  };
 
   return (
     <div className="min-h-screen bg-black text-green-400 p-4 font-mono">
@@ -777,33 +789,69 @@ const BlockVisualizer = () => {
         <p className="text-green-600 text-center mb-6 max-w-lg">
           Live contract deployments visualized as sci-fi radar. New contracts are shown as ships slowly approaching the center; click to view contract details and deployment info.
         </p>
-        <div className="flex flex-row w-full max-w-5xl justify-center">
-          <RadarOverlay
-            recentBlocks={radarContracts} // renamed prop is still "recentBlocks" in legacy overlay
-            onSelectBlock={setSelectedRadarContract}
-            selectedBlockHash={selectedRadarContract?.contract_address || null}
-            // The overlay expects .hash to exist, so we must adapt it below!
-          />
+        <div className="flex flex-row w-full max-w-5xl justify-center gap-4">
+          
+          {/* Radar on the left */}
+          <div className="relative">
+            <RadarOverlay
+              recentBlocks={radarContracts}
+              onSelectBlock={handleRadarContractSelect}
+              selectedBlockHash={selectedRadarContract?.contract_address || null}
+            />
+            <div className="absolute -left-8 top-4 z-10"></div>
+          </div>
+
+          {/* Detected contracts field */}
+          <div className="w-56 flex-shrink-0 ml-2">
+            <div className="bg-black/80 border border-green-800 rounded-xl shadow-2xl px-3 py-2 max-h-[400px] min-h-[120px] overflow-y-auto">
+              <div className="text-green-300 text-base font-bold mb-2 tracking-wide flex items-center gap-2">
+                <span>Detected</span>
+                <span className="ml-2 text-green-500 bg-green-900/60 px-2 py-0.5 rounded text-xs font-mono">{detectedContracts.length}</span>
+              </div>
+              {detectedContracts.length === 0 && (
+                <div className="text-green-800 text-xs">No contracts detected yet.<br />Click a contract on the radar.</div>
+              )}
+              <ul className="space-y-2 mt-1">
+                {detectedContracts.map((c, idx) => (
+                  <li
+                    key={c.contract_address}
+                    className={`text-xs rounded p-2 cursor-pointer border hover:border-green-400/70 ${selectedRadarContract?.contract_address === c.contract_address ? 'bg-green-900/40 border-green-300/60 text-green-200' : 'bg-green-900/10 border-green-800/70 text-green-400'} transition`}
+                    onClick={() => handleRadarContractSelect(c)}
+                  >
+                    <div className="truncate font-mono" title={c.contract_address}>
+                      <span className="text-green-400">{c.contract_address?.slice(0, 8)}…{c.contract_address?.slice(-5)}</span>
+                    </div>
+                    <div className="text-green-700 mt-1">
+                      <span>Deployed: </span>
+                      <span className="text-green-500">{c.time ? new Date(Number(c.time) * 1000).toLocaleString() : '—'}</span>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+
+          {/* Block Panel */}
           {selectedRadarContractDetails && (
             <div className="-ml-2">
               <RadarBlockDetailPanel
                 block={{
-                  // Adapt shape for panel!
                   ...selectedRadarContractDetails,
                   number: selectedRadarContractDetails.block_number,
                   hash: selectedRadarContractDetails.contract_address,
                   miner: selectedRadarContractDetails.creator || selectedRadarContractDetails.from,
                   timestamp: selectedRadarContractDetails.creationTime || selectedRadarContractDetails.time,
-                  transactions: [], // Optional, can fetch actual contract txns if desired
+                  transactions: [],
                   gasUsed: selectedRadarContractDetails.gas_used || '0x0',
                   gasLimit: selectedRadarContractDetails.gas_limit || '0x0',
                 }}
                 waveData={miniWaveData}
                 onClose={() => setSelectedRadarContract(null)}
-                transactions={[]} // Optionally can fetch transactions for this contract
+                transactions={[]}
               />
             </div>
           )}
+
         </div>
       </section>
     </div>
