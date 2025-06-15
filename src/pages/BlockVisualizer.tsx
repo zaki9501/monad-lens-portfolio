@@ -33,22 +33,19 @@ const fetchLatestBlock = async () => {
 
 const BlockVisualizer = () => {
   const [currentBlock, setCurrentBlock] = useState<any>(null);
-  const [searchAddress, setSearchAddress] = useState('');
+  const [searchValue, setSearchValue] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [recentBlocks, setRecentBlocks] = useState<any[]>([]);
   const [transactions, setTransactions] = useState<any[]>([]);
   const [liveGlobeTransactions, setLiveGlobeTransactions] = useState<any[]>([]);
   const [selectedBlock, setSelectedBlock] = useState<any>(null);
   const [selectedRadarBlock, setSelectedRadarBlock] = useState<any>(null);
-  const [transactionSearch, setTransactionSearch] = useState('');
-  const [transactionResult, setTransactionResult] = useState<any | null>(null);
-  const [isSearchingTx, setIsSearchingTx] = useState(false);
-  const [txSearchError, setTxSearchError] = useState('');
+  const [searchResult, setSearchResult] = useState<any | null>(null);
+  const [searchType, setSearchType] = useState<"tx" | "contract" | null>(null);
+  const [isSearching, setIsSearching] = useState(false);
+  const [searchError, setSearchError] = useState('');
   const { toast } = useToast();
-  const [contractSearch, setContractSearch] = useState('');
-  const [isSearchingContract, setIsSearchingContract] = useState(false);
-  const [contractResult, setContractResult] = useState<any | null>(null);
-  const [contractSearchError, setContractSearchError] = useState('');
+  const [miniWaveData, setMiniWaveData] = useState<{ t: number; v: number }[]>([]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -88,88 +85,92 @@ const BlockVisualizer = () => {
     return () => clearInterval(interval);
   }, []);
 
-  // Contract search logic
-  const handleContractSearch = async () => {
-    setContractResult(null);
-    setContractSearchError('');
-    const address = contractSearch.trim();
+  // Unified search for tx hash or contract address
+  const handleSearch = async () => {
+    setSearchResult(null);
+    setSearchType(null);
+    setSearchError('');
+    const text = searchValue.trim();
 
-    if (!/^0x[a-fA-F0-9]{40}$/.test(address)) {
-      setContractSearchError("Please enter a valid contract address.");
+    // Try to parse as tx hash
+    const isHash = /^0x([A-Fa-f0-9]{64})$/.test(text);
+    const isAddress = /^0x[a-fA-F0-9]{40}$/.test(text);
+
+    if (!isHash && !isAddress) {
+      setSearchError('Enter a valid tx hash or contract address.');
       return;
     }
-    setIsSearchingContract(true);
-    try {
-      const response = await fetch('https://testnet-rpc.monad.xyz/', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          jsonrpc: '2.0',
-          method: 'eth_getCode',
-          params: [address, 'latest'],
-          id: 2
-        })
-      });
-      if (!response.ok) throw new Error('Network error');
-      const data = await response.json();
-      // data.result is contract code as hex. If '0x', not a contract.
-      if (data?.result && data.result !== "0x" && data.result !== "0X") {
-        setContractResult({
-          address,
-          code: data.result,
+
+    setIsSearching(true);
+
+    // Try fetching tx first (if looks like hash)
+    let triedTx = false;
+    if (isHash) {
+      try {
+        const txRes = await fetch('https://testnet-rpc.monad.xyz/', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            jsonrpc: '2.0',
+            method: 'eth_getTransactionByHash',
+            params: [text],
+            id: 1
+          })
         });
-      } else {
-        setContractSearchError('Address is not a contract.');
+        if (!txRes.ok) throw new Error('tx not found');
+        const txData = await txRes.json();
+        if (txData?.result) {
+          setSearchResult(txData.result);
+          setSearchType("tx");
+          setIsSearching(false);
+          return;
+        }
+        triedTx = true;
+      } catch (err) {
+        triedTx = true; // still try contract if not found
       }
-    } catch (err) {
-      setContractSearchError('Failed to fetch contract.');
-    } finally {
-      setIsSearchingContract(false);
     }
-  };
-
-  const handleContractInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter") handleContractSearch();
-  };
-
-  // Transaction search function
-  const handleTxSearch = async () => {
-    setTransactionResult(null);
-    setTxSearchError('');
-    if (!/^0x([A-Fa-f0-9]{64})$/.test(transactionSearch.trim())) {
-      setTxSearchError('Please enter a valid transaction hash.');
-      return;
-    }
-    setIsSearchingTx(true);
+    // Try contract code (for hash if tx failed, or address)
     try {
-      const response = await fetch('https://testnet-rpc.monad.xyz/', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          jsonrpc: '2.0',
-          method: 'eth_getTransactionByHash',
-          params: [transactionSearch.trim()],
-          id: 1
-        })
-      });
-      if (!response.ok) throw new Error('Network error');
-      const data = await response.json();
-      if (data?.result) {
-        setTransactionResult(data.result);
+      const addr = isAddress ? text : null;
+      const possibleAddr = addr || (isHash ? text.slice(0, 42) : null);
+      // Only search contract if address pattern fits
+      if (possibleAddr) {
+        const codeRes = await fetch('https://testnet-rpc.monad.xyz/', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            jsonrpc: '2.0',
+            method: 'eth_getCode',
+            params: [possibleAddr, 'latest'],
+            id: 2
+          })
+        });
+        if (!codeRes.ok) throw new Error('Network error');
+        const codeData = await codeRes.json();
+        if (codeData?.result && codeData.result !== "0x" && codeData.result !== "0X") {
+          setSearchResult({
+            address: possibleAddr,
+            code: codeData.result,
+          });
+          setSearchType("contract");
+          setIsSearching(false);
+          return;
+        } else {
+          if (triedTx) setSearchError('No transaction or contract found for input.');
+          else setSearchError('Not a contract.');
+        }
       } else {
-        setTxSearchError('Transaction not found.');
-        toast({ title: 'Not found', description: 'No transaction for this hash.' });
+        setSearchError('No transaction or contract found.');
       }
     } catch (err) {
-      setTxSearchError('Failed to fetch transaction.');
-      toast({ title: 'Error', description: 'Could not search transaction.' });
-    } finally {
-      setIsSearchingTx(false);
+      setSearchError('Failed to search contract.');
     }
+    setIsSearching(false);
   };
 
-  const handleTxInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter") handleTxSearch();
+  const handleSearchInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") handleSearch();
   };
 
   const formatValue = (value: string) => {
@@ -191,7 +192,6 @@ const BlockVisualizer = () => {
   };
 
   // Add waveData for mini chart below radar details
-  const [miniWaveData, setMiniWaveData] = useState<{ t: number; v: number }[]>([]);
   useEffect(() => {
     // mimic wave changes for RadarBlockMiniChart
     const interval = setInterval(() => {
@@ -215,159 +215,136 @@ const BlockVisualizer = () => {
               <span>REAL-TIME</span>
             </div>
           </div>
-          {/* Search bar for transaction hash and contract */}
+          {/* ONE unified search bar for TX hash & contract address */}
           <div className="flex items-center gap-2 ml-auto">
-            {/* TX Search */}
             <Input
-              className="w-[220px] text-xs font-mono border-green-900/60 bg-gray-800/80"
-              placeholder="Search TX hash…"
-              value={transactionSearch}
-              onChange={e => { setTransactionSearch(e.target.value); setTxSearchError(''); }}
-              onKeyDown={handleTxInputKeyDown}
-              disabled={isSearchingTx}
+              className="w-[320px] text-xs font-mono border-green-900/60 bg-gray-800/80"
+              placeholder="Search TX hash or contract address…"
+              value={searchValue}
+              onChange={e => { setSearchValue(e.target.value); setSearchError(''); }}
+              onKeyDown={handleSearchInputKeyDown}
+              disabled={isSearching}
             />
             <Button
               size="sm"
               className="bg-gradient-to-r from-green-700 to-cyan-600 text-white h-8 px-3"
-              onClick={handleTxSearch}
-              disabled={isSearchingTx}
+              onClick={handleSearch}
+              disabled={isSearching}
             >
               <Search className="w-4 h-4 mr-1" />
-              {isSearchingTx ? "Searching..." : "Search"}
-            </Button>
-            {/* Contract Search */}
-            <Input
-              className="w-[190px] text-xs font-mono border-cyan-900/60 bg-gray-800/80"
-              placeholder="Search contract address…"
-              value={contractSearch}
-              onChange={e => { setContractSearch(e.target.value); setContractSearchError(''); }}
-              onKeyDown={handleContractInputKeyDown}
-              disabled={isSearchingContract}
-            />
-            <Button
-              size="sm"
-              className="bg-gradient-to-r from-cyan-700 to-blue-600 text-white h-8 px-3"
-              onClick={handleContractSearch}
-              disabled={isSearchingContract}
-            >
-              <Search className="w-4 h-4 mr-1" />
-              {isSearchingContract ? "Searching..." : "Search"}
+              {isSearching ? "Searching..." : "Search"}
             </Button>
           </div>
         </div>
         {/* Error messages */}
-        {(txSearchError || contractSearchError) && (
+        {!!searchError && (
           <div className="text-xs text-red-500 mt-2 flex flex-row gap-4">
-            {txSearchError && <span>{txSearchError}</span>}
-            {contractSearchError && <span>{contractSearchError}</span>}
+            <span>{searchError}</span>
           </div>
         )}
       </div>
 
-      {/* Show transaction result card if present */}
-      {transactionResult && (
+      {/* Show result card if present (tx or contract) */}
+      {searchType === "tx" && searchResult && (
         <div className="w-full flex justify-end mb-4 pr-2 animate-fade-in-up">
-          <Card className="border-cyan-400 bg-black/95 p-6 max-w-2xl w-full rounded-xl shadow-2xl relative min-w-[420px]">
+          <Card className="border-cyan-400 bg-black/95 p-7 max-w-3xl w-full rounded-xl shadow-2xl relative min-w-[520px]">
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => setTransactionResult(null)}
+              onClick={() => setSearchResult(null)}
               className="absolute right-3 top-3 text-cyan-400/70 hover:text-cyan-300 p-2 h-auto"
             >
               <XCircle className="h-5 w-5" />
             </Button>
-            <div className="text-green-400 text-base font-mono space-y-2 pr-10">
-              <div className="flex flex-wrap items-center gap-3 mb-3">
-                <span className="text-green-500 font-bold text-lg">Transaction Details</span>
-                <span className="bg-cyan-800/70 border border-cyan-500 rounded-md px-3 py-1 font-mono text-cyan-200 text-xs select-all break-all" title={transactionResult.hash}>
-                  Hash: {transactionResult.hash}
+            <div className="text-green-400 text-base font-mono space-y-3 pr-10">
+              <div className="flex flex-wrap items-center gap-3 mb-4">
+                <span className="text-green-500 font-bold text-xl">Transaction Details</span>
+                <span className="bg-cyan-800/70 border border-cyan-500 rounded-md px-3 py-1 font-mono text-cyan-200 text-base select-all break-all" title={searchResult.hash}>
+                  Hash: {searchResult.hash}
                 </span>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-2 text-sm">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-10 gap-y-2 text-base">
                 <div>
                   <span className="text-green-600">From:</span>
-                  <span className="ml-2 text-cyan-300 select-all break-all" title={transactionResult.from}>
-                    {transactionResult.from}
+                  <span className="ml-2 text-cyan-300 select-all break-all" title={searchResult.from}>
+                    {searchResult.from}
                   </span>
                 </div>
                 <div>
                   <span className="text-green-600">To:</span>
-                  <span className="ml-2 text-cyan-300 select-all break-all" title={transactionResult.to}>
-                    {transactionResult.to || 'N/A'}
+                  <span className="ml-2 text-cyan-300 select-all break-all" title={searchResult.to}>
+                    {searchResult.to || 'N/A'}
                   </span>
                 </div>
                 <div>
                   <span className="text-green-600">Value:</span>
                   <span className="ml-2 text-green-300">
-                    {formatValue(transactionResult.value)}
+                    {formatValue(searchResult.value)}
                   </span>
                 </div>
                 <div>
                   <span className="text-green-600">Gas:</span>
-                  <span className="ml-2">{parseInt(transactionResult.gas, 16).toLocaleString()}</span>
+                  <span className="ml-2">{parseInt(searchResult.gas, 16).toLocaleString()}</span>
                 </div>
                 <div>
                   <span className="text-green-600">Gas Price:</span>
-                  <span className="ml-2">{transactionResult.gasPrice ? parseInt(transactionResult.gasPrice, 16).toLocaleString() + " wei" : "N/A"}</span>
+                  <span className="ml-2">{searchResult.gasPrice ? parseInt(searchResult.gasPrice, 16).toLocaleString() + " wei" : "N/A"}</span>
                 </div>
                 <div>
                   <span className="text-green-600">Nonce:</span>
-                  <span className="ml-2">{parseInt(transactionResult.nonce, 16)}</span>
+                  <span className="ml-2">{parseInt(searchResult.nonce, 16)}</span>
                 </div>
                 <div>
                   <span className="text-green-600">Block:</span>
-                  <span className="ml-2">{transactionResult.blockNumber ? parseInt(transactionResult.blockNumber, 16).toLocaleString() : 'Pending'}</span>
+                  <span className="ml-2">{searchResult.blockNumber ? parseInt(searchResult.blockNumber, 16).toLocaleString() : 'Pending'}</span>
                 </div>
                 <div>
                   <span className="text-green-600">Index in Block:</span>
-                  <span className="ml-2">{transactionResult.transactionIndex ? parseInt(transactionResult.transactionIndex, 16) : "N/A"}</span>
+                  <span className="ml-2">{searchResult.transactionIndex ? parseInt(searchResult.transactionIndex, 16) : "N/A"}</span>
                 </div>
-                <div className="col-span-1 md:col-span-2 break-all">
+                <div>
                   <span className="text-green-600">Type:</span>
-                  <span className="ml-2">{transactionResult.type ?? 'N/A'}</span>
+                  <span className="ml-2">{searchResult.type ?? 'N/A'}</span>
                 </div>
-                <div className="col-span-1 md:col-span-2 break-all">
-                  <span className="text-green-600">Input:</span>
-                  <span className="ml-2 text-gray-300 select-all" title={transactionResult.input}>
-                    {transactionResult.input && transactionResult.input !== "0x"
-                      ? (
-                        transactionResult.input.length > 80
-                          ? transactionResult.input.slice(0, 80) + "..."
-                          : transactionResult.input
-                        )
-                      : "—"}
-                  </span>
-                </div>
+              </div>
+              <div className="break-all text-green-600 mt-2">
+                <span>Input:</span>
+                <span className="ml-2 text-gray-300 select-all" title={searchResult.input}>
+                  {searchResult.input && searchResult.input !== "0x"
+                    ? (
+                      searchResult.input.length > 150
+                        ? searchResult.input.slice(0, 150) + "..."
+                        : searchResult.input
+                      )
+                    : "—"}
+                </span>
               </div>
             </div>
           </Card>
         </div>
       )}
-
-      {/* Show contract result card if present */}
-      {contractResult && (
+      {searchType === "contract" && searchResult && (
         <div className="w-full flex justify-end mb-4 pr-2 animate-fade-in-up">
-          <Card className="border-blue-400 bg-black/95 p-6 max-w-2xl w-full rounded-xl shadow-2xl relative min-w-[420px]">
+          <Card className="border-blue-400 bg-black/95 p-7 max-w-3xl w-full rounded-xl shadow-2xl relative min-w-[520px]">
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => setContractResult(null)}
+              onClick={() => setSearchResult(null)}
               className="absolute right-3 top-3 text-blue-400/70 hover:text-cyan-300 p-2 h-auto"
             >
-              {/* XCircle from lucide-react */}
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+              <XCircle className="h-5 w-5" />
             </Button>
-            <div className="text-blue-300 text-base font-mono space-y-2 pr-10">
-              <div className="flex flex-wrap items-center gap-3 mb-3">
-                <span className="text-blue-400 font-bold text-lg">Contract Details</span>
-                <span className="bg-blue-800/70 border border-blue-500 rounded-md px-3 py-1 font-mono text-blue-200 text-xs select-all break-all" title={contractResult.address}>
-                  Address: {contractResult.address}
+            <div className="text-blue-300 text-base font-mono space-y-3 pr-10">
+              <div className="flex flex-wrap items-center gap-3 mb-4">
+                <span className="text-blue-400 font-bold text-xl">Contract Details</span>
+                <span className="bg-blue-800/70 border border-blue-500 rounded-md px-3 py-1 font-mono text-blue-200 text-base select-all break-all" title={searchResult.address}>
+                  Address: {searchResult.address}
                 </span>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-2 text-sm">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-10 gap-y-2 text-base">
                 <div>
                   <span className="text-blue-700">Code Size:</span>
-                  <span className="ml-2">{(contractResult.code.length / 2 - 1).toLocaleString()} bytes</span>
+                  <span className="ml-2">{(searchResult.code.length / 2 - 1).toLocaleString()} bytes</span>
                 </div>
                 <div>
                   <span className="text-blue-700">Is Proxy:</span>
@@ -375,18 +352,18 @@ const BlockVisualizer = () => {
                 </div>
                 <div className="col-span-1 md:col-span-2 break-all">
                   <span className="text-blue-700">Code Preview:</span>
-                  <pre className="block p-2 bg-gray-800 text-blue-200 rounded break-words max-h-32 overflow-auto mt-1 text-xs select-all">
-                    {contractResult.code.length > 120
-                      ? contractResult.code.slice(0, 120) + "..."
-                      : contractResult.code}
+                  <pre className="block p-2 bg-gray-800 text-blue-200 rounded break-words max-h-44 overflow-auto mt-1 text-xs select-all">
+                    {searchResult.code.length > 220
+                      ? searchResult.code.slice(0, 220) + "..."
+                      : searchResult.code}
                   </pre>
                 </div>
                 <div className="col-span-1 md:col-span-2 break-all">
                   <span className="text-blue-700">Full Code:</span>
-                  <span className="ml-2 text-gray-400 select-all" title={contractResult.code.length > 1000 ? undefined : contractResult.code}>
-                    {contractResult.code.length > 1000
-                      ? `${contractResult.code.slice(0, 100)}... (${contractResult.code.length} chars)`
-                      : contractResult.code}
+                  <span className="ml-2 text-gray-400 select-all" title={searchResult.code.length > 1000 ? undefined : searchResult.code}>
+                    {searchResult.code.length > 1200
+                      ? `${searchResult.code.slice(0, 150)}... (${searchResult.code.length} chars)`
+                      : searchResult.code}
                   </span>
                 </div>
               </div>
