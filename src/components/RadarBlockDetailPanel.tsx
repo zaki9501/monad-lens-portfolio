@@ -2,11 +2,13 @@
 import React from "react";
 import { Card } from "@/components/ui/card";
 import RadarBlockMiniChart from "./RadarBlockMiniChart";
+import RadarLiveTransactionFeed from "./RadarLiveTransactionFeed";
 
 interface RadarBlockDetailPanelProps {
   block: any | null;
   waveData: { t: number; v: number }[];
   onClose: () => void;
+  transactions?: any[]; // Pass transactions to show below chart
 }
 
 // Formats
@@ -29,11 +31,12 @@ const RadarBlockDetailPanel: React.FC<RadarBlockDetailPanelProps> = ({
   block,
   waveData,
   onClose,
+  transactions = [],
 }) => {
   if (!block) return null;
   return (
     <aside className="w-80 max-w-full p-2 pr-0 animate-fade-in-up">
-      <Card className="border-green-400/80 bg-black/80 rounded-lg px-3 py-3 mb-3 backdrop-blur-[2px]">
+      <Card className="border-green-400/80 bg-black/80 rounded-lg px-3 py-3 mb-3 backdrop-blur-[2px] relative">
         <button
           onClick={onClose}
           className="absolute right-4 top-3 text-green-400/60 hover:text-green-300 text-xs"
@@ -66,6 +69,9 @@ const RadarBlockDetailPanel: React.FC<RadarBlockDetailPanelProps> = ({
       </Card>
       {/* Show a mini wave chart below the details */}
       <RadarBlockMiniChart data={waveData} />
+
+      {/* Live transaction feed below mini chart */}
+      <RadarLiveTransactionFeed transactions={transactions || []} />
     </aside>
   );
 };

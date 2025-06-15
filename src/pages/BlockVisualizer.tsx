@@ -373,13 +373,14 @@ const BlockVisualizer = () => {
             onSelectBlock={setSelectedRadarBlock}
             selectedBlockHash={selectedRadarBlock?.hash || null}
           />
-          {/* The detail panel is rendered INSIDE RadarOverlay for layout, but we want it visible here for state-passing */}
+          {/* Pass transactions to panel */}
           {selectedRadarBlock && (
             <div className="-ml-2">
               <RadarBlockDetailPanel
                 block={selectedRadarBlock}
                 waveData={miniWaveData}
                 onClose={() => setSelectedRadarBlock(null)}
+                transactions={transactions}
               />
             </div>
           )}
