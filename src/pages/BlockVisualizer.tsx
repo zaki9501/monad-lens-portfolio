@@ -7,7 +7,6 @@ import { Search, Globe, Zap, Activity, TrendingUp, Users, Hash, ArrowRight, Fuel
 import { ScrollArea } from "@/components/ui/scroll-area";
 import Globe3D from "@/components/Globe3D";
 import StatsWaveChart from "@/components/pulse/StatsWaveChart";
-import { Switch } from "@/components/ui/switch";
 
 // Mock data fetching function (replace with actual Monad API)
 const fetchLatestBlock = async () => {
@@ -37,7 +36,6 @@ const BlockVisualizer = () => {
   const [transactions, setTransactions] = useState<any[]>([]);
   const [liveGlobeTransactions, setLiveGlobeTransactions] = useState<any[]>([]);
   const [selectedBlock, setSelectedBlock] = useState<any>(null);
-  const [autoRotate, setAutoRotate] = useState(true);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -192,24 +190,15 @@ const BlockVisualizer = () => {
         {/* Center - 3D Globe Visualization */}
         <div className="col-span-6 relative">
           <Card className="bg-gray-900/30 border-green-900/50 h-full">
-            <CardHeader className="pb-2 flex items-center justify-between">
+            <CardHeader className="pb-2">
               <CardTitle className="text-green-400 text-sm flex items-center gap-2">
                 <Globe className="h-4 w-4" />
                 MONAD NETWORK PULSE
               </CardTitle>
-              <div className="flex items-center gap-2">
-                <span className="text-green-400 text-xs">Auto-Rotate</span>
-                <Switch
-                  checked={autoRotate}
-                  onCheckedChange={setAutoRotate}
-                  aria-label="Toggle auto-rotate"
-                  className="data-[state=checked]:bg-green-600 data-[state=unchecked]:bg-gray-700"
-                />
-              </div>
             </CardHeader>
             <CardContent className="p-0 h-[calc(100%-60px)] relative">
-              {/* Pass recentBlocks as blocks to Globe3D and autoRotate prop */}
-              <Globe3D blocks={recentBlocks} onBlockClick={handleBlockClick} autoRotate={autoRotate} />
+              {/* Pass recentBlocks as blocks to Globe3D */}
+              <Globe3D blocks={recentBlocks} onBlockClick={handleBlockClick} />
 
               {/* Overlay info */}
               <div className="absolute top-4 left-4 text-xs space-y-1">
