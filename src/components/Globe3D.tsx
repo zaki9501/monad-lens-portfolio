@@ -11,11 +11,11 @@ interface NodePoint {
 }
 
 interface GlobeProps {
-  transactions: any[];
+  blocks: any[]; // Pass recent blocks instead of transactions for block rays
   onBlockClick: (block: any) => void;
 }
 
-const Globe = ({ transactions, onBlockClick }: GlobeProps) => {
+const Globe = ({ blocks, onBlockClick }: GlobeProps) => {
   const globeRef = useRef<THREE.Mesh>(null);
   const raysRef = useRef<THREE.Group>(null);
 
@@ -147,41 +147,40 @@ const Globe = ({ transactions, onBlockClick }: GlobeProps) => {
           />
         ))}
       </group>
-      
-      {/* Transaction rays representing blocks */}
-      {transactions.slice(0, 50).map((tx, index) => {
-        // Select the first node as the origin for all transaction rays
-        const originNode = nodes[0]; 
-        
-        // Generate a random destination point on the globe's surface
-        const phi = Math.acos((2 * Math.random()) - 1); // Latitude
-        const theta = 2 * Math.PI * Math.random(); // Longitude
-        
+
+      {/* Block rays: For each recent block, show a traveling ray from main node to random */}
+      {blocks.slice(0, 25).map((block, index) => {
+        const originNode = { position: [0.8, 0.4, 0.4], id: 'node1', label: 'US-East' }; // same as your main node
+        // Generate deterministic random using block hash for consistency
+        const hash = typeof block.hash === 'string' ? block.hash : String(index);
+        const hashSeed = parseInt(hash.slice(2, 10), 16) || index + 1;
+        const phi = Math.acos((2 * ((hashSeed % 1000) / 999)) - 1);
+        const theta = 2 * Math.PI * ((hashSeed % 997) / 997);
+
         const randomDestination = new THREE.Vector3(
           Math.sin(phi) * Math.cos(theta),
           Math.sin(phi) * Math.sin(theta),
           Math.cos(phi)
         );
 
-        // Generate a new curved path for each transaction ray
-        const start = new THREE.Vector3(originNode.position[0], originNode.position[1], originNode.position[2]);
-        const end = randomDestination; // Use the randomly generated destination
-        
+        const start = new THREE.Vector3(...originNode.position);
+        const end = randomDestination;
+
         const mid = start.clone().add(end).multiplyScalar(0.5);
         mid.normalize().multiplyScalar(1.3); 
-        
+
         const curve = new THREE.QuadraticBezierCurve3(start, mid, end);
         const path = curve.getPoints(50);
-        
+
         return path.length > 1 ? (
           <AnimatedConnectionRay
-            key={tx.hash + index}
+            key={block.hash + index}
             points={path}
-            blockData={tx}
+            blockData={block}
             onClick={onBlockClick}
             color="#00FFFF"
-            delay={index * 0.4}
-            size={0.05}
+            delay={index * 0.6}
+            size={0.06}
           />
         ) : null;
       })}
@@ -266,7 +265,7 @@ const AnimatedConnectionRay = ({ points, blockData, onClick, color = "#00FFFF", 
     }
     try {
       const curve = new THREE.CatmullRomCurve3(validPoints);
-      return new THREE.TubeGeometry(curve, 50, 0.001, 32, false);
+      return new THREE.TubeGeometry(curve, 50, 0.015, 32, false); // slightly bigger ray for blocks
     } catch (error) {
       console.warn('Failed to create animated tube geometry:', error);
       return null;
@@ -282,7 +281,7 @@ const AnimatedConnectionRay = ({ points, blockData, onClick, color = "#00FFFF", 
     const animationDuration = 3;
     const progress = (time % animationDuration) / animationDuration;
 
-    const segmentRatio = 0.1;
+    const segmentRatio = 0.3;
     const startRatio = progress;
     const endRatio = progress + segmentRatio;
 
@@ -294,7 +293,7 @@ const AnimatedConnectionRay = ({ points, blockData, onClick, color = "#00FFFF", 
     if (meshRef.current.material && !Array.isArray(meshRef.current.material)) {
       const material = meshRef.current.material as THREE.MeshBasicMaterial;
       const opacityCurve = Math.sin(progress * Math.PI);
-      material.opacity = Math.max(0.1, opacityCurve * 0.9);
+      material.opacity = Math.max(0.2, opacityCurve * 0.8);
     }
   });
 
@@ -315,23 +314,23 @@ const AnimatedConnectionRay = ({ points, blockData, onClick, color = "#00FFFF", 
 };
 
 interface Globe3DProps {
-  transactions: any[];
+  blocks: any[]; // Now uses blocks, not transactions
   onBlockClick: (block: any) => void;
 }
 
-const Globe3D = ({ transactions, onBlockClick }: Globe3DProps) => {
+const Globe3D = ({ blocks, onBlockClick }: Globe3DProps) => {
   return (
     <div className="w-full h-full">
       <Canvas
         camera={{ position: [0, 0, 3], fov: 75 }}
         style={{ background: 'transparent' }}
       >
-        <ambientLight intensity={0.6} /> {/* Slightly increased ambient light */}
-        <pointLight position={[0, 0, 0]} intensity={3} color="#00BFFF" /> {/* Strong point light at the center of the globe for central glow */}
-        <pointLight position={[10, 10, 10]} intensity={1.8} color="#00FFFF" /> {/* Brighter, cyan light for general illumination */}
-        <pointLight position={[-10, -10, -10]} intensity={1.2} color="#00FF88" /> {/* Secondary green light for general illumination */}
-        
-        <Globe transactions={transactions} onBlockClick={onBlockClick} />
+        <ambientLight intensity={0.6} />
+        <pointLight position={[0, 0, 0]} intensity={3} color="#00BFFF" />
+        <pointLight position={[10, 10, 10]} intensity={1.8} color="#00FFFF" />
+        <pointLight position={[-10, -10, -10]} intensity={1.2} color="#00FF88" />
+        {/* Pass blocks to Globe, not transactions */}
+        <Globe blocks={blocks} onBlockClick={onBlockClick} />
         <OrbitControls enableZoom={true} enablePan={false} autoRotate={true} autoRotateSpeed={0.5} minDistance={2} maxDistance={5} /> 
       </Canvas>
     </div>

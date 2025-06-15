@@ -197,8 +197,9 @@ const BlockVisualizer = () => {
               </CardTitle>
             </CardHeader>
             <CardContent className="p-0 h-[calc(100%-60px)] relative">
-              <Globe3D transactions={liveGlobeTransactions} onBlockClick={handleBlockClick} />
-              
+              {/* Pass recentBlocks as blocks to Globe3D */}
+              <Globe3D blocks={recentBlocks} onBlockClick={handleBlockClick} />
+
               {/* Overlay info */}
               <div className="absolute top-4 left-4 text-xs space-y-1">
                 <div className="text-green-400">Active Nodes: <span className="text-cyan-400">5</span></div>
