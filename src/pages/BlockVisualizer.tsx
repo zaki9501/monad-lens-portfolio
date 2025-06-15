@@ -197,23 +197,78 @@ const BlockVisualizer = () => {
       {/* Show transaction result card if present */}
       {transactionResult && (
         <div className="w-full flex justify-end mb-4 pr-2 animate-fade-in-up">
-          <Card className="border-cyan-400 bg-black/90 p-4 max-w-lg rounded-lg shadow-lg relative">
+          <Card className="border-cyan-400 bg-black/95 p-6 max-w-2xl w-full rounded-xl shadow-2xl relative min-w-[420px]">
             <Button
               variant="ghost"
               size="sm"
               onClick={() => setTransactionResult(null)}
-              className="absolute right-2 top-2 text-cyan-400/60 hover:text-cyan-300 p-1 h-auto"
+              className="absolute right-3 top-3 text-cyan-400/70 hover:text-cyan-300 p-2 h-auto"
             >
-              <XCircle className="h-4 w-4" />
+              <XCircle className="h-5 w-5" />
             </Button>
-            <div className="text-xs text-green-400 font-mono space-y-1 pr-8">
-              <div className="flex gap-2 items-center"><Hash className="w-3 h-3" /><span className="text-cyan-400">{formatAddress(transactionResult.hash)}</span></div>
-              <div className="flex gap-2 items-center"><span className="text-green-600">From:</span> <span>{formatAddress(transactionResult.from)}</span></div>
-              <div className="flex gap-2 items-center"><ArrowRight className="w-3 h-3" /><span className="text-green-600">To:</span> <span>{formatAddress(transactionResult.to)}</span></div>
-              <div className="flex gap-2 items-center"><span className="text-green-600">Value:</span> <span>{formatValue(transactionResult.value)}</span></div>
-              <div className="flex gap-2 items-center"><Fuel className="w-3 h-3" /><span className="text-green-600">Gas:</span> <span>{parseInt(transactionResult.gas, 16).toLocaleString()}</span></div>
-              <div className="flex gap-2 items-center"><span className="text-green-600">Nonce:</span> <span>{parseInt(transactionResult.nonce, 16)}</span></div>
-              <div className="flex gap-2 items-center"><span className="text-green-600">Block:</span> <span>{transactionResult.blockNumber ? parseInt(transactionResult.blockNumber, 16).toLocaleString() : 'Pending'}</span></div>
+            <div className="text-green-400 text-base font-mono space-y-2 pr-10">
+              <div className="flex flex-wrap items-center gap-3 mb-3">
+                <span className="text-green-500 font-bold text-lg">Transaction Details</span>
+                <span className="bg-cyan-800/70 border border-cyan-500 rounded-md px-3 py-1 font-mono text-cyan-200 text-xs select-all break-all" title={transactionResult.hash}>
+                  Hash: {transactionResult.hash}
+                </span>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-2 text-sm">
+                <div>
+                  <span className="text-green-600">From:</span>
+                  <span className="ml-2 text-cyan-300 select-all break-all" title={transactionResult.from}>
+                    {transactionResult.from}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-green-600">To:</span>
+                  <span className="ml-2 text-cyan-300 select-all break-all" title={transactionResult.to}>
+                    {transactionResult.to || 'N/A'}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-green-600">Value:</span>
+                  <span className="ml-2 text-green-300">
+                    {formatValue(transactionResult.value)}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-green-600">Gas:</span>
+                  <span className="ml-2">{parseInt(transactionResult.gas, 16).toLocaleString()}</span>
+                </div>
+                <div>
+                  <span className="text-green-600">Gas Price:</span>
+                  <span className="ml-2">{transactionResult.gasPrice ? parseInt(transactionResult.gasPrice, 16).toLocaleString() + " wei" : "N/A"}</span>
+                </div>
+                <div>
+                  <span className="text-green-600">Nonce:</span>
+                  <span className="ml-2">{parseInt(transactionResult.nonce, 16)}</span>
+                </div>
+                <div>
+                  <span className="text-green-600">Block:</span>
+                  <span className="ml-2">{transactionResult.blockNumber ? parseInt(transactionResult.blockNumber, 16).toLocaleString() : 'Pending'}</span>
+                </div>
+                <div>
+                  <span className="text-green-600">Index in Block:</span>
+                  <span className="ml-2">{transactionResult.transactionIndex ? parseInt(transactionResult.transactionIndex, 16) : "N/A"}</span>
+                </div>
+                <div className="col-span-1 md:col-span-2 break-all">
+                  <span className="text-green-600">Type:</span>
+                  <span className="ml-2">{transactionResult.type ?? 'N/A'}</span>
+                </div>
+                <div className="col-span-1 md:col-span-2 break-all">
+                  <span className="text-green-600">Input:</span>
+                  <span className="ml-2 text-gray-300 select-all" title={transactionResult.input}>
+                    {transactionResult.input && transactionResult.input !== "0x"
+                      ? (
+                        transactionResult.input.length > 80
+                          ? transactionResult.input.slice(0, 80) + "..."
+                          : transactionResult.input
+                        )
+                      : "—"}
+                  </span>
+                </div>
+              </div>
             </div>
           </Card>
         </div>
