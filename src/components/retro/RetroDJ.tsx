@@ -11,6 +11,8 @@ interface RetroDJProps {
 
 const RetroDJ: React.FC<RetroDJProps> = ({ latestBlock, isEnabled }) => {
   const djRef = useRef<THREE.Group>(null);
+  const turntable1Ref = useRef<THREE.Mesh>(null);
+  const turntable2Ref = useRef<THREE.Mesh>(null);
   const [currentQuip, setCurrentQuip] = useState('');
   const [showQuip, setShowQuip] = useState(false);
 
@@ -42,6 +44,14 @@ const RetroDJ: React.FC<RetroDJProps> = ({ latestBlock, isEnabled }) => {
       // DJ bobbing to the beat
       djRef.current.position.y = 12 + Math.sin(state.clock.elapsedTime * 4) * 0.8;
       djRef.current.rotation.y = Math.sin(state.clock.elapsedTime * 2) * 0.3;
+    }
+
+    // Animate turntables
+    if (turntable1Ref.current) {
+      turntable1Ref.current.rotation.z = state.clock.elapsedTime * 2;
+    }
+    if (turntable2Ref.current) {
+      turntable2Ref.current.rotation.z = -state.clock.elapsedTime * 2;
     }
   });
 
@@ -81,7 +91,7 @@ const RetroDJ: React.FC<RetroDJProps> = ({ latestBlock, isEnabled }) => {
       
       {/* DJ Turntables */}
       <group position={[0, -1.5, 1]}>
-        <mesh position={[-0.8, 0, 0]} rotation={[0, 0, state.clock.elapsedTime * 2]}>
+        <mesh ref={turntable1Ref} position={[-0.8, 0, 0]}>
           <cylinderGeometry args={[0.6, 0.6, 0.1, 16]} />
           <meshStandardMaterial
             color="#000000"
@@ -89,7 +99,7 @@ const RetroDJ: React.FC<RetroDJProps> = ({ latestBlock, isEnabled }) => {
             emissiveIntensity={0.3}
           />
         </mesh>
-        <mesh position={[0.8, 0, 0]} rotation={[0, 0, -state.clock.elapsedTime * 2]}>
+        <mesh ref={turntable2Ref} position={[0.8, 0, 0]}>
           <cylinderGeometry args={[0.6, 0.6, 0.1, 16]} />
           <meshStandardMaterial
             color="#000000"
