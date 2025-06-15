@@ -187,7 +187,7 @@ const BlockVisualizer = () => {
           </Card>
         </div>
 
-        {/* Center - 3D Globe Visualization & Radar */}
+        {/* Center - 3D Globe Visualization & Details */}
         <div className="col-span-6 relative">
           <Card className="bg-gray-900/30 border-green-900/50 h-full">
             <CardHeader className="pb-2">
@@ -197,10 +197,8 @@ const BlockVisualizer = () => {
               </CardTitle>
             </CardHeader>
             <CardContent className="p-0 h-[calc(100%-60px)] relative">
-              {/* --- RADAR OVERLAY --- */}
+              {/* --- GLOBE VISUALIZATION --- */}
               <div className="flex items-center justify-center w-full relative" style={{ minHeight: 400 }}>
-                <RadarOverlay recentBlocks={recentBlocks} />
-                {/* Below, overlay Globe3D for cool effect (consider z-index if needed) */}
                 <div className="absolute inset-0 w-full h-full pointer-events-none opacity-60">
                   <Globe3D blocks={recentBlocks} onBlockClick={handleBlockClick} />
                 </div>
@@ -345,6 +343,17 @@ const BlockVisualizer = () => {
           </Card>
         </div>
       </div>
+
+      {/* ------ RADAR & NETWORK DATA SECTION BELOW THE GRID ------ */}
+      <section className="w-full flex flex-col items-center mt-16 mb-24">
+        <h2 className="text-2xl font-bold text-green-400 mb-4 mt-2 text-center tracking-widest uppercase drop-shadow-lg">
+          MONAD BLOCK RADAR & FREQUENCY ANALYZER
+        </h2>
+        <p className="text-green-600 text-center mb-6 max-w-lg">
+          Live block propagation visualized as sci-fi radar. New blocks are caught in real-time with details, plus a frequency chart of recent network activity.
+        </p>
+        <RadarOverlay recentBlocks={recentBlocks} />
+      </section>
     </div>
   );
 };
