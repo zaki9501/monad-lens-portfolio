@@ -64,9 +64,11 @@ const Globe = ({ transactions }: GlobeProps) => {
     // Animate rays
     if (raysRef.current) {
       raysRef.current.children.forEach((child, index) => {
-        if (child.material) {
+        const mesh = child as THREE.Mesh;
+        if (mesh.material && !Array.isArray(mesh.material)) {
+          const material = mesh.material as THREE.MeshBasicMaterial;
           const offset = (time + index * 0.5) % 2;
-          child.material.opacity = Math.sin(offset * Math.PI) * 0.8 + 0.2;
+          material.opacity = Math.sin(offset * Math.PI) * 0.8 + 0.2;
         }
       });
     }
@@ -158,8 +160,9 @@ const AnimatedParticle = ({ path, delay }: { path: THREE.Vector3[]; delay: numbe
       particleRef.current.position.copy(position);
       
       // Fade in/out
-      if (particleRef.current.material) {
-        particleRef.current.material.opacity = Math.sin(progress * Math.PI) * 0.8 + 0.2;
+      if (particleRef.current.material && !Array.isArray(particleRef.current.material)) {
+        const material = particleRef.current.material as THREE.MeshBasicMaterial;
+        material.opacity = Math.sin(progress * Math.PI) * 0.8 + 0.2;
       }
     }
   });
