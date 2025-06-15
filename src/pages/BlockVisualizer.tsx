@@ -855,17 +855,18 @@ const BlockVisualizer = () => {
       </div>
 
       {/* ------ RADAR & NETWORK DATA SECTION BELOW THE GRID ------ */}
-      <section className="w-full flex flex-col items-center mt-16 mb-24">
-        <h2 className="text-2xl font-bold text-green-400 mb-4 mt-2 text-center tracking-widest uppercase drop-shadow-lg">
-          MONAD CONTRACT RADAR & FREQUENCY ANALYZER
+      <section className="w-full flex flex-col items-center mt-10 mb-20">
+        <h2 className="text-2xl font-extrabold text-green-400 mb-1 text-center tracking-widest uppercase drop-shadow-lg">
+          MONAD CONTRACT<br className="md:hidden" /> RADAR &amp; FREQUENCY ANALYZER
         </h2>
-        <p className="text-green-600 text-center mb-6 max-w-lg">
-          Live contract deployments visualized as sci-fi radar. New contracts are shown as ships slowly approaching the center; click to view contract details and deployment info.
+        <p className="text-green-600 text-center mb-5 max-w-lg">
+          Live contract deployments visualized as sci-fi radar.<br className="sm:hidden" />
+          New contracts are shown as ships slowly approaching the center; click to view contract details and deployment info.
         </p>
-        <div className="flex flex-row w-full max-w-5xl justify-center gap-4">
+        <div className="flex flex-col lg:flex-row w-full max-w-5xl items-center justify-center gap-6 md:gap-8 mt-2">
           
           {/* Radar on the left */}
-          <div className="relative">
+          <div className="relative flex items-center justify-center">
             <RadarOverlay
               recentBlocks={radarContracts}
               onSelectBlock={handleRadarContractSelect}
@@ -875,7 +876,7 @@ const BlockVisualizer = () => {
           </div>
 
           {/* Detected contracts field */}
-          <div className="w-56 flex-shrink-0 ml-2">
+          <div className="w-full sm:w-56 flex-shrink-0 ml-0 sm:ml-2 flex flex-col justify-center mt-4 sm:mt-0">
             <div className="bg-black/80 border border-green-800 rounded-xl shadow-2xl px-3 py-2 max-h-[400px] min-h-[120px] overflow-y-auto">
               <div className="text-green-300 text-base font-bold mb-2 tracking-wide flex items-center gap-2">
                 <span>Detected</span>
@@ -906,7 +907,7 @@ const BlockVisualizer = () => {
 
           {/* Block Panel */}
           {selectedRadarContractDetails && (
-            <div className="-ml-2">
+            <div className="mt-6 lg:mt-0 -ml-0 sm:-ml-2">
               <RadarBlockDetailPanel
                 block={{
                   ...selectedRadarContractDetails,
