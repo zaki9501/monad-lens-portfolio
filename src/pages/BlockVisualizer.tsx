@@ -203,9 +203,9 @@ const BlockVisualizer = () => {
 
               {/* Overlay info */}
               <div className="absolute top-4 left-4 text-xs space-y-1">
-                <div className="text-green-400">Active Nodes: <span className="text-cyan-400">5</span></div>
+                <div className="text-green-400">Active Validators: <span className="text-cyan-400">99</span></div>
                 <div className="text-green-400">Connections: <span className="text-cyan-400">12</span></div>
-                <div className="text-green-400">TPS: <span className="text-cyan-400">1,247</span></div>
+                <div className="text-green-400">TPS: <span className="text-cyan-400">301</span></div>
               </div>
               
               <div className="absolute top-4 right-4 text-xs space-y-1">
@@ -322,7 +322,7 @@ const BlockVisualizer = () => {
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-xs text-green-600">TPS</span>
-                <span className="text-sm text-cyan-400">~1,247</span>
+                <span className="text-sm text-cyan-400">~301</span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-xs text-green-600">Active Validators</span>
