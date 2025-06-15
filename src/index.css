@@ -113,6 +113,11 @@
   .energy-wave {
     animation: energyWave 2s ease-in-out infinite;
   }
+
+  /* 3D Globe styles */
+  .bg-gradient-radial {
+    background: radial-gradient(circle at 30% 30%, rgba(34, 197, 94, 0.3) 0%, rgba(34, 197, 94, 0.1) 50%, rgba(0, 0, 0, 0.8) 100%);
+  }
 }
 
 @keyframes fadeIn {
