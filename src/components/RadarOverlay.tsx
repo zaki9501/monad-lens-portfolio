@@ -1,50 +1,59 @@
 
 import React, { useRef, useEffect, useState } from "react";
 import { Card } from "@/components/ui/card";
-import { LineChart, Line, XAxis, YAxis, ResponsiveContainer } from "recharts";
+import { ship } from "lucide-react";
 
 interface BlockRadarBlip {
   id: string;
-  angle: number; // in radians
-  radius: number;
+  angle: number; // radians
+  radius: number; // [0, 1], 1=at edge, 0=at center
   detail: any;
   detectedAt: number;
+  startingRadius: number;
 }
 
 interface RadarOverlayProps {
   recentBlocks: any[];
+  onSelectBlock: (block: any) => void;
+  selectedBlockHash: string | null;
 }
 
-const RADAR_SWEEP_TIME = 4000; // ms for a full sweep
+const RADAR_SWEEP_TIME = 4000;
+const SHIP_MOVE_TIME = 7000;
 
-// Dummy frequency data for the wavelength chart
 function useFakeWaveData(maxPoints: number = 30) {
   const [data, setData] = useState<{ t: number; v: number }[]>([]);
-
   useEffect(() => {
     const interval = setInterval(() => {
-      setData((old) => {
-        const next = [
-          ...old.slice(-(maxPoints - 1)),
-          {
-            t: Date.now(),
-            v: Math.floor(15 + Math.random() * 12 + 8 * Math.sin(Math.random() * 3.14)), // random spike/wave
-          },
-        ];
-        return next;
-      });
-    }, 300);
+      setData((old) => [
+        ...old.slice(-(maxPoints - 1)),
+        {
+          t: Date.now(),
+          v: Math.floor(16 + Math.random() * 11 + 7 * Math.sin(Math.random() * 3.14)),
+        },
+      ]);
+    }, 340);
     return () => clearInterval(interval);
   }, [maxPoints]);
   return data;
 }
 
-const RadarOverlay: React.FC<RadarOverlayProps> = ({ recentBlocks }) => {
+// Helper: deterministic angle and radius for block
+const getBlockAngle = (b: any) => {
+  const blockNum = typeof b.number === "string" ? parseInt(b.number, 16) : b.number || 0;
+  const time = typeof b.timestamp === "string" ? parseInt(b.timestamp, 16) : 0;
+  return (((blockNum || 1) * 117 + (time || 1) * 47) % 1000) / 1000 * 2 * Math.PI;
+};
+const getInitBlockRadius = (b: any) =>
+  0.91 + 0.09 * (((typeof b.number === "string" ? parseInt(b.number, 16) : b.number || 7) % 700) / 700); // start near edge
+const finalRadius = 0.49; // ships go toward center to this limit
+
+const RadarOverlay: React.FC<RadarOverlayProps> = ({ recentBlocks, onSelectBlock, selectedBlockHash }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const [blips, setBlips] = useState<BlockRadarBlip[]>([]);
+  const [ships, setShips] = useState<BlockRadarBlip[]>([]);
   const [sweepAngle, setSweepAngle] = useState(0);
   const [dimensions, setDimensions] = useState({ w: 400, h: 400 });
-  const freqData = useFakeWaveData();
+  const waveData = useFakeWaveData();
 
   useEffect(() => {
     function handleResize() {
@@ -56,85 +65,89 @@ const RadarOverlay: React.FC<RadarOverlayProps> = ({ recentBlocks }) => {
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
-  // Animated sweep, higher FPS
+  // Sweep animation
   useEffect(() => {
-    let animationId: number;
-    let lastStamp = performance.now();
+    let id: number;
+    let last = performance.now();
     function animate(now: number) {
-      const elapsed = now - lastStamp;
-      lastStamp = now;
+      const elapsed = now - last;
+      last = now;
       setSweepAngle((prev) => (prev + (2 * Math.PI * elapsed) / RADAR_SWEEP_TIME) % (2 * Math.PI));
-      animationId = requestAnimationFrame(animate);
+      id = requestAnimationFrame(animate);
     }
-    animationId = requestAnimationFrame(animate);
-    return () => cancelAnimationFrame(animationId);
+    id = requestAnimationFrame(animate);
+    return () => cancelAnimationFrame(id);
   }, []);
 
-  // More accurate blip positioning and richer details
+  // Update ships based on recentBlocks
   useEffect(() => {
     if (!recentBlocks.length) return;
-    // Show only 7 latest unique blocks as blips (more dense than before)
-    const unique: { [hash: string]: boolean } = {};
-    const newBlips: BlockRadarBlip[] = [];
-    let num = 0;
+    const seen: { [hash: string]: boolean } = {};
+    const ret: BlockRadarBlip[] = [];
+    let n = 0;
     for (let b of recentBlocks) {
-      if (num > 6) break;
-      if (!b.hash || unique[b.hash]) continue;
-      unique[b.hash] = true;
-
-      // New: deterministic angle using blockNumber & timestamp
-      // angle = (blockNumber * 117 + timestamp * 37) % TAU (TAU = 2pi)
-      const blockNum =
-        typeof b.number === "string"
-          ? parseInt(b.number, 16)
-          : typeof b.number === "number"
-          ? b.number
-          : 0;
-      const time = typeof b.timestamp === "string" ? parseInt(b.timestamp, 16) : 0;
-      const angle = (((blockNum || 1) * 117 + (time || 1) * 37) % 1000) / 1000 * 2 * Math.PI;
-
-      // New: radius varies smoothly with block number to make visually distributed
-      const radius = 0.52 + 0.44 * (((blockNum || 37) % 700) / 700); // [0.52, 0.96]
-
-      newBlips.push({
+      if (n > 6) break;
+      if (!b.hash || seen[b.hash]) continue;
+      seen[b.hash] = true;
+      ret.push({
         id: b.hash,
-        angle,
-        radius,
+        angle: getBlockAngle(b),
+        radius: getInitBlockRadius(b),
+        startingRadius: getInitBlockRadius(b),
         detail: b,
         detectedAt: Date.now(),
       });
-      num++;
+      n++;
     }
-    setBlips(newBlips);
+    setShips(ret);
   }, [recentBlocks]);
 
+  // Animate ships moving toward the center
+  useEffect(() => {
+    let animId: number;
+    function step() {
+      setShips((oldShips) =>
+        oldShips.map((ship) => {
+          const elapsed = Math.min(Date.now() - ship.detectedAt, SHIP_MOVE_TIME);
+          // Slow move to center: easeOutQuad
+          const r = ship.startingRadius - (ship.startingRadius - finalRadius) * (elapsed / SHIP_MOVE_TIME) ** 0.7;
+          return { ...ship, radius: r };
+        })
+      );
+      animId = requestAnimationFrame(step);
+    }
+    animId = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(animId);
+  }, []);
+
+  // Draw radar & ships
   useEffect(() => {
     const { w, h } = dimensions;
     const ctx = canvasRef.current?.getContext("2d");
     if (!ctx) return;
     ctx.clearRect(0, 0, w, h);
 
-    // Radar grid
+    // Radar grid/circles
     ctx.save();
     ctx.strokeStyle = "#00FF66";
     ctx.lineWidth = 1;
-    ctx.globalAlpha = 0.23;
+    ctx.globalAlpha = 0.19;
     for (let r = 1; r <= 4; r++) {
       ctx.beginPath();
       ctx.arc(w / 2, h / 2, (w / 2) * (r / 4), 0, 2 * Math.PI);
       ctx.stroke();
     }
     // cross lines
-    for (let a = 0; a < 4; a++) {
+    for (let l = 0; l < 4; l++) {
       ctx.beginPath();
-      const angle = a * (Math.PI / 2);
+      const a = l * (Math.PI / 2);
       ctx.moveTo(w / 2, h / 2);
-      ctx.lineTo(w / 2 + (w / 2) * Math.cos(angle), h / 2 + (h / 2) * Math.sin(angle));
+      ctx.lineTo(w / 2 + (w / 2) * Math.cos(a), h / 2 + (h / 2) * Math.sin(a));
       ctx.stroke();
     }
     ctx.restore();
 
-    // Radar sweep
+    // Radar sweep arc
     const grad = ctx.createRadialGradient(w / 2, h / 2, w / 23, w / 2, h / 2, w / 2);
     grad.addColorStop(0, "rgba(0,255,70,0.14)");
     grad.addColorStop(0.89, "rgba(0,255,100,0.15)");
@@ -151,144 +164,103 @@ const RadarOverlay: React.FC<RadarOverlayProps> = ({ recentBlocks }) => {
     ctx.fill();
     ctx.restore();
 
-    // Blips
-    for (let blip of blips) {
-      // Blip fades out after ~4s
-      const dt = (Date.now() - blip.detectedAt) % RADAR_SWEEP_TIME;
-      if (dt > RADAR_SWEEP_TIME * 0.95) continue; // fade-out very last sweep
-      // Make blip stronger just after "caught" and fade smoother
-      const fade = Math.max(0.13, 1.05 - dt / 3500);
-      const blipR = (w / 2) * blip.radius;
-      const bx = w / 2 + blipR * Math.cos(blip.angle);
-      const by = h / 2 + blipR * Math.sin(blip.angle);
+    // Draw SHIP for each blip
+    for (let shipData of ships) {
+      // Fades out at the center
+      const finished = shipData.radius <= finalRadius + 0.01;
+      const fade = finished ? 0.25 : 0.9;
 
+      const shipR = (w / 2) * shipData.radius;
+      const bx = w / 2 + shipR * Math.cos(shipData.angle);
+      const by = h / 2 + shipR * Math.sin(shipData.angle);
+
+      // Draw the "ship" SVG-like
       ctx.save();
+      ctx.translate(bx, by);
+      ctx.rotate(shipData.angle - Math.PI / 2); // up points to radar center
+      ctx.globalAlpha = fade * (shipData.id === selectedBlockHash ? 1 : 0.85);
+
+      // Render lucide-react 'ship' icon using primitive drawing (simple triangle+tail)
       ctx.beginPath();
-      ctx.arc(bx, by, 9, 0, 2 * Math.PI);
-      ctx.globalAlpha = fade * 0.84;
-      ctx.fillStyle = "#00FFB3";
-      ctx.shadowColor = "#00ff97";
-      ctx.shadowBlur = 16;
+      ctx.moveTo(0, -14); // nose
+      ctx.lineTo(8, 10);
+      ctx.lineTo(0, 4);
+      ctx.lineTo(-8, 10);
+      ctx.closePath();
+      ctx.fillStyle = shipData.id === selectedBlockHash ? "#fff" : "#00ffb9";
+      ctx.shadowColor = "#00ffd0";
+      ctx.shadowBlur = shipData.id === selectedBlockHash ? 18 : 10;
       ctx.fill();
+
+      // Draw "tail"
+      ctx.beginPath();
+      ctx.moveTo(0, 4);
+      ctx.lineTo(3, 16);
+      ctx.lineTo(-3, 16);
+      ctx.closePath();
+      ctx.fillStyle = "#24e7b6";
+      ctx.globalAlpha = fade * 0.61;
+      ctx.shadowBlur = 0;
+      ctx.fill();
+
       ctx.restore();
     }
-  }, [blips, sweepAngle, dimensions]);
+  }, [ships, sweepAngle, dimensions, selectedBlockHash]);
 
-  // Map blip positions for info popups
-  let blipPositions: { [hash: string]: { top: number; left: number } } = {};
-  const { w, h } = dimensions;
-  blips.forEach((blip) => {
-    const blipR = w / 2 * blip.radius;
-    const bx = w / 2 + blipR * Math.cos(blip.angle);
-    const by = h / 2 + blipR * Math.sin(blip.angle);
-    blipPositions[blip.id] = {
-      left: bx,
-      top: by,
-    };
-  });
-
-  // Helpers for details
-  const formatHex = (val: string | number | undefined) => {
-    if (!val) return "N/A";
-    if (typeof val === "string" && val.startsWith("0x")) return parseInt(val, 16).toLocaleString();
-    if (typeof val === "number") return val.toLocaleString();
-    return val.toString();
-  };
-  const formatShortHash = (hash: string) => (typeof hash === "string" ? hash.slice(0, 7) + "..." + hash.slice(-5) : "N/A");
-  const formatDateTime = (hex: string) => {
-    if (!hex) return "";
-    const ms = parseInt(hex, 16) * 1000;
-    const d = new Date(ms);
-    return d.toLocaleDateString() + " " + d.toLocaleTimeString();
+  // Register click to select block by ship position
+  const handleRadarClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (!canvasRef.current) return;
+    const rect = canvasRef.current.getBoundingClientRect();
+    const x = e.clientX - rect.left, y = e.clientY - rect.top;
+    const { w, h } = dimensions;
+    // Find ship whose area covers the click and not at the center yet
+    let found: BlockRadarBlip | null = null;
+    ships.forEach((ship) => {
+      const shipR = (w / 2) * ship.radius;
+      const bx = w / 2 + shipR * Math.cos(ship.angle);
+      const by = h / 2 + shipR * Math.sin(ship.angle);
+      const dist = Math.sqrt((x - bx) ** 2 + (y - by) ** 2);
+      // Ship icon approx "fat" clickable: ~13px
+      if (dist < 18 && (!found || ship.detectedAt > found.detectedAt)) found = ship;
+    });
+    if (found) onSelectBlock(found.detail);
   };
 
   return (
-    <div className="relative mx-auto flex flex-col items-center" style={{ width: w, height: h + 120 }}>
-      {/* Canvas radar */}
-      <canvas
-        ref={canvasRef}
-        width={w}
-        height={h}
-        className="rounded-full border border-green-700/60 bg-black shadow-2xl"
-        style={{
-          width: w,
-          height: h,
-          boxShadow: '0 0 50px #00ff88, 0 0 4px #111',
-        }}
-      />
+    <div className="flex flex-row w-full max-w-5xl mx-auto min-h-[400px] relative gap-3">
+      {/* Radar canvas */}
+      <div className="relative" style={{ width: dimensions.w, height: dimensions.h }}>
+        <canvas
+          ref={canvasRef}
+          width={dimensions.w}
+          height={dimensions.h}
+          className="rounded-full border border-green-700/60 bg-black shadow-2xl hover-scale"
+          style={{
+            width: dimensions.w,
+            height: dimensions.h,
+            boxShadow: '0 0 50px #00ff88, 0 0 4px #111'
+          }}
+          onClick={handleRadarClick}
+        />
+        <div className="absolute left-2 bottom-1 text-green-400 text-xs font-mono uppercase select-none opacity-70 pointer-events-none">Live Block Radar</div>
+      </div>
 
-      {/* Floating block info over blips */}
-      {blips.map((blip) => {
-        const pos = blipPositions[blip.id];
-        if (!pos) return null;
-        // Fade out popup on oldest detected blocks
-        const age = (Date.now() - blip.detectedAt) % RADAR_SWEEP_TIME;
-        if (age > RADAR_SWEEP_TIME * 0.82) return null;
-
-        const { detail } = blip;
-        return (
-          <div
-            key={blip.id}
-            className={`absolute animate-fade-in-up pointer-events-none transition-all`}
-            style={{
-              top: pos.top - 66,
-              left: pos.left + 18,
-              minWidth: 158,
-              zIndex: 10,
-              opacity: 1.1 - age / (RADAR_SWEEP_TIME * 0.8),
-              filter: "drop-shadow(0 0 6px #18ff94cc)"
-            }}
-          >
-            <Card className="border-[1.5px] border-green-400/80 bg-black/80 rounded-lg px-2 py-2 backdrop-blur-[2px]">
-              <div className="text-green-400 text-xs font-mono leading-[1.2] space-y-1">
-                <div><b>Block</b> #{formatHex(detail.number)}</div>
-                <div>{detail.transactions?.length ?? 0} txs &nbsp; <span className="text-green-700">by</span></div>
-                <div>
-                  <span className="text-green-600">Miner:</span>{" "}
-                  <span className="text-green-400">{formatShortHash(detail.miner)}</span>
-                </div>
-                <div>
-                  <span className="text-green-600">Hash:</span>{" "}
-                  <span className="text-cyan-400">{formatShortHash(detail.hash)}</span>
-                </div>
-                <div>
-                  <span className="text-green-600">Gas Used:</span>{" "}
-                  <span className="">{formatHex(detail.gasUsed)}</span>
-                  <span className="text-green-700"> / </span>
-                  <span className="">{formatHex(detail.gasLimit)}</span>
-                </div>
-                <div className="text-green-600">{formatDateTime(detail.timestamp)}</div>
-              </div>
-            </Card>
+      {/* Right: block details + small chart */}
+      <div className="grow flex flex-col min-w-[220px] items-start">
+        {/* Block details panel */}
+        {selectedBlockHash ? (
+          <div className="w-full min-w-[220px] flex flex-col">
+            {/* Show selected block details */}
+            {/* Details panel and mini chart handled by parent */}
           </div>
-        );
-      })}
-      {/* Label/scan text */}
-      <div className="absolute left-2 bottom-1 text-green-400 text-xs font-mono uppercase select-none opacity-70 pointer-events-none">Live Block Radar</div>
-
-      {/* Network Frequency/Wavelength Chart */}
-      <div className="absolute right-0 -bottom-20 w-full" style={{ pointerEvents:"none" }}>
-        <div className="p-1 rounded bg-black/80 border border-green-900/50 shadow-lg">
-          <div className="text-green-400 font-mono text-xs opacity-75 mb-0.5">Network Frequency Analyzer</div>
-          <ResponsiveContainer width="100%" height={48}>
-            <LineChart data={freqData}>
-              <Line
-                type="monotone"
-                dataKey="v"
-                stroke="#00ffb3"
-                dot={false}
-                strokeWidth={2}
-                isAnimationActive={true}
-              />
-              <XAxis dataKey="t" hide />
-              <YAxis hide />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
+        ) : (
+          <Card className="bg-black/30 border-green-700/40 p-4 mt-12 mb-2 text-green-600 font-mono text-xs select-none">
+            <div>Click on a ship to view block details</div>
+          </Card>
+        )}
       </div>
     </div>
   );
 };
 
 export default RadarOverlay;
-

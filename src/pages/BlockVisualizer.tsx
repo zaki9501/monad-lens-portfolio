@@ -8,6 +8,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import Globe3D from "@/components/Globe3D";
 import StatsWaveChart from "@/components/pulse/StatsWaveChart";
 import RadarOverlay from "@/components/RadarOverlay";
+import RadarBlockDetailPanel from "@/components/RadarBlockDetailPanel";
 
 // Mock data fetching function (replace with actual Monad API)
 const fetchLatestBlock = async () => {
@@ -37,6 +38,7 @@ const BlockVisualizer = () => {
   const [transactions, setTransactions] = useState<any[]>([]);
   const [liveGlobeTransactions, setLiveGlobeTransactions] = useState<any[]>([]);
   const [selectedBlock, setSelectedBlock] = useState<any>(null);
+  const [selectedRadarBlock, setSelectedRadarBlock] = useState<any>(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -93,6 +95,19 @@ const BlockVisualizer = () => {
   const handleBlockClick = (block: any) => {
     setSelectedBlock(block);
   };
+
+  // Add waveData for mini chart below radar details
+  const [miniWaveData, setMiniWaveData] = useState<{ t: number; v: number }[]>([]);
+  useEffect(() => {
+    // mimic wave changes for RadarBlockMiniChart
+    const interval = setInterval(() => {
+      setMiniWaveData((old) => [
+        ...old.slice(-29),
+        { t: Date.now(), v: 10 + Math.floor(Math.random() * 25 + 5 * Math.sin(Math.random() * 3.1)) },
+      ]);
+    }, 270);
+    return () => clearInterval(interval);
+  }, []);
 
   return (
     <div className="min-h-screen bg-black text-green-400 p-4 font-mono">
@@ -350,9 +365,25 @@ const BlockVisualizer = () => {
           MONAD BLOCK RADAR & FREQUENCY ANALYZER
         </h2>
         <p className="text-green-600 text-center mb-6 max-w-lg">
-          Live block propagation visualized as sci-fi radar. New blocks are caught in real-time with details, plus a frequency chart of recent network activity.
+          Live block propagation visualized as sci-fi radar. New blocks are shown as ships slowly approaching the center; click a ship to view block details and frequency chart.
         </p>
-        <RadarOverlay recentBlocks={recentBlocks} />
+        <div className="flex flex-row w-full max-w-5xl justify-center">
+          <RadarOverlay
+            recentBlocks={recentBlocks}
+            onSelectBlock={setSelectedRadarBlock}
+            selectedBlockHash={selectedRadarBlock?.hash || null}
+          />
+          {/* The detail panel is rendered INSIDE RadarOverlay for layout, but we want it visible here for state-passing */}
+          {selectedRadarBlock && (
+            <div className="-ml-2">
+              <RadarBlockDetailPanel
+                block={selectedRadarBlock}
+                waveData={miniWaveData}
+                onClose={() => setSelectedRadarBlock(null)}
+              />
+            </div>
+          )}
+        </div>
       </section>
     </div>
   );
