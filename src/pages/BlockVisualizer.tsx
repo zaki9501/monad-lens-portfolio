@@ -98,17 +98,6 @@ const BlockVisualizer = () => {
             </div>
           </div>
           
-          <div className="flex gap-2">
-            <Input
-              placeholder="Search address (0x...)"
-              value={searchAddress}
-              onChange={(e) => setSearchAddress(e.target.value)}
-              className="bg-gray-900/50 border-green-900 text-green-400 placeholder-green-600"
-            />
-            <Button className="bg-green-600 hover:bg-green-700">
-              <Search className="h-4 w-4" />
-            </Button>
-          </div>
         </div>
       </div>
 
