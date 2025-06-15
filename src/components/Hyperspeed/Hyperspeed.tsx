@@ -1,4 +1,3 @@
-
 import React, { useRef, useMemo, useEffect } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { Mesh, Vector3, Group } from 'three';
@@ -334,7 +333,7 @@ const BlocksOnHighway: React.FC<{ blockData: BlockRay[]; onRayHover: (ray: Block
           scale={[0.8, 0.8, 0.8]}
         >
           <boxGeometry args={[1, 0.6, 2]} />
-          <meshStandardMaterial
+          <meshBasicMaterial
             color={ray.active ? 0x9333ea : 0x6366f1}
             emissive={ray.active ? 0x4c1d95 : 0x312e81}
             emissiveIntensity={0.3}
