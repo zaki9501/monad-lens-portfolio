@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Search, Globe, Zap, Activity, TrendingUp, Users, Hash, ArrowRight, Fuel, XCircle } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import Globe3D from "@/components/Globe3D";
+import StatsWaveChart from "@/components/pulse/StatsWaveChart";
 
 // Mock data fetching function (replace with actual Monad API)
 const fetchLatestBlock = async () => {
@@ -178,6 +179,10 @@ const BlockVisualizer = () => {
                   ))}
                 </div>
               </ScrollArea>
+              {/* Wave chart below blocks */}
+              <div className="mt-3">
+                <StatsWaveChart recentBlocks={recentBlocks} />
+              </div>
             </CardContent>
           </Card>
         </div>
