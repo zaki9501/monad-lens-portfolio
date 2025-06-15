@@ -20,8 +20,6 @@ import { Link, useSearchParams } from "react-router-dom";
 import { getAccountTokens } from "@/lib/blockvision";
 import { ethers } from "ethers";
 import LiquidStakingDerivatives from "@/components/LiquidStakingDerivatives";
-import QuickActions from "@/components/QuickActions";
-import RecentActivity from "@/components/RecentActivity";
 import MarketOverview from "@/components/MarketOverview";
 const CopyAddressButton = ({
   address
@@ -301,13 +299,10 @@ const Index = () => {
             </Tabs>
 
             {/* Quick Actions, Recent Activity, and Market Overview - Now positioned after main tabs */}
-            <div className="grid gap-6 md:grid-cols-2">
-              <QuickActions walletAddress={viewingAddress} />
-              <MarketOverview />
-            </div>
+            
 
             {/* Recent Activity */}
-            <RecentActivity walletAddress={viewingAddress} />
+            
           </div>}
 
         {/* Built by Piki Section */}
