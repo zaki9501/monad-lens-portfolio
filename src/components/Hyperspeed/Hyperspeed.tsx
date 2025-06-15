@@ -289,6 +289,8 @@ const BlocksOnHighway: React.FC<{ blockData: BlockRay[]; onRayHover: (ray: Block
   const groupRef = useRef<Group>();
   const { camera } = useThree();
 
+  console.log('BlocksOnHighway rendering with', blockData.length, 'blocks');
+
   const blockMeshes = useMemo(() => {
     return blockData.map((ray, index) => ({
       ...ray,
@@ -359,6 +361,8 @@ const HyperspeedScene: React.FC<HyperspeedEffectOptions> = (options) => {
   const { distortion } = options;
   const distortionRef = useRef<any>(null);
 
+  console.log('HyperspeedScene rendering with blockData:', options.blockData?.length || 0, 'blocks');
+
   useFrame((state, delta) => {
     if (distortion === 'turbulentDistortion' && distortionRef.current) {
       distortionRef.current.time = state.clock.getElapsedTime();
@@ -367,6 +371,11 @@ const HyperspeedScene: React.FC<HyperspeedEffectOptions> = (options) => {
 
   return (
     <>
+      {/* Add proper lighting */}
+      <ambientLight intensity={0.6} />
+      <directionalLight position={[10, 10, 5]} intensity={1} />
+      <pointLight position={[0, 10, 0]} intensity={0.5} />
+
       {distortion === 'turbulentDistortion' && (
         <shaderMaterial ref={distortionRef} key={distortion} args={[
           {
@@ -426,6 +435,8 @@ const Hyperspeed: React.FC<{ effectOptions: HyperspeedEffectOptions }> = ({ effe
   useEffect(() => {
     document.body.style.backgroundColor = `#${effectOptions.colors.background.toString(16).padStart(6, '0')}`;
   }, [effectOptions.colors.background]);
+
+  console.log('Hyperspeed component rendering with blockData:', effectOptions.blockData?.length || 0);
   
   return (
     <Canvas

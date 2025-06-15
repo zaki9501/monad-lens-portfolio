@@ -9,6 +9,8 @@ const BlockVisualizer = () => {
   const [blockRayCount, setBlockRayCount] = useState(40);
   const { blockRays, hoveredRay, setHoveredRay } = useBlockRays();
 
+  console.log('BlockVisualizer rendering with', blockRays.length, 'block rays');
+
   // Simulate new block effects
   useEffect(() => {
     if (blockRays.length > 0) {
@@ -51,7 +53,7 @@ const BlockVisualizer = () => {
     colors: {
       roadColor: 0x080808,
       islandColor: 0x0a0a0a,
-      background: 0x000000,
+      background: 0x0a0a0a, // Changed from pure black to dark gray
       shoulderLines: 0x131318,
       brokenLines: 0x131318,
       leftCars: [0x03B3C3, 0x6750A2, 0xD856BF, 0x0E5EA5, 0xC247AC],
@@ -61,11 +63,18 @@ const BlockVisualizer = () => {
   };
 
   return (
-    <div className="w-full h-screen overflow-hidden bg-black relative">
+    <div className="w-full h-screen overflow-hidden bg-gray-900 relative">
       <Hyperspeed effectOptions={hyperspeedOptions} />
       
       {/* Block Tooltip */}
       {hoveredRay && <BlockTooltip ray={hoveredRay} />}
+      
+      {/* Debug info */}
+      <div className="absolute top-4 left-4 text-white bg-black/50 p-2 rounded">
+        <div>Block Rays: {blockRays.length}</div>
+        <div>Speed: {hyperspeedOptions.speedUp}</div>
+        <div>New Block: {newBlockDetected ? 'Yes' : 'No'}</div>
+      </div>
     </div>
   );
 };
