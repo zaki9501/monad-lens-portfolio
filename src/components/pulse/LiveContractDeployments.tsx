@@ -2,10 +2,6 @@
 import React from "react";
 import { Badge } from "@/components/ui/badge";
 
-/**
- * Shows live contract deployments from the most recent block.
- * Now with fixed height and scrollable list for UI consistency.
- */
 interface LiveContractDeploymentsProps {
   deployments: {
     contractAddress: string;
@@ -17,13 +13,14 @@ interface LiveContractDeploymentsProps {
   isLoading: boolean;
 }
 
-const MAX_HEIGHT = 195; // adjust as needed to fit one "block" in grid
+// Set a fixed height for the whole panel including header.
+const PANEL_HEIGHT = 195;
 
 const LiveContractDeployments: React.FC<LiveContractDeploymentsProps> = ({
   deployments,
   isLoading,
 }) => (
-  <div className="mb-2">
+  <div className={`mb-0`} style={{ height: PANEL_HEIGHT }}>
     <div className="text-green-400 text-sm font-bold mb-2">
       LIVE CONTRACT DEPLOYMENTS
     </div>
@@ -32,15 +29,13 @@ const LiveContractDeployments: React.FC<LiveContractDeploymentsProps> = ({
         Scanning latest block...
       </div>
     )}
-    <div
-      className="relative"
-      style={{
-        maxHeight: MAX_HEIGHT,
-        minHeight: 54,
-        overflowY: "auto",
-        transition: "max-height 0.2s",
-      }}
-    >
+    {/* Inner panel always fills all available height minus headers */}
+    <div className="relative" style={{
+      height: `calc(${PANEL_HEIGHT - 32}px)`, // 32px for header/margin
+      minHeight: 54,
+      overflowY: "auto",
+      transition: "height 0.2s",
+    }}>
       {deployments.length === 0 && !isLoading ? (
         <div className="text-green-800 text-xs">
           No contracts deployed in the latest block.
@@ -82,7 +77,7 @@ const LiveContractDeployments: React.FC<LiveContractDeploymentsProps> = ({
           ))}
         </ul>
       )}
-      {/* Optional gradient indicator at the bottom if scrolling is available */}
+      {/* Gradient overlay if scrolling */}
       {deployments.length > 0 && (
         <div
           className="pointer-events-none absolute bottom-0 left-0 w-full h-4"
