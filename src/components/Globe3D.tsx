@@ -1,5 +1,5 @@
-import React, { useRef, useMemo } from 'react';
-import { Canvas, useFrame, useLoader } from '@react-three/fiber';
+import React, { useRef, useEffect, useMemo } from 'react';
+import { Canvas, useThree, useFrame, useLoader } from '@react-three/fiber';
 import { OrbitControls, Sphere } from '@react-three/drei';
 import * as THREE from 'three';
 import { TextureLoader } from 'three';
@@ -320,6 +320,47 @@ interface Globe3DProps {
 }
 
 const Globe3D = ({ blocks, onBlockClick, autoRotate = true }: Globe3DProps) => {
+  // Ref for OrbitControls
+  const orbitRef = useRef<any>(null);
+
+  // This component is rendered inside <Canvas> so hooks must be inside react-three-fiber context
+  const Controls = () => {
+    const { camera } = useThree();
+    useEffect(() => {
+      // Reset camera to default when autoRotate toggles or component mounts
+      camera.position.set(0, 0, 3);
+      camera.lookAt(0, 0, 0);
+      if (orbitRef.current) {
+        orbitRef.current.reset();
+      }
+    }, [autoRotate]);
+  
+    useFrame(() => {
+      // Debug: log camera position to help diagnose zoom issue
+      // Remove this console.log if you don't need it
+      // console.log("Camera position:", camera.position.toArray());
+      // If camera z gets too small, reset
+      if (camera.position.length() < 1.8) {
+        camera.position.set(0, 0, 3);
+      }
+      // If camera z gets too large, reset
+      if (camera.position.length() > 6) {
+        camera.position.set(0, 0, 3);
+      }
+    });
+    return (
+      <OrbitControls
+        ref={orbitRef}
+        enableZoom={true}
+        enablePan={false}
+        autoRotate={autoRotate}
+        autoRotateSpeed={0.5}
+        minDistance={2}
+        maxDistance={5}
+      />
+    );
+  };
+
   return (
     <div className="w-full h-full">
       <Canvas
@@ -332,14 +373,7 @@ const Globe3D = ({ blocks, onBlockClick, autoRotate = true }: Globe3DProps) => {
         <pointLight position={[-10, -10, -10]} intensity={1.2} color="#00FF88" />
         {/* Pass blocks to Globe, not transactions */}
         <Globe blocks={blocks} onBlockClick={onBlockClick} />
-        <OrbitControls
-          enableZoom={true}
-          enablePan={false}
-          autoRotate={autoRotate}
-          autoRotateSpeed={0.5}
-          minDistance={2}
-          maxDistance={5}
-        />
+        <Controls />
       </Canvas>
     </div>
   );
