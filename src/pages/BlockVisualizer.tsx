@@ -1,129 +1,205 @@
 
 import React, { useState, useEffect } from 'react';
 import { Canvas } from '@react-three/fiber';
-import { Environment, PerspectiveCamera } from '@react-three/drei';
-import Hyperspeed from "../components/Hyperspeed/Hyperspeed";
-import EnhancedHyperspeedRays from '../components/EnhancedHyperspeedRays';
-import BlockTooltip from '../components/BlockTooltip';
+import { Environment, PerspectiveCamera, OrbitControls } from '@react-three/drei';
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Volume2, VolumeX, ArrowLeft, Settings } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { useBlockRays } from '../hooks/useBlockRays';
+import FerrisWheel from '../components/carnival/FerrisWheel';
+import PopcornTransactions from '../components/carnival/PopcornTransactions';
+import ParallelRollercoaster from '../components/carnival/ParallelRollercoaster';
+import CosmicClownAnnouncer from '../components/carnival/CosmicClownAnnouncer';
+import CarnivalBackground from '../components/carnival/CarnivalBackground';
 
 const BlockVisualizer = () => {
-  const [newBlockDetected, setNewBlockDetected] = useState(false);
-  const [blockRayCount, setBlockRayCount] = useState(40);
-  const [networkActivity, setNetworkActivity] = useState(1);
-  const { blockRays, hoveredRay, setHoveredRay } = useBlockRays();
+  const navigate = useNavigate();
+  const { blockRays } = useBlockRays();
+  const [soundEnabled, setSoundEnabled] = useState(true);
+  const [clownEnabled, setClownEnabled] = useState(true);
+  const [currentBlockIndex, setCurrentBlockIndex] = useState(0);
 
-  // Calculate network activity based on recent blocks
-  useEffect(() => {
-    if (blockRays.length > 0) {
-      const recentBlocks = blockRays.slice(-3);
-      const avgTransactions = recentBlocks.reduce((sum, ray) => 
-        sum + (ray.block.transactions?.length || 0), 0
-      ) / recentBlocks.length;
-      
-      // Normalize activity (assuming 100 transactions is high activity)
-      const activity = Math.min(avgTransactions / 100, 2);
-      setNetworkActivity(activity);
-    }
-  }, [blockRays]);
+  // Cycle through recent blocks for Ferris wheels
+  const displayBlocks = blockRays.slice(-6); // Show last 6 blocks
+  const latestBlock = blockRays[blockRays.length - 1];
 
-  // Enhanced block detection effects
+  // Auto-cycle through blocks for main display
   useEffect(() => {
-    if (blockRays.length > 0) {
-      setNewBlockDetected(true);
-      
-      // Adjust ray count based on network activity
-      const baseRays = 40;
-      const bonusRays = Math.floor(networkActivity * 20);
-      setBlockRayCount(baseRays + bonusRays);
-      
-      setTimeout(() => {
-        setNewBlockDetected(false);
-        setBlockRayCount(40);
+    if (displayBlocks.length > 0) {
+      const interval = setInterval(() => {
+        setCurrentBlockIndex((prev) => (prev + 1) % displayBlocks.length);
       }, 3000);
+      return () => clearInterval(interval);
     }
-  }, [blockRays.length, networkActivity]);
+  }, [displayBlocks.length]);
 
-  const hyperspeedOptions = {
-    distortion: 'turbulentDistortion',
-    length: 400,
-    roadWidth: 10,
-    islandWidth: 2,
-    lanesPerRoad: 4,
-    fov: 90,
-    fovSpeedUp: 150,
-    speedUp: newBlockDetected ? (2 + networkActivity) : (1.5 + networkActivity * 0.5),
-    carLightsFade: 0.4,
-    totalSideLightSticks: 20 + Math.floor(networkActivity * 10),
-    lightPairsPerRoadWay: blockRayCount,
-    shoulderLinesWidthPercentage: 0.05,
-    brokenLinesWidthPercentage: 0.1,
-    brokenLinesLengthPercentage: 0.5,
-    lightStickWidth: [0.12, 0.5] as [number, number],
-    lightStickHeight: [1.3 + networkActivity * 0.5, 1.7 + networkActivity * 0.8] as [number, number],
-    movingAwaySpeed: [60 + networkActivity * 20, 120 + networkActivity * 40] as [number, number],
-    movingCloserSpeed: [-120 - networkActivity * 30, -200 - networkActivity * 50] as [number, number],
-    carLightsLength: [400 * 0.05, 400 * 0.3] as [number, number],
-    carLightsRadius: [0.08, 0.20] as [number, number],
-    carWidthPercentage: [0.3, 0.5] as [number, number],
-    carShiftX: [-0.8, 0.8] as [number, number],
-    carFloorSeparation: [0, 5] as [number, number],
-    colors: {
-      roadColor: newBlockDetected ? 0x1a1a2e : 0x080808,
-      islandColor: newBlockDetected ? 0x16213e : 0x0a0a0a,
-      background: 0x000000,
-      shoulderLines: newBlockDetected ? 0x9333ea : 0x131318,
-      brokenLines: newBlockDetected ? 0x9333ea : 0x131318,
-      leftCars: [0x03B3C3, 0x6750A2, 0xD856BF, 0x0E5EA5, 0xC247AC],
-      rightCars: [0xD856BF, 0x6750A2, 0xC247AC, 0x03B3C3, 0x0E5EA5],
-      sticks: newBlockDetected ? 0x9333ea : 0x03B3C3,
-    }
+  const getBlockColor = (block: any) => {
+    const transactionCount = block.block?.transactions?.length || 0;
+    if (transactionCount > 100) return '#FF1493'; // Hot pink for high activity
+    if (transactionCount > 50) return '#00FFFF';  // Cyan for medium activity
+    return '#9370DB'; // Purple for low activity
+  };
+
+  const handleBackClick = () => {
+    navigate('/');
   };
 
   return (
-    <div className="w-full h-screen overflow-hidden bg-black relative">
-      {/* Network Activity Indicator */}
-      <div className="absolute top-4 left-4 z-20 bg-slate-900/80 backdrop-blur-md rounded-lg p-4 text-white">
-        <div className="text-sm text-gray-400">Network Activity</div>
-        <div className="flex items-center space-x-2 mt-1">
-          <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse"></div>
-          <div className="text-lg font-bold text-green-400">
-            {(networkActivity * 100).toFixed(0)}%
-          </div>
-        </div>
-        <div className="text-xs text-gray-500 mt-1">
-          {blockRays.length} blocks tracked
-        </div>
+    <div className="w-full h-screen overflow-hidden bg-gradient-to-b from-purple-900 via-pink-900 to-blue-900 relative">
+      {/* Header Controls */}
+      <div className="absolute top-4 left-4 z-20 flex space-x-2">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleBackClick}
+          className="bg-black/50 border-purple-500/50 text-white hover:bg-purple-600/50"
+        >
+          <ArrowLeft className="w-4 h-4 mr-2" />
+          Back
+        </Button>
       </div>
 
-      {/* 3D Highway Visualization */}
+      <div className="absolute top-4 right-4 z-20 flex space-x-2">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setSoundEnabled(!soundEnabled)}
+          className="bg-black/50 border-purple-500/50 text-white hover:bg-purple-600/50"
+        >
+          {soundEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setClownEnabled(!clownEnabled)}
+          className="bg-black/50 border-purple-500/50 text-white hover:bg-purple-600/50"
+        >
+          <Settings className="w-4 h-4" />
+        </Button>
+      </div>
+
+      {/* Carnival Title */}
+      <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-20">
+        <h1 className="text-4xl font-bold bg-gradient-to-r from-pink-400 via-purple-400 to-cyan-400 bg-clip-text text-transparent">
+          🎪 Monad's Cosmic Crypto Carnival 🎠
+        </h1>
+      </div>
+
+      {/* Network Stats */}
+      <div className="absolute bottom-4 left-4 z-20">
+        <Card className="bg-black/50 border-purple-500/50 backdrop-blur-md">
+          <CardContent className="p-4">
+            <div className="text-white space-y-2">
+              <div className="flex items-center space-x-2">
+                <div className="w-3 h-3 bg-green-400 rounded-full animate-pulse"></div>
+                <span className="text-sm">Live Carnival Activity</span>
+              </div>
+              <div className="text-xs text-purple-300">
+                {blockRays.length} blocks in the carnival
+              </div>
+              {latestBlock && (
+                <div className="text-xs text-cyan-300">
+                  Latest: Block #{parseInt(latestBlock.block?.number || '0', 16)}
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Ride Instructions */}
+      <div className="absolute bottom-4 right-4 z-20">
+        <Card className="bg-black/50 border-purple-500/50 backdrop-blur-md">
+          <CardContent className="p-4">
+            <div className="text-white text-sm space-y-1">
+              <div className="text-purple-300 font-semibold">🎠 Carnival Guide</div>
+              <div className="text-xs">🎡 Ferris wheels = Blocks</div>
+              <div className="text-xs">🍿 Popcorn = Transactions</div>
+              <div className="text-xs">🎢 Rollercoaster = Parallel execution</div>
+              <div className="text-xs">🤡 Clown = Live announcements</div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* 3D Carnival Scene */}
       <Canvas className="w-full h-full">
-        <PerspectiveCamera makeDefault position={[0, 8, -5]} fov={90} />
-        <Environment preset="night" />
-        
-        {/* Enhanced Block Rays */}
-        <EnhancedHyperspeedRays 
-          blockData={blockRays} 
-          onRayHover={setHoveredRay} 
+        <PerspectiveCamera makeDefault position={[0, 15, 20]} fov={75} />
+        <OrbitControls 
+          enablePan={true}
+          enableZoom={true}
+          enableRotate={true}
+          maxDistance={50}
+          minDistance={5}
         />
         
-        {/* Add some ambient lighting for the 3D elements */}
-        <ambientLight intensity={0.3} />
-        <directionalLight position={[10, 10, 5]} intensity={0.5} color="#9333ea" />
-        <pointLight position={[0, 10, 0]} intensity={0.3} color="#06b6d4" />
+        {/* Carnival Lighting */}
+        <ambientLight intensity={0.4} />
+        <directionalLight 
+          position={[10, 20, 5]} 
+          intensity={0.8} 
+          color="#FFB6C1" 
+        />
+        <pointLight 
+          position={[-10, 10, -10]} 
+          intensity={0.6} 
+          color="#00FFFF" 
+        />
+        <pointLight 
+          position={[10, 5, 10]} 
+          intensity={0.6} 
+          color="#FF69B4" 
+        />
+        
+        {/* Environment */}
+        <Environment preset="night" />
+        <CarnivalBackground />
+        
+        {/* Ferris Wheels for Recent Blocks */}
+        {displayBlocks.map((blockRay, index) => (
+          <FerrisWheel
+            key={blockRay.id}
+            block={blockRay.block}
+            position={[
+              (index - displayBlocks.length / 2) * 8,
+              0,
+              -index * 5
+            ]}
+            size={2 + (blockRay.block?.transactions?.length || 0) / 100}
+            color={getBlockColor(blockRay)}
+          />
+        ))}
+        
+        {/* Popcorn Transactions for Current Block */}
+        {displayBlocks[currentBlockIndex] && (
+          <PopcornTransactions
+            transactions={displayBlocks[currentBlockIndex].block?.transactions || []}
+            centerPosition={[
+              (currentBlockIndex - displayBlocks.length / 2) * 8,
+              0,
+              -currentBlockIndex * 5
+            ]}
+          />
+        )}
+        
+        {/* Parallel Execution Rollercoaster */}
+        <ParallelRollercoaster blockData={blockRays.map(ray => ray.block)} />
+        
+        {/* Cosmic Clown Announcer */}
+        <CosmicClownAnnouncer 
+          latestBlock={latestBlock?.block}
+          isEnabled={clownEnabled}
+        />
       </Canvas>
 
-      {/* Background Hyperspeed Effect */}
-      <div className="absolute inset-0 opacity-70">
-        <Hyperspeed effectOptions={hyperspeedOptions} />
-      </div>
-      
-      {/* Block Tooltip */}
-      {hoveredRay && <BlockTooltip ray={hoveredRay} />}
-
-      {/* New Block Flash Effect */}
-      {newBlockDetected && (
-        <div className="absolute inset-0 bg-purple-500/20 animate-pulse pointer-events-none" />
+      {/* Fireworks Effect for New Blocks */}
+      {latestBlock && (
+        <div className="absolute inset-0 pointer-events-none">
+          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-6xl animate-bounce">
+            🎆
+          </div>
+        </div>
       )}
     </div>
   );
