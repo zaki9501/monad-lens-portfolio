@@ -92,6 +92,34 @@ const Globe = ({ blocks, onBlockClick }: GlobeProps) => {
     }
   });
 
+  // Add function to get block type
+  function getBlockType(block: any) {
+    if (!block) return 'regular';
+    const txs = block.transactions || [];
+    // "Empty" block (no user txs)
+    if (txs.length === 0) return 'empty';
+    // "Large" block: arbitrarily, >95% gas used
+    let isLarge = false;
+    if (block.gasLimit && block.gasUsed) {
+      const gasLimit = parseInt(block.gasLimit, 16);
+      const gasUsed = parseInt(block.gasUsed, 16);
+      if (!isNaN(gasLimit) && !isNaN(gasUsed) && gasUsed > 0.95 * gasLimit) {
+        isLarge = true;
+      }
+    }
+    if (isLarge) return 'large';
+    // "Contract deploy" block: all txs are contract creation (to === null or 0x0...0)
+    if (
+      txs.length > 0 &&
+      txs.every((tx: any) =>
+        !tx.to || tx.to === "0x" || /^0x0+$/.test(tx.to)
+      )
+    ) {
+      return 'deployment';
+    }
+    return 'regular';
+  }
+
   return (
     <group>
       {/* Main Globe */}
@@ -172,13 +200,20 @@ const Globe = ({ blocks, onBlockClick }: GlobeProps) => {
         const curve = new THREE.QuadraticBezierCurve3(start, mid, end);
         const path = curve.getPoints(50);
 
+        // Choose color based on block type
+        const blockType = getBlockType(block);
+        let rayColor = "#00FFFF"; // default cyan
+        if (blockType === "empty") rayColor = "#FFD600";
+        else if (blockType === "large") rayColor = "#FF0055";
+        else if (blockType === "deployment") rayColor = "#3B82F6";
+
         return path.length > 1 ? (
           <AnimatedConnectionRay
             key={block.hash + index}
             points={path}
             blockData={block}
             onClick={onBlockClick}
-            color="#00FFFF"
+            color={rayColor}
             delay={index * 0.6}
             size={0.06}
           />
