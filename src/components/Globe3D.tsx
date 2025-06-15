@@ -64,11 +64,12 @@ const Globe = ({ transactions }: GlobeProps) => {
     // Animate rays
     if (raysRef.current) {
       raysRef.current.children.forEach((child, index) => {
-        const mesh = child as THREE.Mesh;
-        if (mesh.material && !Array.isArray(mesh.material)) {
-          const material = mesh.material as THREE.MeshBasicMaterial;
-          const offset = (time + index * 0.5) % 2;
-          material.opacity = Math.sin(offset * Math.PI) * 0.8 + 0.2;
+        if (child instanceof THREE.Mesh && child.material && !Array.isArray(child.material)) {
+          const material = child.material as THREE.MeshBasicMaterial;
+          if (material.opacity !== undefined) {
+            const offset = (time + index * 0.5) % 2;
+            material.opacity = Math.sin(offset * Math.PI) * 0.8 + 0.2;
+          }
         }
       });
     }
@@ -118,7 +119,7 @@ const Globe = ({ transactions }: GlobeProps) => {
       {/* Connection rays using tube geometry */}
       <group ref={raysRef}>
         {connections.map((connection, index) => (
-          connection.active && (
+          connection.active && connection.points.length > 1 && (
             <ConnectionRay
               key={index}
               points={connection.points}
@@ -140,15 +141,28 @@ const Globe = ({ transactions }: GlobeProps) => {
 };
 
 const ConnectionRay = ({ points }: { points: THREE.Vector3[] }) => {
-  const rayRef = useRef<THREE.Mesh>(null);
-  
   const geometry = useMemo(() => {
-    const curve = new THREE.CatmullRomCurve3(points);
-    return new THREE.TubeGeometry(curve, 50, 0.005, 8, false);
+    // Ensure we have valid points
+    if (!points || points.length < 2) {
+      return new THREE.BufferGeometry();
+    }
+    
+    try {
+      const curve = new THREE.CatmullRomCurve3(points);
+      return new THREE.TubeGeometry(curve, 50, 0.005, 8, false);
+    } catch (error) {
+      console.warn('Failed to create tube geometry:', error);
+      return new THREE.BufferGeometry();
+    }
   }, [points]);
 
+  // Don't render if we don't have a valid geometry
+  if (!geometry || geometry.attributes.position?.count === 0) {
+    return null;
+  }
+
   return (
-    <mesh ref={rayRef} geometry={geometry}>
+    <mesh geometry={geometry}>
       <meshBasicMaterial
         color="#00ff88"
         transparent
@@ -177,7 +191,9 @@ const AnimatedParticle = ({ path, delay }: { path: THREE.Vector3[]; delay: numbe
       // Fade in/out
       if (particleRef.current.material && !Array.isArray(particleRef.current.material)) {
         const material = particleRef.current.material as THREE.MeshBasicMaterial;
-        material.opacity = Math.sin(progress * Math.PI) * 0.8 + 0.2;
+        if (material.opacity !== undefined) {
+          material.opacity = Math.sin(progress * Math.PI) * 0.8 + 0.2;
+        }
       }
     }
   });
