@@ -1,7 +1,7 @@
 
 import React, { useRef, useMemo } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
-import { OrbitControls, Sphere, Line } from '@react-three/drei';
+import { OrbitControls, Sphere } from '@react-three/drei';
 import * as THREE from 'three';
 
 interface NodePoint {
@@ -115,17 +115,13 @@ const Globe = ({ transactions }: GlobeProps) => {
         </group>
       ))}
       
-      {/* Connection rays */}
+      {/* Connection rays using tube geometry */}
       <group ref={raysRef}>
         {connections.map((connection, index) => (
           connection.active && (
-            <Line
+            <ConnectionRay
               key={index}
               points={connection.points}
-              color="#00ff88"
-              lineWidth={2}
-              transparent
-              opacity={0.6}
             />
           )
         ))}
@@ -140,6 +136,25 @@ const Globe = ({ transactions }: GlobeProps) => {
         />
       ))}
     </group>
+  );
+};
+
+const ConnectionRay = ({ points }: { points: THREE.Vector3[] }) => {
+  const rayRef = useRef<THREE.Mesh>(null);
+  
+  const geometry = useMemo(() => {
+    const curve = new THREE.CatmullRomCurve3(points);
+    return new THREE.TubeGeometry(curve, 50, 0.005, 8, false);
+  }, [points]);
+
+  return (
+    <mesh ref={rayRef} geometry={geometry}>
+      <meshBasicMaterial
+        color="#00ff88"
+        transparent
+        opacity={0.6}
+      />
+    </mesh>
   );
 };
 
