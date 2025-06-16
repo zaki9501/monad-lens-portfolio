@@ -1,4 +1,3 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -10,6 +9,7 @@ import TxVisualizer from "./pages/TxVisualizer";
 import BlockVisualizer from "./pages/BlockVisualizer";
 import NotFound from "./pages/NotFound";
 import { PrivyProvider } from "@privy-io/react-auth";
+import { Analytics } from '@vercel/analytics/react';
 
 const queryClient = new QueryClient();
 
@@ -31,6 +31,7 @@ const App = () => (
         </BrowserRouter>
       </PrivyProvider>
     </TooltipProvider>
+    <Analytics />
   </QueryClientProvider>
 );
 
