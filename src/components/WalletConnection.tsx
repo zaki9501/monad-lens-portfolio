@@ -25,7 +25,7 @@ const WalletConnection = () => {
               style={{
                 left: `${Math.random() * 100}%`,
                 top: `${Math.random() * 100}%`,
-                animation: `float ${3 + Math.random() * 4}s ease-in-out infinite`,
+                animation: `floatAnimation ${3 + Math.random() * 4}s ease-in-out infinite`,
                 animationDelay: `${Math.random() * 3}s`
               }}
             />
@@ -67,11 +67,18 @@ const WalletConnection = () => {
         <div className="absolute inset-0">
           <div 
             className="absolute top-1/2 left-0 w-full h-0.5 bg-gradient-to-r from-transparent via-purple-500/30 to-transparent"
-            style={{ animation: 'searchWave 4s ease-in-out infinite' }}
+            style={{ 
+              animation: 'searchWaveAnimation 4s ease-in-out infinite',
+              transform: 'translateX(-100%)'
+            }}
           />
           <div 
             className="absolute top-1/3 left-0 w-full h-0.5 bg-gradient-to-r from-transparent via-blue-500/20 to-transparent"
-            style={{ animation: 'searchWave 4s ease-in-out infinite', animationDelay: '2s' }}
+            style={{ 
+              animation: 'searchWaveAnimation 4s ease-in-out infinite', 
+              animationDelay: '2s',
+              transform: 'translateX(-100%)'
+            }}
           />
         </div>
       </div>
@@ -144,13 +151,14 @@ const WalletConnection = () => {
         </Card>
       </div>
 
-      <style jsx>{`
-        @keyframes float {
+      {/* CSS animations using a style tag without jsx */}
+      <style>{`
+        @keyframes floatAnimation {
           0%, 100% { transform: translateY(0px); }
           50% { transform: translateY(-10px); }
         }
         
-        @keyframes searchWave {
+        @keyframes searchWaveAnimation {
           0% { transform: translateX(-100%); opacity: 0; }
           50% { transform: translateX(0%); opacity: 1; }
           100% { transform: translateX(100%); opacity: 0; }
