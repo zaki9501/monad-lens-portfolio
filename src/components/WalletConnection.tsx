@@ -1,218 +1,167 @@
 
-import { usePrivy } from "@privy-io/react-auth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Wallet, Shield, Zap, Search, Network } from "lucide-react";
+import { Wallet, Shield, Zap } from "lucide-react";
+import { usePrivy } from "@privy-io/react-auth";
 
 const WalletConnection = () => {
-  const { login, authenticated } = usePrivy();
+  const {
+    login,
+    ready,
+    authenticated,
+    user
+  } = usePrivy();
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 relative overflow-hidden">
-      {/* Background Animation */}
-      <div className="absolute inset-0 overflow-hidden">
-        <div className="blockchain-bg">
-          {/* Floating particles */}
-          {[...Array(20)].map((_, i) => (
+    <div className="max-w-4xl mx-auto relative">
+      {/* Animated Background */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        {/* Floating blockchain nodes */}
+        <div className="absolute inset-0">
+          {[...Array(12)].map((_, i) => (
             <div
               key={i}
-              className="particle"
-              style={{
-                left: `${Math.random() * 100}%`,
-                animationDelay: `${Math.random() * 5}s`,
-                animationDuration: `${3 + Math.random() * 4}s`
-              }}
-            />
-          ))}
-          
-          {/* Network connections */}
-          {[...Array(8)].map((_, i) => (
-            <div
-              key={i}
-              className="connection-line"
+              className="absolute w-1 h-1 bg-purple-400/30 rounded-full animate-pulse"
               style={{
                 left: `${Math.random() * 100}%`,
                 top: `${Math.random() * 100}%`,
+                animation: `floatAnimation ${3 + Math.random() * 4}s ease-in-out infinite`,
                 animationDelay: `${Math.random() * 3}s`
               }}
             />
           ))}
-          
-          {/* Geometric shapes */}
+        </div>
+
+        {/* Network connection lines */}
+        <svg className="absolute inset-0 w-full h-full opacity-20">
+          <defs>
+            <linearGradient id="lineGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#8b5cf6" stopOpacity="0.5" />
+              <stop offset="100%" stopColor="#3b82f6" stopOpacity="0.1" />
+            </linearGradient>
+          </defs>
           {[...Array(6)].map((_, i) => (
-            <div
+            <line
               key={i}
-              className="geometric-shape"
+              x1={`${Math.random() * 100}%`}
+              y1={`${Math.random() * 100}%`}
+              x2={`${Math.random() * 100}%`}
+              y2={`${Math.random() * 100}%`}
+              stroke="url(#lineGradient)"
+              strokeWidth="1"
+              className="animate-pulse"
               style={{
-                left: `${Math.random() * 100}%`,
-                top: `${Math.random() * 100}%`,
-                animationDelay: `${Math.random() * 4}s`
+                animationDelay: `${i * 0.5}s`,
+                animationDuration: `${4 + i}s`
               }}
             />
           ))}
-          
-          {/* Search wave effect */}
-          <div className="search-wave" />
+        </svg>
+
+        {/* Geometric shapes */}
+        <div className="absolute top-1/4 left-1/6 w-16 h-16 border border-blue-500/20 rounded-lg animate-spin" style={{ animationDuration: '20s' }} />
+        <div className="absolute bottom-1/3 right-1/4 w-12 h-12 border border-purple-500/20 rotate-45" style={{ animation: 'pulse 3s ease-in-out infinite' }} />
+        <div className="absolute top-2/3 left-3/4 w-8 h-8 border border-green-500/20 rounded-full animate-ping" style={{ animationDelay: '1s' }} />
+
+        {/* Search wave effect */}
+        <div className="absolute inset-0">
+          <div 
+            className="absolute top-1/2 left-0 w-full h-0.5 bg-gradient-to-r from-transparent via-purple-500/30 to-transparent"
+            style={{ 
+              animation: 'searchWaveAnimation 4s ease-in-out infinite',
+              transform: 'translateX(-100%)'
+            }}
+          />
+          <div 
+            className="absolute top-1/3 left-0 w-full h-0.5 bg-gradient-to-r from-transparent via-blue-500/20 to-transparent"
+            style={{ 
+              animation: 'searchWaveAnimation 4s ease-in-out infinite', 
+              animationDelay: '2s',
+              transform: 'translateX(-100%)'
+            }}
+          />
         </div>
       </div>
 
-      <div className="relative z-10 container mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 lg:py-20">
-        <div className="text-center mb-8 sm:mb-12 lg:mb-16">
-          <div className="flex justify-center mb-6">
-            <img 
-              src="/lovable-uploads/85b0ee68-ba1c-4435-a606-e39e09aaf155.png" 
-              alt="Monad Lens Logo" 
-              className="w-16 h-16 sm:w-20 sm:h-20"
-            />
-          </div>
-          <h1 className="text-3xl sm:text-4xl lg:text-6xl font-bold text-white mb-4 sm:mb-6">
-            Welcome to <span className="text-purple-400">Monad Lens</span>
+      {/* Main content with higher z-index */}
+      <div className="relative z-10">
+        <div className="text-center mb-12">
+          <h1 className="text-5xl font-bold text-white mb-4">
+            Welcome to <span className="bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent">Monad lens</span>
           </h1>
-          <p className="text-lg sm:text-xl text-gray-300 mb-8 sm:mb-12 max-w-3xl mx-auto px-4">
+          <p className="text-xl text-gray-300 mb-8">
             Track your Monad Testnet assets, explore DeFi protocols, and discover the latest dApps
           </p>
-
-          {!authenticated && (
-            <Button
-              onClick={login}
-              size="lg"
-              className="bg-purple-600 hover:bg-purple-700 text-white font-semibold px-6 sm:px-8 py-3 sm:py-4 rounded-lg text-base sm:text-lg transition-all duration-200 hover:scale-105"
-            >
-              <Wallet className="mr-2 h-5 w-5 sm:h-6 sm:w-6" />
-              Connect Your Wallet
-            </Button>
-          )}
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8 max-w-6xl mx-auto">
-          <Card className="bg-slate-800/50 border-slate-700 backdrop-blur-sm hover:bg-slate-800/70 transition-all duration-200 hover:scale-105">
-            <CardHeader className="text-center">
-              <div className="mx-auto mb-4 w-12 h-12 sm:w-16 sm:h-16 bg-green-500/20 rounded-full flex items-center justify-center">
-                <Wallet className="h-6 w-6 sm:h-8 sm:w-8 text-green-400" />
+        <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3 mb-12">
+          <Card className="bg-slate-800/50 border-slate-700 hover:border-purple-500/50 transition-all duration-300 backdrop-blur-sm">
+            <CardHeader>
+              <div className="w-12 h-12 bg-gradient-to-r from-purple-500 to-blue-500 rounded-lg flex items-center justify-center mb-4">
+                <Wallet className="w-6 h-6 text-white" />
               </div>
-              <CardTitle className="text-lg sm:text-xl text-white">Portfolio Tracking</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <CardDescription className="text-gray-300 text-center text-sm sm:text-base">
+              <CardTitle className="text-white">Portfolio Tracking</CardTitle>
+              <CardDescription className="text-gray-400">
                 Monitor your Monad Testnet tokens, NFTs, and DeFi positions in real-time
               </CardDescription>
-            </CardContent>
+            </CardHeader>
           </Card>
 
-          <Card className="bg-slate-800/50 border-slate-700 backdrop-blur-sm hover:bg-slate-800/70 transition-all duration-200 hover:scale-105">
-            <CardHeader className="text-center">
-              <div className="mx-auto mb-4 w-12 h-12 sm:w-16 sm:h-16 bg-blue-500/20 rounded-full flex items-center justify-center">
-                <Shield className="h-6 w-6 sm:h-8 sm:w-8 text-blue-400" />
+          <Card className="bg-slate-800/50 border-slate-700 hover:border-purple-500/50 transition-all duration-300 backdrop-blur-sm">
+            <CardHeader>
+              <div className="w-12 h-12 bg-gradient-to-r from-green-500 to-teal-500 rounded-lg flex items-center justify-center mb-4">
+                <Shield className="w-6 h-6 text-white" />
               </div>
-              <CardTitle className="text-lg sm:text-xl text-white">DeFi Analytics</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <CardDescription className="text-gray-300 text-center text-sm sm:text-base">
+              <CardTitle className="text-white">DeFi Analytics</CardTitle>
+              <CardDescription className="text-gray-400">
                 Get insights into your DeFi activities across Kuru, Curvance, and other protocols
               </CardDescription>
-            </CardContent>
+            </CardHeader>
           </Card>
 
-          <Card className="bg-slate-800/50 border-slate-700 backdrop-blur-sm hover:bg-slate-800/70 transition-all duration-200 hover:scale-105 md:col-span-2 lg:col-span-1">
-            <CardHeader className="text-center">
-              <div className="mx-auto mb-4 w-12 h-12 sm:w-16 sm:h-16 bg-purple-500/20 rounded-full flex items-center justify-center">
-                <Zap className="h-6 w-6 sm:h-8 sm:w-8 text-purple-400" />
+          <Card className="bg-slate-800/50 border-slate-700 hover:border-purple-500/50 transition-all duration-300 backdrop-blur-sm">
+            <CardHeader>
+              <div className="w-12 h-12 bg-gradient-to-r from-orange-500 to-red-500 rounded-lg flex items-center justify-center mb-4">
+                <Zap className="w-6 h-6 text-white" />
               </div>
-              <CardTitle className="text-lg sm:text-xl text-white">Visualizer</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <CardDescription className="text-gray-300 text-center text-sm sm:text-base">
-                Discover and connect to the latest Monad Testnet applications and protocols, and visualise your transactions
+              <CardTitle className="text-white">Visualiser</CardTitle>
+              <CardDescription className="text-gray-400">
+                Discover and connect to the latest Monad Testnet applications and protocols, and visualise your impressions
               </CardDescription>
-            </CardContent>
+            </CardHeader>
           </Card>
         </div>
 
-        {authenticated && (
-          <div className="text-center mt-8 sm:mt-12">
-            <Badge variant="secondary" className="bg-green-500/20 text-green-400 border-green-500/30 px-3 sm:px-4 py-2 text-sm sm:text-base">
-              <Shield className="mr-2 h-4 w-4" />
-              Wallet Connected
-            </Badge>
-          </div>
-        )}
+        <Card className="bg-slate-800/50 border-slate-700 max-w-md mx-auto backdrop-blur-sm">
+          <CardHeader className="text-center">
+            <CardTitle className="text-white text-2xl">Connect Your Wallet</CardTitle>
+            <CardDescription className="text-gray-400">
+              Connect your EVM-compatible wallet to get started with Monad lens
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <Button onClick={login} className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white py-6 text-lg">
+              <Wallet className="w-5 h-5 mr-2" />
+              Connect Wallet
+            </Button>
+            <p className="text-center text-sm text-gray-400">
+              Supports MetaMask, Rabby, and other EVM wallets
+            </p>
+          </CardContent>
+        </Card>
       </div>
 
+      {/* CSS animations using a style tag without jsx */}
       <style>{`
-        .blockchain-bg {
-          position: absolute;
-          top: 0;
-          left: 0;
-          width: 100%;
-          height: 100%;
-          overflow: hidden;
+        @keyframes floatAnimation {
+          0%, 100% { transform: translateY(0px); }
+          50% { transform: translateY(-10px); }
         }
-
-        .particle {
-          position: absolute;
-          width: 4px;
-          height: 4px;
-          background: rgba(139, 92, 246, 0.6);
-          border-radius: 50%;
-          animation: float 6s ease-in-out infinite;
-        }
-
-        .connection-line {
-          position: absolute;
-          width: 100px;
-          height: 1px;
-          background: linear-gradient(90deg, transparent, rgba(139, 92, 246, 0.4), transparent);
-          animation: pulse 3s ease-in-out infinite;
-        }
-
-        .geometric-shape {
-          position: absolute;
-          width: 20px;
-          height: 20px;
-          border: 1px solid rgba(139, 92, 246, 0.3);
-          animation: rotate 8s linear infinite;
-        }
-
-        .search-wave {
-          position: absolute;
-          top: 50%;
-          left: 50%;
-          width: 200px;
-          height: 200px;
-          border: 2px solid rgba(139, 92, 246, 0.2);
-          border-radius: 50%;
-          animation: searchPulse 4s ease-in-out infinite;
-          transform: translate(-50%, -50%);
-        }
-
-        @keyframes float {
-          0%, 100% { transform: translateY(0px) rotate(0deg); opacity: 0.6; }
-          50% { transform: translateY(-20px) rotate(180deg); opacity: 1; }
-        }
-
-        @keyframes pulse {
-          0%, 100% { opacity: 0.3; transform: scaleX(1); }
-          50% { opacity: 0.8; transform: scaleX(1.2); }
-        }
-
-        @keyframes rotate {
-          0% { transform: rotate(0deg) scale(1); opacity: 0.3; }
-          50% { transform: rotate(180deg) scale(1.1); opacity: 0.6; }
-          100% { transform: rotate(360deg) scale(1); opacity: 0.3; }
-        }
-
-        @keyframes searchPulse {
-          0% { transform: translate(-50%, -50%) scale(0.8); opacity: 0.8; }
-          50% { transform: translate(-50%, -50%) scale(1.2); opacity: 0.4; }
-          100% { transform: translate(-50%, -50%) scale(0.8); opacity: 0.8; }
-        }
-
-        @media (max-width: 640px) {
-          .particle { width: 3px; height: 3px; }
-          .connection-line { width: 60px; }
-          .geometric-shape { width: 15px; height: 15px; }
-          .search-wave { width: 150px; height: 150px; }
+        
+        @keyframes searchWaveAnimation {
+          0% { transform: translateX(-100%); opacity: 0; }
+          50% { transform: translateX(0%); opacity: 1; }
+          100% { transform: translateX(100%); opacity: 0; }
         }
       `}</style>
     </div>
