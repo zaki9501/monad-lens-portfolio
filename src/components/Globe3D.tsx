@@ -1,8 +1,10 @@
-import React, { useRef, useMemo } from 'react';
+import React, { useRef, useMemo, useState, useCallback } from 'react';
 import { Canvas, useFrame, useLoader } from '@react-three/fiber';
 import { OrbitControls, Sphere } from '@react-three/drei';
 import * as THREE from 'three';
 import { TextureLoader } from 'three';
+import { validators } from '@/utils/validatorData';
+import { Switch } from '@/components/ui/switch';
 
 interface NodePoint {
   position: [number, number, number];
@@ -13,11 +15,25 @@ interface NodePoint {
 interface GlobeProps {
   blocks: any[]; // Pass recent blocks instead of transactions for block rays
   onBlockClick: (block: any) => void;
+  isRotating: boolean;
+  onValidatorClick: (country: string) => void;
 }
 
-const Globe = ({ blocks, onBlockClick }: GlobeProps) => {
+interface ValidatorMarkerProps {
+  position: [number, number, number];
+  successRate: number;
+  country: string;
+  onClick: (country: string) => void;
+}
+
+const Globe = ({ blocks, onBlockClick, isRotating, onValidatorClick }: GlobeProps) => {
   const globeRef = useRef<THREE.Mesh>(null);
   const raysRef = useRef<THREE.Group>(null);
+  const validatorsGroupRef = useRef<THREE.Group>(null);
+  const rotationSpeed = 0.05;
+  const lastRotationRef = useRef(0);
+  const [selectedCountry, setSelectedCountry] = useState<string | null>(null);
+  const [showValidators, setShowValidators] = useState(false);
 
   // Load textures for the Earth globe
   const [earthMap, earthSpecular, earthLights] = useLoader(TextureLoader, [
@@ -72,13 +88,45 @@ const Globe = ({ blocks, onBlockClick }: GlobeProps) => {
     return conns;
   }, [nodes]);
 
+  // Corrected lat/long to 3D coordinates conversion
+  const latLongToVector3 = (lat: number, long: number, radius: number = 1.02): [number, number, number] => {
+    // Convert latitude and longitude to radians
+    const phi = (90 - lat) * (Math.PI / 180);
+    const theta = (long + 180) * (Math.PI / 180);
+    
+    // Convert spherical coordinates to Cartesian coordinates
+    const x = -(radius * Math.sin(phi) * Math.cos(theta));
+    const y = radius * Math.cos(phi);
+    const z = radius * Math.sin(phi) * Math.sin(theta);
+    
+    return [x, y, z];
+  };
+
   useFrame(({ clock }) => {
     const time = clock.getElapsedTime();
     
+    // Handle globe rotation
     if (globeRef.current) {
-      globeRef.current.rotation.y = time * 0.05;
+      if (isRotating) {
+        globeRef.current.rotation.y = time * rotationSpeed;
+        lastRotationRef.current = globeRef.current.rotation.y;
+      } else {
+        // Keep the last rotation position when stopped
+        globeRef.current.rotation.y = lastRotationRef.current;
+      }
     }
     
+    // Handle validator markers rotation
+    if (validatorsGroupRef.current) {
+      if (isRotating) {
+        validatorsGroupRef.current.rotation.y = -time * rotationSpeed;
+      } else {
+        // Keep validators fixed when rotation is stopped
+        validatorsGroupRef.current.rotation.y = -lastRotationRef.current;
+      }
+    }
+    
+    // Handle ray animations (keep these running regardless of rotation)
     if (raysRef.current) {
       raysRef.current.children.forEach((child, index) => {
         if (child instanceof THREE.Mesh && child.material && !Array.isArray(child.material)) {
@@ -120,6 +168,12 @@ const Globe = ({ blocks, onBlockClick }: GlobeProps) => {
     return 'regular';
   }
 
+  const handleValidatorClick = (country: string) => {
+    setSelectedCountry(country);
+    setShowValidators(true);
+    onValidatorClick(country);
+  };
+
   return (
     <group>
       {/* Main Globe */}
@@ -144,6 +198,24 @@ const Globe = ({ blocks, onBlockClick }: GlobeProps) => {
           wireframe
         />
       </Sphere>
+      
+      {/* Validator Markers Group - Counter-rotating to stay fixed */}
+      <group ref={validatorsGroupRef}>
+        {validators.map((validator, index) => {
+          if (!validator.coordinates) return null;
+          const [lat, long] = validator.coordinates;
+          const position = latLongToVector3(lat, long);
+          return (
+            <ValidatorMarker
+              key={validator.name}
+              position={position}
+              successRate={validator.successRate}
+              country={validator.country}
+              onClick={handleValidatorClick}
+            />
+          );
+        })}
+      </group>
       
       {/* Node points */}
       {nodes.map((node, index) => (
@@ -385,24 +457,138 @@ interface Globe3DProps {
 }
 
 const Globe3D = ({ blocks, onBlockClick }: Globe3DProps) => {
+  const [isRotating] = useState(false);
+  const [selectedCountry, setSelectedCountry] = useState<string | null>(null);
+  const [showValidators, setShowValidators] = useState(false);
+
+  const handleValidatorClick = (country: string) => {
+    setSelectedCountry(country);
+    setShowValidators(true);
+  };
+
   return (
-    <div className="w-full h-full">
-      <Canvas
-        camera={{ position: [0, 0, 3], fov: 75 }}
-        style={{ background: 'transparent' }}
-      >
-        {/* --- Add StarField before lights and the Globe --- */}
-        <StarField count={300} />
-        <ambientLight intensity={0.6} />
-        <pointLight position={[0, 0, 0]} intensity={3} color="#00BFFF" />
-        <pointLight position={[10, 10, 10]} intensity={1.8} color="#00FFFF" />
-        <pointLight position={[-10, -10, -10]} intensity={1.2} color="#00FF88" />
-        {/* Pass blocks to Globe, not transactions */}
-        <Globe blocks={blocks} onBlockClick={onBlockClick} />
-        <OrbitControls enableZoom={true} enablePan={false} autoRotate={true} autoRotateSpeed={0.5} minDistance={2} maxDistance={5} /> 
-      </Canvas>
+    <div className="flex flex-col w-full h-full">
+      <div className="relative flex-1">
+        <Canvas>
+          <ambientLight intensity={0.5} />
+          <pointLight position={[10, 10, 10]} intensity={1} />
+          <Globe 
+            blocks={blocks} 
+            onBlockClick={onBlockClick} 
+            isRotating={isRotating}
+            onValidatorClick={handleValidatorClick}
+          />
+          <OrbitControls 
+            enableZoom={true} 
+            enablePan={true} 
+            enableRotate={true}
+            minDistance={1.2}
+            maxDistance={5}
+            zoomSpeed={0.8}
+            panSpeed={0.5}
+            rotateSpeed={0.5}
+            autoRotate={false}
+          />
+        </Canvas>
+      </div>
+
+      {/* Validators List Panel */}
+      {showValidators && selectedCountry && (
+        <div className="w-full bg-gradient-to-b from-black/95 to-black/90 backdrop-blur-md border-t border-purple-500/20 p-6 transition-all duration-300 ease-in-out">
+          <div className="flex justify-between items-center mb-6">
+            <div className="flex items-center gap-3">
+              <h3 className="text-xl font-bold text-white">
+                Validators in {selectedCountry}
+              </h3>
+              <span className="px-3 py-1 bg-purple-500/20 text-purple-300 rounded-full text-sm">
+                {validators.filter(v => v.country === selectedCountry).length} Validators
+              </span>
+            </div>
+            <button 
+              onClick={() => setShowValidators(false)}
+              className="text-gray-400 hover:text-white transition-colors duration-200 p-2 hover:bg-white/10 rounded-full"
+            >
+              ✕
+            </button>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-h-64 overflow-y-auto custom-scrollbar">
+            {validators
+              .filter(v => v.country === selectedCountry)
+              .map(validator => (
+                <div 
+                  key={validator.name}
+                  className="bg-gradient-to-br from-gray-800/50 to-gray-900/50 p-4 rounded-xl border border-purple-500/10 hover:border-purple-500/30 transition-all duration-200 hover:shadow-lg hover:shadow-purple-500/10"
+                >
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="text-white font-medium truncate max-w-[80%]">
+                      {validator.name}
+                    </div>
+                    <div className={`px-2 py-1 rounded-full text-xs font-medium ${
+                      validator.successRate >= 99 ? 'bg-green-500/20 text-green-300' :
+                      validator.successRate >= 95 ? 'bg-blue-500/20 text-blue-300' :
+                      'bg-yellow-500/20 text-yellow-300'
+                    }`}>
+                      {validator.successRate}%
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 text-gray-400 text-sm">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <span>{validator.stake} MONAD</span>
+                  </div>
+                </div>
+              ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 };
+
+// Update ValidatorMarker to be more visible
+const ValidatorMarker = ({ position, successRate, country, onClick }: ValidatorMarkerProps) => {
+  const handleClick = (e: any) => {
+    e.stopPropagation();
+    onClick(country);
+  };
+
+  return (
+    <group position={position} onClick={handleClick}>
+      {/* Main marker */}
+      <mesh>
+        <sphereGeometry args={[0.02, 16, 16]} />
+        <meshBasicMaterial color="#9333EA" /> {/* Purple color */}
+      </mesh>
+      {/* Glow effect */}
+      <mesh>
+        <sphereGeometry args={[0.04, 16, 16]} />
+        <meshBasicMaterial
+          color="#9333EA"
+          transparent
+          opacity={0.3}
+        />
+      </mesh>
+    </group>
+  );
+};
+
+// Add this CSS to your global styles or component
+const styles = `
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 6px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 3px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: rgba(147, 51, 234, 0.5);
+    border-radius: 3px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: rgba(147, 51, 234, 0.7);
+  }
+`;
 
 export default Globe3D;
