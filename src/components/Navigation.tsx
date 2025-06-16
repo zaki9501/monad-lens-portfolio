@@ -13,8 +13,15 @@ const Navigation = () => {
     <nav className="fixed top-0 left-0 right-0 z-50 bg-slate-900/95 backdrop-blur-sm border-b border-slate-700">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
-          <Link to="/" className="text-xl font-bold text-white">
-            Monad <span className="text-purple-400">Lens</span>
+          <Link to="/" className="flex items-center space-x-3">
+            <img 
+              src="/lovable-uploads/85b0ee68-ba1c-4435-a606-e39e09aaf155.png" 
+              alt="Monad Lens Logo" 
+              className="w-8 h-8"
+            />
+            <span className="text-xl font-bold text-white">
+              Monad <span className="text-purple-400">Lens</span>
+            </span>
           </Link>
           
           <div className="flex items-center space-x-4">
