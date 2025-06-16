@@ -20,8 +20,6 @@ import { Link, useSearchParams } from "react-router-dom";
 import { getAccountTokens } from "@/lib/blockvision";
 import { ethers } from "ethers";
 import LiquidStakingDerivatives from "@/components/LiquidStakingDerivatives";
-import QuickActions from "@/components/QuickActions";
-import RecentActivity from "@/components/RecentActivity";
 import MarketOverview from "@/components/MarketOverview";
 const CopyAddressButton = ({
   address
@@ -171,12 +169,6 @@ const Index = () => {
                   TX Visualizer
                 </Button>
               </Link>
-              <Link to="/dapp-analyzer">
-                <Button variant="outline" className="border-green-500 text-green-400 hover:bg-green-500/10">
-                  <Target className="w-4 h-4 mr-2" />
-                  DApp Analyzer
-                </Button>
-              </Link>
               {authenticated && user?.wallet?.address ? <div className="flex items-center space-x-3">
                   <div className="flex items-center space-x-2 bg-slate-800/50 rounded-lg px-3 py-2">
                     <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
@@ -307,13 +299,10 @@ const Index = () => {
             </Tabs>
 
             {/* Quick Actions, Recent Activity, and Market Overview - Now positioned after main tabs */}
-            <div className="grid gap-6 md:grid-cols-2">
-              <QuickActions walletAddress={viewingAddress} />
-              <MarketOverview />
-            </div>
+            
 
             {/* Recent Activity */}
-            <RecentActivity walletAddress={viewingAddress} />
+            
           </div>}
 
         {/* Built by Piki Section */}

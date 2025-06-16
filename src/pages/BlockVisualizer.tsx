@@ -7,6 +7,12 @@ import { Search, Globe, Zap, Activity, TrendingUp, Users, Hash, ArrowRight, Fuel
 import { ScrollArea } from "@/components/ui/scroll-area";
 import Globe3D from "@/components/Globe3D";
 import StatsWaveChart from "@/components/pulse/StatsWaveChart";
+import RadarOverlay from "@/components/RadarOverlay";
+import RadarBlockDetailPanel from "@/components/RadarBlockDetailPanel";
+import { useToast } from "@/hooks/use-toast";
+import LiveContractDeployments from "@/components/pulse/LiveContractDeployments";
+
+const BLOCKVISION_API_KEY = import.meta.env.VITE_BLOCKVISION_API_KEY as string;
 
 // Mock data fetching function (replace with actual Monad API)
 const fetchLatestBlock = async () => {
@@ -28,21 +34,126 @@ const fetchLatestBlock = async () => {
   return data.result;
 };
 
+// Add utility to fetch contract creation details from Blockvision
+async function fetchContractDeploymentInfo(address: string) {
+  // Docs: https://docs.blockvision.org/docs/api-monad-account-activities
+  const url = `https://api.blockvision.org/v2/monad/account/activities?address=${address}&limit=50`;
+  const res = await fetch(url, {
+    headers: {
+      "accept": "application/json",
+      "x-api-key": BLOCKVISION_API_KEY,
+    },
+  });
+  if (!res.ok) throw new Error("Failed to fetch contract activities");
+  const { data } = await res.json();
+  // Find the creation txn (first incoming tx with "create" type)
+  const creation = data?.find((d: any) => d.category === "create");
+  // Fallback to the earliest txn
+  const firstSeen = data ? data[data.length - 1] : null;
+  const lastSeen = data && data.length > 0 ? data[0] : null;
+
+  return {
+    creationTransactionHash: creation?.hash || firstSeen?.hash || null,
+    creator: creation?.from || null,
+    creationTime: creation?.time || firstSeen?.time || null,
+    numTxs: data?.length || 0,
+    firstSeen: firstSeen?.time || null,
+    lastSeen: lastSeen?.time || null,
+  };
+}
+
+// New utility to fetch recent deployed contracts from Blockvision
+async function fetchRecentDeployedContracts(limit = 10) {
+  const url = `https://api.blockvision.org/v2/monad/contract/deployments?limit=${limit}`;
+  const res = await fetch(url, {
+    headers: {
+      "accept": "application/json",
+      "x-api-key": BLOCKVISION_API_KEY,
+    },
+  });
+  if (!res.ok) throw new Error("Failed to fetch deployed contracts");
+  const { data } = await res.json();
+  return data || [];
+}
+
+function formatDateTime(ts: string | number | null | undefined) {
+  if (!ts) return "N/A";
+  // Accept seconds or ms. Blockvision sends both sometimes
+  const date =
+    typeof ts === "number"
+      ? new Date(ts * (ts < 1e12 ? 1000 : 1))
+      : new Date(parseInt(ts) * (ts.length < 13 ? 1000 : 1));
+  if (isNaN(date.getTime())) return "N/A";
+  return date.toLocaleString(undefined, {
+    month: "short",
+    day: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: true,
+  });
+}
+function timeAgo(ts: string | number | null | undefined) {
+  if (!ts) return "N/A";
+  const now = Date.now();
+  const time =
+    typeof ts === "number"
+      ? ts * (ts < 1e12 ? 1000 : 1)
+      : parseInt(ts) * (ts.length < 13 ? 1000 : 1);
+  const diff = now - time;
+  if (diff < 0) return "N/A";
+  const days = Math.floor(diff / 86400000);
+  const hrs = Math.floor((diff % 86400000) / 3600000);
+  if (days > 0) return `${days} d ${hrs} hrs ago`;
+  const mins = Math.floor((diff % 3600000) / 60000);
+  if (hrs > 0) return `${hrs} hrs ${mins} min ago`;
+  const secs = Math.floor((diff % 60000) / 1000);
+  if (mins > 0) return `${mins} min ago`;
+  return `${secs} secs ago`;
+}
+
 const BlockVisualizer = () => {
   const [currentBlock, setCurrentBlock] = useState<any>(null);
-  const [searchAddress, setSearchAddress] = useState('');
+  const [searchValue, setSearchValue] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [recentBlocks, setRecentBlocks] = useState<any[]>([]);
   const [transactions, setTransactions] = useState<any[]>([]);
   const [liveGlobeTransactions, setLiveGlobeTransactions] = useState<any[]>([]);
   const [selectedBlock, setSelectedBlock] = useState<any>(null);
+  const [selectedRadarBlock, setSelectedRadarBlock] = useState<any>(null);
+  const [searchResult, setSearchResult] = useState<any | null>(null);
+  const [searchType, setSearchType] = useState<"tx" | "contract" | null>(null);
+  const [isSearching, setIsSearching] = useState(false);
+  const [searchError, setSearchError] = useState('');
+  const { toast } = useToast();
+  const [miniWaveData, setMiniWaveData] = useState<{ t: number; v: number }[]>([]);
+
+  // New state for radar contracts and selected contract details
+  const [radarContracts, setRadarContracts] = useState<any[]>([]);
+  const [selectedRadarContract, setSelectedRadarContract] = useState<any | null>(null);
+  const [selectedRadarContractDetails, setSelectedRadarContractDetails] = useState<any | null>(null);
+
+  const [detectedContracts, setDetectedContracts] = useState<any[]>([]); // New: detected contracts
+
+  // New state for live contract deployments
+  const [liveDeployments, setLiveDeployments] = useState<any[]>([]);
+  const [deploymentsLoading, setDeploymentsLoading] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
         const block = await fetchLatestBlock();
         setCurrentBlock(block);
-        setRecentBlocks(prev => [block, ...prev.slice(0, 4)]);
+
+        // Deduplicate and update recentBlocks based on hash (avoid repeated blocks)
+        setRecentBlocks(prevBlocks => {
+          // Prepend the latest block, then append unique from previous (excluding same hash)
+          const allBlocks = [block, ...prevBlocks.filter(b => b.hash !== block.hash)];
+          // Keep only the N most recent unique blocks
+          return allBlocks.slice(0, 8); // set to show 8 recent blocks (adjust as you wish)
+        });
+
         if (block?.transactions) {
           setTransactions(block.transactions);
           setLiveGlobeTransactions(prevTransactions => {
@@ -67,6 +178,138 @@ const BlockVisualizer = () => {
     return () => clearInterval(interval);
   }, []);
 
+  // Replace blocks on radar by recently deployed contracts
+  useEffect(() => {
+    let cancelled = false;
+    async function loadContracts() {
+      try {
+        const contracts = await fetchRecentDeployedContracts(8);
+        if (!cancelled) {
+          setRadarContracts(contracts);
+        }
+      } catch (err) {
+        // Optionally show toast or ignore
+      }
+    }
+    loadContracts();
+    const interval = setInterval(loadContracts, 4000);
+    return () => { cancelled = true; clearInterval(interval); };
+  }, []);
+
+  // When a contract is clicked on radar, load contract details from Blockvision
+  useEffect(() => {
+    if (!selectedRadarContract) {
+      setSelectedRadarContractDetails(null);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const info = await fetchContractDeploymentInfo(selectedRadarContract.contract_address);
+        if (!cancelled) setSelectedRadarContractDetails({
+          ...selectedRadarContract,
+          ...info,
+        });
+      } catch {
+        setSelectedRadarContractDetails(selectedRadarContract); // fallback
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [selectedRadarContract]);
+
+  // Unified search for tx hash or contract address
+  const handleSearch = async () => {
+    setSearchResult(null);
+    setSearchType(null);
+    setSearchError('');
+    const text = searchValue.trim();
+
+    const isHash = /^0x([A-Fa-f0-9]{64})$/.test(text);
+    const isAddress = /^0x[a-fA-F0-9]{40}$/.test(text);
+
+    if (!isHash && !isAddress) {
+      setSearchError('Enter a valid tx hash or contract address.');
+      return;
+    }
+
+    setIsSearching(true);
+
+    let triedTx = false;
+    if (isHash) {
+      try {
+        const txRes = await fetch('https://testnet-rpc.monad.xyz/', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            jsonrpc: '2.0',
+            method: 'eth_getTransactionByHash',
+            params: [text],
+            id: 1
+          })
+        });
+        if (!txRes.ok) throw new Error('tx not found');
+        const txData = await txRes.json();
+        if (txData?.result) {
+          setSearchResult(txData.result);
+          setSearchType("tx");
+          setIsSearching(false);
+          return;
+        }
+        triedTx = true;
+      } catch (err) {
+        triedTx = true;
+      }
+    }
+
+    // Contract search
+    try {
+      const addr = isAddress ? text : null;
+      const possibleAddr = addr || (isHash ? text.slice(0, 42) : null);
+      if (possibleAddr) {
+        // Fetch contract code
+        const codeRes = await fetch('https://testnet-rpc.monad.xyz/', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            jsonrpc: '2.0',
+            method: 'eth_getCode',
+            params: [possibleAddr, 'latest'],
+            id: 2
+          })
+        });
+        if (!codeRes.ok) throw new Error('Network error');
+        const codeData = await codeRes.json();
+        if (codeData?.result && codeData.result !== "0x" && codeData.result !== "0X") {
+          // Fetch new details from Blockvision:
+          let info = null;
+          try {
+            info = await fetchContractDeploymentInfo(possibleAddr);
+          } catch {}
+          setSearchResult({
+            address: possibleAddr,
+            code: codeData.result,
+            ...info,
+          });
+          setSearchType("contract");
+          setIsSearching(false);
+          return;
+        } else {
+          // No code, not a contract
+          setSearchError(triedTx ? 'No transaction or contract found for input.' : 'Not a contract.');
+        }
+      } else {
+        setSearchError('No transaction or contract found.');
+      }
+    } catch (err) {
+      setSearchError('Failed to search contract.');
+    }
+    setIsSearching(false);
+  };
+
+  const handleSearchInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") handleSearch();
+  };
+
   const formatValue = (value: string) => {
     const wei = parseInt(value, 16);
     const eth = wei / 1e18;
@@ -85,6 +328,86 @@ const BlockVisualizer = () => {
     setSelectedBlock(block);
   };
 
+  // Add waveData for mini chart below radar details
+  useEffect(() => {
+    // mimic wave changes for RadarBlockMiniChart
+    const interval = setInterval(() => {
+      setMiniWaveData((old) => [
+        ...old.slice(-29),
+        { t: Date.now(), v: 10 + Math.floor(Math.random() * 25 + 5 * Math.sin(Math.random() * 3.1)) },
+      ]);
+    }, 270);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Update: When contract selected, add to detectedContracts if not already present
+  const handleRadarContractSelect = (contract: any) => {
+    setSelectedRadarContract(contract);
+    setDetectedContracts(prev =>
+      prev.some(c => c.contract_address === contract.contract_address)
+        ? prev
+        : [{ ...contract }, ...prev].slice(0, 12) // keep only recent 12 detected
+    );
+  };
+
+  // New effect: For each new currentBlock, fetch receipts and detect contract deployments
+  useEffect(() => {
+    let cancelled = false;
+    async function fetchAndDetectContracts(block: any) {
+      if (!block || !block.transactions || block.transactions.length === 0) {
+        setLiveDeployments([]);
+        return;
+      }
+      setDeploymentsLoading(true);
+
+      // Fetch receipts for all txs in the latest block in parallel
+      const txs = Array.isArray(block.transactions) ? block.transactions : [];
+      try {
+        const results = await Promise.all(
+          txs.map(async (tx: any) => {
+            try {
+              const receiptRes = await fetch('https://testnet-rpc.monad.xyz/', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  jsonrpc: '2.0',
+                  method: 'eth_getTransactionReceipt',
+                  params: [tx.hash],
+                  id: 2,
+                }),
+              });
+              if (!receiptRes.ok) return null;
+              const receiptData = await receiptRes.json();
+              const contractAddress = receiptData?.result?.contractAddress;
+              if (contractAddress && contractAddress !== "0x0000000000000000000000000000000000000000") {
+                return {
+                  contractAddress,
+                  creator: tx.from,
+                  txHash: tx.hash,
+                  blockNumber: tx.blockNumber,
+                  timestamp: parseInt(block.timestamp, 16),
+                };
+              }
+              return null;
+            } catch (err) {
+              return null;
+            }
+          })
+        );
+        if (!cancelled) {
+          setLiveDeployments(results.filter(Boolean));
+        }
+      } finally {
+        setDeploymentsLoading(false);
+      }
+    }
+
+    if (currentBlock) {
+      fetchAndDetectContracts(currentBlock);
+    }
+    return () => { cancelled = true; };
+  }, [currentBlock]);
+
   return (
     <div className="min-h-screen bg-black text-green-400 p-4 font-mono">
       {/* Header */}
@@ -97,23 +420,199 @@ const BlockVisualizer = () => {
               <span>REAL-TIME</span>
             </div>
           </div>
-          
-          <div className="flex gap-2">
+          {/* ONE unified search bar for TX hash & contract address */}
+          <div className="flex items-center gap-2 ml-auto">
             <Input
-              placeholder="Search address (0x...)"
-              value={searchAddress}
-              onChange={(e) => setSearchAddress(e.target.value)}
-              className="bg-gray-900/50 border-green-900 text-green-400 placeholder-green-600"
+              className="w-[320px] text-xs font-mono border-green-900/60 bg-gray-800/80"
+              placeholder="Search TX hash or contract address…"
+              value={searchValue}
+              onChange={e => { setSearchValue(e.target.value); setSearchError(''); }}
+              onKeyDown={handleSearchInputKeyDown}
+              disabled={isSearching}
             />
-            <Button className="bg-green-600 hover:bg-green-700">
-              <Search className="h-4 w-4" />
+            <Button
+              size="sm"
+              className="bg-gradient-to-r from-green-700 to-cyan-600 text-white h-8 px-3"
+              onClick={handleSearch}
+              disabled={isSearching}
+            >
+              <Search className="w-4 h-4 mr-1" />
+              {isSearching ? "Searching..." : "Search"}
             </Button>
           </div>
         </div>
+        {/* Error messages */}
+        {!!searchError && (
+          <div className="text-xs text-red-500 mt-2 flex flex-row gap-4">
+            <span>{searchError}</span>
+          </div>
+        )}
       </div>
 
+      {/* Show result card if present (tx or contract) */}
+      {searchType === "tx" && searchResult && (
+        <div className="w-full flex justify-end mb-4 pr-2 animate-fade-in-up">
+          <Card className="border-cyan-400 bg-black/95 p-7 max-w-3xl w-full rounded-xl shadow-2xl relative min-w-[520px]">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setSearchResult(null)}
+              className="absolute right-3 top-3 text-cyan-400/70 hover:text-cyan-300 p-2 h-auto"
+            >
+              <XCircle className="h-5 w-5" />
+            </Button>
+            <div className="text-green-400 text-base font-mono space-y-3 pr-10">
+              <div className="flex flex-wrap items-center gap-3 mb-4">
+                <span className="text-green-500 font-bold text-xl">Transaction Details</span>
+                <span className="bg-cyan-800/70 border border-cyan-500 rounded-md px-3 py-1 font-mono text-cyan-200 text-base select-all break-all" title={searchResult.hash}>
+                  Hash: {searchResult.hash}
+                </span>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-10 gap-y-2 text-base">
+                <div>
+                  <span className="text-green-600">From:</span>
+                  <span className="ml-2 text-cyan-400 select-all break-all" title={searchResult.from}>
+                    {searchResult.from}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-green-600">To:</span>
+                  <span className="ml-2 text-cyan-400 select-all break-all" title={searchResult.to}>
+                    {searchResult.to || 'N/A'}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-green-600">Value:</span>
+                  <span className="ml-2 text-green-300">
+                    {formatValue(searchResult.value)}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-green-600">Gas:</span>
+                  <span className="ml-2">{parseInt(searchResult.gas, 16).toLocaleString()}</span>
+                </div>
+                <div>
+                  <span className="text-green-600">Gas Price:</span>
+                  <span className="ml-2">{searchResult.gasPrice ? parseInt(searchResult.gasPrice, 16).toLocaleString() + " wei" : "N/A"}</span>
+                </div>
+                <div>
+                  <span className="text-green-600">Nonce:</span>
+                  <span className="ml-2">{parseInt(searchResult.nonce, 16)}</span>
+                </div>
+                <div>
+                  <span className="text-green-600">Block:</span>
+                  <span className="ml-2">{searchResult.blockNumber ? parseInt(searchResult.blockNumber, 16).toLocaleString() : 'Pending'}</span>
+                </div>
+                <div>
+                  <span className="text-green-600">Index in Block:</span>
+                  <span className="ml-2">{searchResult.transactionIndex ? parseInt(searchResult.transactionIndex, 16) : "N/A"}</span>
+                </div>
+                <div>
+                  <span className="text-green-600">Type:</span>
+                  <span className="ml-2">{searchResult.type ?? 'N/A'}</span>
+                </div>
+              </div>
+              <div className="break-all text-green-600 mt-2">
+                <span>Input:</span>
+                <span className="ml-2 text-gray-300 select-all" title={searchResult.input}>
+                  {searchResult.input && searchResult.input !== "0x"
+                    ? (
+                      searchResult.input.length > 150
+                        ? searchResult.input.slice(0, 150) + "..."
+                        : searchResult.input
+                      )
+                    : "—"}
+                </span>
+              </div>
+            </div>
+          </Card>
+        </div>
+      )}
+      {searchType === "contract" && searchResult && (
+        <div className="w-full flex justify-end mb-4 pr-2 animate-fade-in-up">
+          <Card className="border-blue-400 bg-black/95 p-7 max-w-3xl w-full rounded-xl shadow-2xl relative min-w-[520px]">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setSearchResult(null)}
+              className="absolute right-3 top-3 text-blue-400/70 hover:text-cyan-300 p-2 h-auto"
+            >
+              <XCircle className="h-5 w-5" />
+            </Button>
+            <div className="text-blue-300 text-base font-mono space-y-4 pr-10">
+              <div className="flex flex-wrap items-center gap-3 mb-4">
+                <span className="text-blue-400 font-bold text-xl">Contract Details</span>
+                <span className="bg-blue-800/70 border border-blue-500 rounded-md px-3 py-1 font-mono text-blue-200 text-base select-all break-all" title={searchResult.address}>
+                  Address: {searchResult.address}
+                </span>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-10 gap-y-2 text-base">
+                <div>
+                  <span className="text-blue-700">Code Size:</span>
+                  <span className="ml-2">{(searchResult.code.length / 2 - 1).toLocaleString()} bytes</span>
+                </div>
+                <div>
+                  <span className="text-blue-700">Is Proxy:</span>
+                  <span className="ml-2">N/A</span>
+                </div>
+                <div>
+                  <span className="text-blue-700">Contract Creator:</span>
+                  <span className="ml-2 text-blue-300 select-all" title={searchResult.creator}>
+                    {searchResult.creator
+                      ? `${searchResult.creator.slice(0, 7)}...${searchResult.creator.slice(-4)}`
+                      : "N/A"}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-blue-700">Creation Txn:</span>
+                  <span className="ml-2 text-blue-300 select-all" title={searchResult.creationTransactionHash}>
+                    {searchResult.creationTransactionHash
+                      ? `${searchResult.creationTransactionHash.slice(0, 7)}...${searchResult.creationTransactionHash.slice(-4)}`
+                      : "N/A"}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-blue-700">Creation Time:</span>
+                  <span className="ml-2 text-gray-200">{formatDateTime(searchResult.creationTime)}</span>
+                </div>
+                <div>
+                  <span className="text-blue-700">First Seen:</span>
+                  <span className="ml-2 text-gray-200">{timeAgo(searchResult.firstSeen)}</span>
+                </div>
+                <div>
+                  <span className="text-blue-700">Last Seen:</span>
+                  <span className="ml-2 text-gray-200">{timeAgo(searchResult.lastSeen)}</span>
+                </div>
+                <div>
+                  <span className="text-blue-700">Transactions:</span>
+                  <span className="ml-2 text-blue-200">{searchResult.numTxs?.toLocaleString() || "—"}</span>
+                </div>
+              </div>
+              <div className="col-span-1 md:col-span-2 break-all">
+                <span className="text-blue-700">Code Preview:</span>
+                <pre className="block p-2 bg-gray-800 text-blue-200 rounded break-words max-h-44 overflow-auto mt-1 text-xs select-all">
+                  {searchResult.code.length > 220
+                    ? searchResult.code.slice(0, 220) + "..."
+                    : searchResult.code}
+                </pre>
+              </div>
+              <div className="col-span-1 md:col-span-2 break-all">
+                <span className="text-blue-700">Full Code:</span>
+                <span className="ml-2 text-gray-400 select-all" title={searchResult.code.length > 1000 ? undefined : searchResult.code}>
+                  {searchResult.code.length > 1200
+                    ? `${searchResult.code.slice(0, 150)}... (${searchResult.code.length} chars)`
+                    : searchResult.code}
+                </span>
+              </div>
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {/* The rest of the page */}
       <div className="grid grid-cols-12 gap-4 h-[calc(100vh-120px)]">
-        {/* Left Panel - Stats */}
+
+        {/* Left Panel */}
         <div className="col-span-3 space-y-4">
           {/* Network Stats */}
           <Card className="bg-gray-900/30 border-green-900/50">
@@ -188,19 +687,25 @@ const BlockVisualizer = () => {
           </Card>
         </div>
 
-        {/* Center - 3D Globe Visualization */}
+        {/* Center - 3D Globe Visualization & Details */}
         <div className="col-span-6 relative">
-          <Card className="bg-gray-900/30 border-green-900/50 h-full">
+          <Card className="bg-gray-900/30 border-green-900/50 h-full max-h-[500px] flex flex-col">
             <CardHeader className="pb-2">
               <CardTitle className="text-green-400 text-sm flex items-center gap-2">
                 <Globe className="h-4 w-4" />
                 MONAD NETWORK PULSE
               </CardTitle>
             </CardHeader>
-            <CardContent className="p-0 h-[calc(100%-60px)] relative">
-              {/* Pass recentBlocks as blocks to Globe3D */}
-              <Globe3D blocks={recentBlocks} onBlockClick={handleBlockClick} />
-
+            <CardContent className="p-0 flex-1 relative">
+              {/* --- GLOBE VISUALIZATION --- */}
+              <div
+                className="flex items-center justify-center w-full relative"
+                style={{ height: 400, maxHeight: 400 }}
+              >
+                <div className="absolute inset-0 w-full h-full pointer-events-none opacity-60">
+                  <Globe3D blocks={recentBlocks} onBlockClick={handleBlockClick} />
+                </div>
+              </div>
               {/* Overlay info */}
               <div className="absolute top-4 left-4 text-xs space-y-1">
                 <div className="text-green-400">Active Validators: <span className="text-cyan-400">99</span></div>
@@ -267,7 +772,7 @@ const BlockVisualizer = () => {
           </Card>
         </div>
 
-        {/* Right Panel - Live Activity */}
+        {/* Right Panel */}
         <div className="col-span-3 space-y-4">
           {/* Transaction Stream */}
           <Card className="bg-gray-900/30 border-green-900/50">
@@ -310,6 +815,13 @@ const BlockVisualizer = () => {
             </CardContent>
           </Card>
 
+          {/* Live Contract Deployments (NEW) */}
+          <Card className="bg-gray-900/30 border-green-900/50">
+            <CardContent>
+              <LiveContractDeployments deployments={liveDeployments} isLoading={deploymentsLoading} />
+            </CardContent>
+          </Card>
+
           {/* Performance Card */}
           <Card className="bg-gray-900/30 border-green-900/50">
             <CardHeader className="pb-2">
@@ -341,6 +853,81 @@ const BlockVisualizer = () => {
           </Card>
         </div>
       </div>
+
+      {/* ------ RADAR & NETWORK DATA SECTION BELOW THE GRID ------ */}
+      <section className="w-full flex flex-col items-center mt-10 mb-20">
+        <h2 className="text-2xl font-extrabold text-green-400 mb-1 text-center tracking-widest uppercase drop-shadow-lg">
+          MONAD CONTRACT<br className="md:hidden" /> RADAR &amp; FREQUENCY ANALYZER
+        </h2>
+        <p className="text-green-600 text-center mb-5 max-w-lg">
+          Live contract deployments visualized as sci-fi radar.<br className="sm:hidden" />
+          New contracts are shown as ships slowly approaching the center; click to view contract details and deployment info.
+        </p>
+        <div className="flex flex-col lg:flex-row w-full max-w-5xl items-center justify-center gap-6 md:gap-8 mt-2">
+          
+          {/* Radar on the left */}
+          <div className="relative flex items-center justify-center">
+            <RadarOverlay
+              recentBlocks={radarContracts}
+              onSelectBlock={handleRadarContractSelect}
+              selectedBlockHash={selectedRadarContract?.contract_address || null}
+            />
+            <div className="absolute -left-8 top-4 z-10"></div>
+          </div>
+
+          {/* Detected contracts field */}
+          <div className="w-full sm:w-56 flex-shrink-0 ml-0 sm:ml-2 flex flex-col justify-center mt-4 sm:mt-0">
+            <div className="bg-black/80 border border-green-800 rounded-xl shadow-2xl px-3 py-2 max-h-[400px] min-h-[120px] overflow-y-auto">
+              <div className="text-green-300 text-base font-bold mb-2 tracking-wide flex items-center gap-2">
+                <span>Detected</span>
+                <span className="ml-2 text-green-500 bg-green-900/60 px-2 py-0.5 rounded text-xs font-mono">{detectedContracts.length}</span>
+              </div>
+              {detectedContracts.length === 0 && (
+                <div className="text-green-800 text-xs">No contracts detected yet.<br />Click a contract on the radar.</div>
+              )}
+              <ul className="space-y-2 mt-1">
+                {detectedContracts.map((c, idx) => (
+                  <li
+                    key={c.contract_address}
+                    className={`text-xs rounded p-2 cursor-pointer border hover:border-green-400/70 ${selectedRadarContract?.contract_address === c.contract_address ? 'bg-green-900/40 border-green-300/60 text-green-200' : 'bg-green-900/10 border-green-800/70 text-green-400'} transition`}
+                    onClick={() => handleRadarContractSelect(c)}
+                  >
+                    <div className="truncate font-mono" title={c.contract_address}>
+                      <span className="text-green-400">{c.contract_address?.slice(0, 8)}…{c.contract_address?.slice(-5)}</span>
+                    </div>
+                    <div className="text-green-700 mt-1">
+                      <span>Deployed: </span>
+                      <span className="text-green-500">{c.time ? new Date(Number(c.time) * 1000).toLocaleString() : '—'}</span>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+
+          {/* Block Panel */}
+          {selectedRadarContractDetails && (
+            <div className="mt-6 lg:mt-0 -ml-0 sm:-ml-2">
+              <RadarBlockDetailPanel
+                block={{
+                  ...selectedRadarContractDetails,
+                  number: selectedRadarContractDetails.block_number,
+                  hash: selectedRadarContractDetails.contract_address,
+                  miner: selectedRadarContractDetails.creator || selectedRadarContractDetails.from,
+                  timestamp: selectedRadarContractDetails.creationTime || selectedRadarContractDetails.time,
+                  transactions: [],
+                  gasUsed: selectedRadarContractDetails.gas_used || '0x0',
+                  gasLimit: selectedRadarContractDetails.gas_limit || '0x0',
+                }}
+                waveData={miniWaveData}
+                onClose={() => setSelectedRadarContract(null)}
+                transactions={[]}
+              />
+            </div>
+          )}
+
+        </div>
+      </section>
     </div>
   );
 };

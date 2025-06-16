@@ -348,6 +348,37 @@ const AnimatedConnectionRay = ({ points, blockData, onClick, color = "#00FFFF", 
   );
 };
 
+// --- StarField Sub-component ---
+const StarField = ({ count = 300 }) => {
+  // Generate random positions for the stars just one time
+  const positions = useMemo(() => {
+    const positionsArr = [];
+    const radius = 4.5; // far behind the main globe (radius=1)
+    for (let i = 0; i < count; i++) {
+      // Spherical coordinates: random point on sphere shell
+      const theta = Math.random() * 2 * Math.PI;
+      const phi = Math.acos(2 * Math.random() - 1);
+      const r = radius + (Math.random() - 0.5) * 0.2; // Slight jitter
+      const x = r * Math.sin(phi) * Math.cos(theta);
+      const y = r * Math.sin(phi) * Math.sin(theta);
+      const z = r * Math.cos(phi);
+      positionsArr.push([x, y, z]);
+    }
+    return positionsArr;
+  }, [count]);
+
+  return (
+    <group>
+      {positions.map((pos, idx) => (
+        <mesh key={idx} position={pos}>
+          <sphereGeometry args={[0.015, 6, 6]} />
+          <meshBasicMaterial color="#fff" toneMapped={false} />
+        </mesh>
+      ))}
+    </group>
+  );
+};
+
 interface Globe3DProps {
   blocks: any[]; // Now uses blocks, not transactions
   onBlockClick: (block: any) => void;
@@ -360,6 +391,8 @@ const Globe3D = ({ blocks, onBlockClick }: Globe3DProps) => {
         camera={{ position: [0, 0, 3], fov: 75 }}
         style={{ background: 'transparent' }}
       >
+        {/* --- Add StarField before lights and the Globe --- */}
+        <StarField count={300} />
         <ambientLight intensity={0.6} />
         <pointLight position={[0, 0, 0]} intensity={3} color="#00BFFF" />
         <pointLight position={[10, 10, 10]} intensity={1.8} color="#00FFFF" />
