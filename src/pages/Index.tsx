@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { Wallet, TrendingUp, Activity, ExternalLink, Copy, CheckCircle, BarChart3, Target, Coins, X } from "lucide-react";
+import { Wallet, TrendingUp, Activity, ExternalLink, Copy, CheckCircle, BarChart3, Target, Coins, X, Box } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import WalletConnection from "@/components/WalletConnection";
 import PortfolioOverview from "@/components/PortfolioOverview";
@@ -169,6 +169,15 @@ const Index = () => {
                 <Button variant="outline" className="border-blue-500 text-blue-400 hover:bg-blue-500/10">
                   <BarChart3 className="w-4 h-4 mr-2" />
                   TX Visualizer
+                </Button>
+              </Link>
+              <Link to="/block-visualizer">
+                <Button variant="outline" className="border-green-500 text-green-400 hover:bg-green-500/10 relative">
+                  <Box className="w-4 h-4 mr-2" />
+                  Block Visualizer
+                  <Badge variant="outline" className="absolute -top-2 -right-2 text-[10px] px-1 py-0 border-green-500 text-green-400 bg-black/50">
+                    BETA
+                  </Badge>
                 </Button>
               </Link>
               {authenticated && user?.wallet?.address ? <div className="flex items-center space-x-3">
