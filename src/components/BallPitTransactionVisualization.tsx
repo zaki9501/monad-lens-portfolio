@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Card, CardContent } from "@/components/ui/card";
 import { ArrowUp, ArrowDown, Send, Download, Code, Zap } from "lucide-react";
 import Ballpit from './Ballpit';
+import { useIsMobile } from "@/hooks/use-mobile";
 
 interface Transaction {
   id: string;
@@ -28,6 +29,7 @@ const BallPitTransactionVisualization: React.FC<BallPitTransactionVisualizationP
 }) => {
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const isMobile = useIsMobile();
 
   const transactions = useMemo(() => {
     if (!data?.result?.data) return [];
@@ -159,7 +161,7 @@ const BallPitTransactionVisualization: React.FC<BallPitTransactionVisualizationP
 
   if (isLoading) {
     return (
-      <div className="h-96 flex items-center justify-center">
+      <div className="h-72 sm:h-96 flex items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-500"></div>
       </div>
     );
@@ -168,9 +170,9 @@ const BallPitTransactionVisualization: React.FC<BallPitTransactionVisualizationP
   // Show message if no transactions
   if (transactions.length === 0) {
     return (
-      <div className="h-96 flex items-center justify-center">
-        <div className={`text-center ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-          <p className="text-lg mb-2">No transactions found</p>
+      <div className="h-72 sm:h-96 flex items-center justify-center">
+        <div className={`text-center px-4 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+          <p className="text-base sm:text-lg mb-2">No transactions found</p>
           <p className="text-sm">This wallet has no transaction history to visualize</p>
         </div>
       </div>
@@ -178,10 +180,16 @@ const BallPitTransactionVisualization: React.FC<BallPitTransactionVisualizationP
   }
 
   return (
-    <div className="relative w-full h-[600px]">
+    <div className={`relative w-full ${isMobile ? 'h-[400px]' : 'h-[600px]'}`}>
       {/* Ball Pit Container */}
       <div className="absolute inset-0">
-        <div style={{position: 'relative', overflow: 'hidden', minHeight: '500px', maxHeight: '500px', width: '100%'}}>
+        <div style={{
+          position: 'relative', 
+          overflow: 'hidden', 
+          minHeight: isMobile ? '350px' : '500px', 
+          maxHeight: isMobile ? '350px' : '500px', 
+          width: '100%'
+        }}>
           <Ballpit
             count={transactions.length}
             gravity={1.8}
@@ -196,17 +204,17 @@ const BallPitTransactionVisualization: React.FC<BallPitTransactionVisualizationP
       </div>
 
       {/* Ball Pit Label Overlay */}
-      <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-10">
-        <h3 className={`text-lg font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'} bg-black/20 backdrop-blur-sm rounded px-3 py-1`}>
+      <div className="absolute top-2 sm:top-4 left-1/2 transform -translate-x-1/2 z-10 px-2">
+        <h3 className={`text-sm sm:text-lg font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'} bg-black/20 backdrop-blur-sm rounded px-2 sm:px-3 py-1 text-center`}>
           {isLoreMode ? "Mind Ball Pit" : "Transaction Ball Pit"} ({transactions.length} balls)
         </h3>
       </div>
 
       {/* Transaction Details Panel */}
       {selectedTransaction && (
-        <div className="absolute top-4 left-4 max-w-sm z-20">
+        <div className={`absolute ${isMobile ? 'top-12 left-2 right-2' : 'top-4 left-4'} ${isMobile ? 'max-w-none' : 'max-w-sm'} z-20`}>
           <Card className={`${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-gray-200'} animate-scale-in`}>
-            <CardContent className="p-6">
+            <CardContent className={`${isMobile ? 'p-4' : 'p-6'}`}>
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center space-x-3">
                   <div 
@@ -216,10 +224,10 @@ const BallPitTransactionVisualization: React.FC<BallPitTransactionVisualizationP
                     {getTypeIcon(selectedTransaction.type)}
                   </div>
                   <div>
-                    <h4 className={`font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                    <h4 className={`font-bold text-sm sm:text-base ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                       {getTypeLabel(selectedTransaction.type)}
                     </h4>
-                    <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                    <p className={`text-xs sm:text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
                       {selectedTransaction.timestamp.toLocaleString()}
                     </p>
                   </div>
@@ -232,23 +240,23 @@ const BallPitTransactionVisualization: React.FC<BallPitTransactionVisualizationP
                 </button>
               </div>
               
-              <div className="grid grid-cols-2 gap-4 text-sm">
+              <div className={`grid ${isMobile ? 'grid-cols-1 gap-2' : 'grid-cols-2 gap-4'} text-sm`}>
                 <div>
                   <span className={`${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Amount:</span>
-                  <p className={`font-mono font-bold ${isDarkMode ? 'text-gray-200' : 'text-gray-800'}`}>
+                  <p className={`font-mono font-bold text-xs sm:text-sm ${isDarkMode ? 'text-gray-200' : 'text-gray-800'}`}>
                     {selectedTransaction.amount.toFixed(4)} MON
                   </p>
                 </div>
                 <div>
                   <span className={`${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Gas Used:</span>
-                  <p className={`font-mono ${isDarkMode ? 'text-gray-200' : 'text-gray-800'}`}>
+                  <p className={`font-mono text-xs sm:text-sm ${isDarkMode ? 'text-gray-200' : 'text-gray-800'}`}>
                     {selectedTransaction.gasUsed.toFixed(4)}
                   </p>
                 </div>
-                <div className="col-span-2">
+                <div className={`${isMobile ? 'col-span-1' : 'col-span-2'}`}>
                   <span className={`${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Hash:</span>
                   <p className={`font-mono text-xs break-all ${isDarkMode ? 'text-gray-200' : 'text-gray-800'}`}>
-                    {selectedTransaction.hash}
+                    {isMobile ? selectedTransaction.hash.slice(0, 20) + '...' : selectedTransaction.hash}
                   </p>
                 </div>
               </div>
@@ -258,8 +266,8 @@ const BallPitTransactionVisualization: React.FC<BallPitTransactionVisualizationP
       )}
 
       {/* Legend */}
-      <div className="absolute bottom-16 left-1/2 transform -translate-x-1/2 z-10">
-        <div className="flex justify-center space-x-6 bg-black/20 backdrop-blur-sm rounded-lg p-3">
+      <div className={`absolute ${isMobile ? 'bottom-12' : 'bottom-16'} left-1/2 transform -translate-x-1/2 z-10 px-2`}>
+        <div className={`flex ${isMobile ? 'flex-col space-y-2' : 'justify-center space-x-6'} bg-black/20 backdrop-blur-sm rounded-lg p-3`}>
           {[
             { type: 'send', color: '#ef4444', label: isLoreMode ? 'Mind Send' : 'Sent' },
             { type: 'receive', color: '#10b981', label: isLoreMode ? 'Mind Receive' : 'Received' },
@@ -270,7 +278,7 @@ const BallPitTransactionVisualization: React.FC<BallPitTransactionVisualizationP
                 className="w-3 h-3 rounded-full"
                 style={{ backgroundColor: item.color }}
               />
-              <span className={`text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+              <span className={`text-xs sm:text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
                 {item.label}
               </span>
             </div>
@@ -279,9 +287,9 @@ const BallPitTransactionVisualization: React.FC<BallPitTransactionVisualizationP
       </div>
 
       {/* Instructions */}
-      <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 z-10">
+      <div className={`absolute ${isMobile ? 'bottom-2' : 'bottom-4'} left-1/2 transform -translate-x-1/2 z-10 px-2`}>
         <div className={`text-center text-xs ${isDarkMode ? 'text-gray-500' : 'text-gray-400'} bg-black/20 backdrop-blur-sm rounded px-3 py-1`}>
-          Click on any ball to see transaction details • 1 ball = 1 real transaction
+          {isMobile ? 'Tap balls for details' : 'Click on any ball to see transaction details • 1 ball = 1 real transaction'}
         </div>
       </div>
     </div>
