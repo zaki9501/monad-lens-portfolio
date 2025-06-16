@@ -503,7 +503,7 @@
 						"type": "string"
 					}
 				],
-				"internalType": "struct ReputationArtNFT.ArtMetadata",
+				"internalType": "struct MonaLens.ArtMetadata",
 				"name": "",
 				"type": "tuple"
 			}
