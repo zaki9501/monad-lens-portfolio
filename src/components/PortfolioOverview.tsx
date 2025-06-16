@@ -290,11 +290,9 @@ const PortfolioOverview = ({ walletAddress }: PortfolioOverviewProps) => {
             <div className="w-12 h-12 bg-gradient-to-r from-emerald-500 to-teal-500 rounded-lg flex items-center justify-center mx-auto mb-4">
               <Wallet className="w-6 h-6 text-white" />
             </div>
-            <p className="text-2xl font-bold text-emerald-400">Excellent</p>
+            <p className="text-2xl font-bold text-emerald-400">--</p>
             <p className="text-gray-400 text-sm">Wallet Health</p>
-            <div className="mt-2 bg-slate-700 rounded-full h-2 overflow-hidden">
-              <div className="bg-gradient-to-r from-emerald-500 to-teal-500 h-full w-4/5"></div>
-            </div>
+            <p className="text-emerald-400 text-xs mt-1">Coming soon</p>
           </CardContent>
         </Card>
 
@@ -329,11 +327,9 @@ const PortfolioOverview = ({ walletAddress }: PortfolioOverviewProps) => {
             <div className="w-12 h-12 bg-gradient-to-r from-yellow-500 to-orange-500 rounded-lg flex items-center justify-center mx-auto mb-4">
               <Target className="w-6 h-6 text-white" />
             </div>
-            <p className="text-2xl font-bold text-yellow-400">Low</p>
+            <p className="text-2xl font-bold text-yellow-400">--</p>
             <p className="text-gray-400 text-sm">Risk Score</p>
-            <div className="mt-2 bg-slate-700 rounded-full h-2 overflow-hidden">
-              <div className="bg-gradient-to-r from-green-500 to-yellow-500 h-full w-1/4"></div>
-            </div>
+            <p className="text-yellow-400 text-xs mt-1">Coming soon</p>
           </CardContent>
         </Card>
       </div>
