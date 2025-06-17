@@ -2,7 +2,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import Index from "./pages/Index";
 import Lending from "./pages/Lending";
 import TxVisualizer from "./pages/TxVisualizer";
@@ -21,7 +21,8 @@ const App = () => (
       <PrivyProvider appId="cmbi1huc7000rl10lp4av8plp">
         <BrowserRouter>
           <Routes>
-            <Route path="/" element={<Index />} />
+            <Route path="/" element={<Navigate to="/lending" replace />} />
+            <Route path="/portfolio" element={<Index />} />
             <Route path="/lending" element={<Lending />} />
             <Route path="/tx-visualizer" element={<TxVisualizer />} />
             <Route path="/block-visualizer" element={<BlockVisualizer />} />

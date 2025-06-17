@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -80,9 +79,11 @@ const Lending = () => {
           <div className="container mx-auto px-4 py-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-2">
-                <div className="w-8 h-8 bg-gradient-to-r from-purple-500 to-blue-500 rounded-lg flex items-center justify-center animate-pulse">
-                  <DollarSign className="w-5 h-5 text-white" />
-                </div>
+                <img 
+                  src="/lovable-uploads/85b0ee68-ba1c-4435-a606-e39e09aaf155.png" 
+                  alt="Monad Lens Logo" 
+                  className="w-8 h-8"
+                />
                 <h1 className="text-2xl font-bold text-white">Monad lens</h1>
                 <Badge variant="outline" className="border-purple-500 text-purple-300">
                   Testnet
