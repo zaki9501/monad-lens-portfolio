@@ -63,8 +63,8 @@ const Lending = () => {
   const navigate = useNavigate();
 
   const handleWalletSelect = (address: string) => {
-    // Navigate to home page with the selected wallet address as a query parameter
-    navigate(`/?wallet=${address}`);
+    // Navigate directly to portfolio page with the selected wallet address as a query parameter
+    navigate(`/portfolio?wallet=${address}`);
   };
 
   return (
