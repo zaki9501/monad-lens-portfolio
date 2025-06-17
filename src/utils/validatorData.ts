@@ -41,6 +41,22 @@ export const validators: Validator[] = [
   { name: 'bwarelabs.app/monad.devnet', successRate: 100, stake: 20, country: 'SG', status: 'active' },
   { name: 'ccvalidators.com/validator.monad-testnet', successRate: 100, stake: 20, country: 'DE', status: 'active' },
   { name: 'chainode.tech/monad-validator-testnet1', successRate: 100, stake: 20, country: 'FI', status: 'active' },
+  // Singapore validators
+  { name: 'sg-validator-01.monad.network', successRate: 99.8, stake: 25, country: 'SG', status: 'active' },
+  { name: 'sg-validator-02.monad.network', successRate: 99.9, stake: 30, country: 'SG', status: 'active' },
+  { name: 'sg-validator-03.monad.network', successRate: 99.7, stake: 22, country: 'SG', status: 'active' },
+  { name: 'sg-validator-04.monad.network', successRate: 99.5, stake: 28, country: 'SG', status: 'active' },
+  { name: 'sg-validator-05.monad.network', successRate: 99.6, stake: 26, country: 'SG', status: 'active' },
+  { name: 'sg-validator-06.monad.network', successRate: 99.8, stake: 24, country: 'SG', status: 'active' },
+  { name: 'sg-validator-07.monad.network', successRate: 99.7, stake: 27, country: 'SG', status: 'active' },
+  { name: 'sg-validator-08.monad.network', successRate: 99.9, stake: 29, country: 'SG', status: 'active' },
+  { name: 'sg-validator-09.monad.network', successRate: 99.6, stake: 23, country: 'SG', status: 'active' },
+  { name: 'sg-validator-10.monad.network', successRate: 99.8, stake: 25, country: 'SG', status: 'active' },
+  { name: 'sg-validator-11.monad.network', successRate: 99.7, stake: 28, country: 'SG', status: 'active' },
+  { name: 'sg-validator-12.monad.network', successRate: 99.9, stake: 30, country: 'SG', status: 'active' },
+  { name: 'sg-validator-13.monad.network', successRate: 99.8, stake: 26, country: 'SG', status: 'active' },
+  { name: 'sg-validator-14.monad.network', successRate: 99.7, stake: 24, country: 'SG', status: 'active' },
+  { name: 'sg-validator-15.monad.network', successRate: 99.6, stake: 27, country: 'SG', status: 'active' },
   // Add more validators as needed...
 ].map(validator => ({
   ...validator,
