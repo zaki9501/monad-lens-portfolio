@@ -96,8 +96,7 @@ const PortfolioOverview = ({ walletAddress }: PortfolioOverviewProps) => {
         try {
           const nftData = await getAccountNFTs(walletAddress, 1);
           console.log("NFT API response:", nftData);
-          const nfts = nftData?.result?.data || [];
-          setNftCount(nfts.length);
+          setNftCount(nftData?.result?.total || 0);
         } catch (nftError) {
           console.error("NFT fetch failed:", nftError);
           setNftCount(0);
