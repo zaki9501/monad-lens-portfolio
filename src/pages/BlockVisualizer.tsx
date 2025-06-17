@@ -7,8 +7,6 @@ import { Search, Globe, Zap, Activity, TrendingUp, Users, Hash, ArrowRight, Fuel
 import { ScrollArea } from "@/components/ui/scroll-area";
 import Globe3D from "@/components/Globe3D";
 import StatsWaveChart from "@/components/pulse/StatsWaveChart";
-import RadarOverlay from "@/components/RadarOverlay";
-import RadarBlockDetailPanel from "@/components/RadarBlockDetailPanel";
 import { useToast } from "@/hooks/use-toast";
 import LiveContractDeployments from "@/components/pulse/LiveContractDeployments";
 
@@ -62,20 +60,6 @@ async function fetchContractDeploymentInfo(address: string) {
   };
 }
 
-// New utility to fetch recent deployed contracts from Blockvision
-async function fetchRecentDeployedContracts(limit = 10) {
-  const url = `https://api.blockvision.org/v2/monad/contract/deployments?limit=${limit}`;
-  const res = await fetch(url, {
-    headers: {
-      "accept": "application/json",
-      "x-api-key": BLOCKVISION_API_KEY,
-    },
-  });
-  if (!res.ok) throw new Error("Failed to fetch deployed contracts");
-  const { data } = await res.json();
-  return data || [];
-}
-
 function formatDateTime(ts: string | number | null | undefined) {
   if (!ts) return "N/A";
   // Accept seconds or ms. Blockvision sends both sometimes
@@ -121,20 +105,11 @@ const BlockVisualizer = () => {
   const [transactions, setTransactions] = useState<any[]>([]);
   const [liveGlobeTransactions, setLiveGlobeTransactions] = useState<any[]>([]);
   const [selectedBlock, setSelectedBlock] = useState<any>(null);
-  const [selectedRadarBlock, setSelectedRadarBlock] = useState<any>(null);
   const [searchResult, setSearchResult] = useState<any | null>(null);
   const [searchType, setSearchType] = useState<"tx" | "contract" | null>(null);
   const [isSearching, setIsSearching] = useState(false);
   const [searchError, setSearchError] = useState('');
   const { toast } = useToast();
-  const [miniWaveData, setMiniWaveData] = useState<{ t: number; v: number }[]>([]);
-
-  // New state for radar contracts and selected contract details
-  const [radarContracts, setRadarContracts] = useState<any[]>([]);
-  const [selectedRadarContract, setSelectedRadarContract] = useState<any | null>(null);
-  const [selectedRadarContractDetails, setSelectedRadarContractDetails] = useState<any | null>(null);
-
-  const [detectedContracts, setDetectedContracts] = useState<any[]>([]); // New: detected contracts
 
   // New state for live contract deployments
   const [liveDeployments, setLiveDeployments] = useState<any[]>([]);
@@ -177,45 +152,6 @@ const BlockVisualizer = () => {
     const interval = setInterval(fetchData, 3000);
     return () => clearInterval(interval);
   }, []);
-
-  // Replace blocks on radar by recently deployed contracts
-  useEffect(() => {
-    let cancelled = false;
-    async function loadContracts() {
-      try {
-        const contracts = await fetchRecentDeployedContracts(8);
-        if (!cancelled) {
-          setRadarContracts(contracts);
-        }
-      } catch (err) {
-        // Optionally show toast or ignore
-      }
-    }
-    loadContracts();
-    const interval = setInterval(loadContracts, 4000);
-    return () => { cancelled = true; clearInterval(interval); };
-  }, []);
-
-  // When a contract is clicked on radar, load contract details from Blockvision
-  useEffect(() => {
-    if (!selectedRadarContract) {
-      setSelectedRadarContractDetails(null);
-      return;
-    }
-    let cancelled = false;
-    (async () => {
-      try {
-        const info = await fetchContractDeploymentInfo(selectedRadarContract.contract_address);
-        if (!cancelled) setSelectedRadarContractDetails({
-          ...selectedRadarContract,
-          ...info,
-        });
-      } catch {
-        setSelectedRadarContractDetails(selectedRadarContract); // fallback
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [selectedRadarContract]);
 
   // Unified search for tx hash or contract address
   const handleSearch = async () => {
@@ -326,28 +262,6 @@ const BlockVisualizer = () => {
 
   const handleBlockClick = (block: any) => {
     setSelectedBlock(block);
-  };
-
-  // Add waveData for mini chart below radar details
-  useEffect(() => {
-    // mimic wave changes for RadarBlockMiniChart
-    const interval = setInterval(() => {
-      setMiniWaveData((old) => [
-        ...old.slice(-29),
-        { t: Date.now(), v: 10 + Math.floor(Math.random() * 25 + 5 * Math.sin(Math.random() * 3.1)) },
-      ]);
-    }, 270);
-    return () => clearInterval(interval);
-  }, []);
-
-  // Update: When contract selected, add to detectedContracts if not already present
-  const handleRadarContractSelect = (contract: any) => {
-    setSelectedRadarContract(contract);
-    setDetectedContracts(prev =>
-      prev.some(c => c.contract_address === contract.contract_address)
-        ? prev
-        : [{ ...contract }, ...prev].slice(0, 12) // keep only recent 12 detected
-    );
   };
 
   // New effect: For each new currentBlock, fetch receipts and detect contract deployments
@@ -815,7 +729,7 @@ const BlockVisualizer = () => {
             </CardContent>
           </Card>
 
-          {/* Live Contract Deployments (NEW) */}
+          {/* Live Contract Deployments */}
           <Card className="bg-gray-900/30 border-green-900/50">
             <CardContent>
               <LiveContractDeployments deployments={liveDeployments} isLoading={deploymentsLoading} />
@@ -853,81 +767,6 @@ const BlockVisualizer = () => {
           </Card>
         </div>
       </div>
-
-      {/* ------ RADAR & NETWORK DATA SECTION BELOW THE GRID ------ */}
-      <section className="w-full flex flex-col items-center mt-10 mb-20">
-        <h2 className="text-2xl font-extrabold text-green-400 mb-1 text-center tracking-widest uppercase drop-shadow-lg">
-          MONAD CONTRACT<br className="md:hidden" /> RADAR &amp; FREQUENCY ANALYZER
-        </h2>
-        <p className="text-green-600 text-center mb-5 max-w-lg">
-          Live contract deployments visualized as sci-fi radar.<br className="sm:hidden" />
-          New contracts are shown as ships slowly approaching the center; click to view contract details and deployment info.
-        </p>
-        <div className="flex flex-col lg:flex-row w-full max-w-5xl items-center justify-center gap-6 md:gap-8 mt-2">
-          
-          {/* Radar on the left */}
-          <div className="relative flex items-center justify-center">
-            <RadarOverlay
-              recentBlocks={radarContracts}
-              onSelectBlock={handleRadarContractSelect}
-              selectedBlockHash={selectedRadarContract?.contract_address || null}
-            />
-            <div className="absolute -left-8 top-4 z-10"></div>
-          </div>
-
-          {/* Detected contracts field */}
-          <div className="w-full sm:w-56 flex-shrink-0 ml-0 sm:ml-2 flex flex-col justify-center mt-4 sm:mt-0">
-            <div className="bg-black/80 border border-green-800 rounded-xl shadow-2xl px-3 py-2 max-h-[400px] min-h-[120px] overflow-y-auto">
-              <div className="text-green-300 text-base font-bold mb-2 tracking-wide flex items-center gap-2">
-                <span>Detected</span>
-                <span className="ml-2 text-green-500 bg-green-900/60 px-2 py-0.5 rounded text-xs font-mono">{detectedContracts.length}</span>
-              </div>
-              {detectedContracts.length === 0 && (
-                <div className="text-green-800 text-xs">No contracts detected yet.<br />Click a contract on the radar.</div>
-              )}
-              <ul className="space-y-2 mt-1">
-                {detectedContracts.map((c, idx) => (
-                  <li
-                    key={c.contract_address}
-                    className={`text-xs rounded p-2 cursor-pointer border hover:border-green-400/70 ${selectedRadarContract?.contract_address === c.contract_address ? 'bg-green-900/40 border-green-300/60 text-green-200' : 'bg-green-900/10 border-green-800/70 text-green-400'} transition`}
-                    onClick={() => handleRadarContractSelect(c)}
-                  >
-                    <div className="truncate font-mono" title={c.contract_address}>
-                      <span className="text-green-400">{c.contract_address?.slice(0, 8)}…{c.contract_address?.slice(-5)}</span>
-                    </div>
-                    <div className="text-green-700 mt-1">
-                      <span>Deployed: </span>
-                      <span className="text-green-500">{c.time ? new Date(Number(c.time) * 1000).toLocaleString() : '—'}</span>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </div>
-
-          {/* Block Panel */}
-          {selectedRadarContractDetails && (
-            <div className="mt-6 lg:mt-0 -ml-0 sm:-ml-2">
-              <RadarBlockDetailPanel
-                block={{
-                  ...selectedRadarContractDetails,
-                  number: selectedRadarContractDetails.block_number,
-                  hash: selectedRadarContractDetails.contract_address,
-                  miner: selectedRadarContractDetails.creator || selectedRadarContractDetails.from,
-                  timestamp: selectedRadarContractDetails.creationTime || selectedRadarContractDetails.time,
-                  transactions: [],
-                  gasUsed: selectedRadarContractDetails.gas_used || '0x0',
-                  gasLimit: selectedRadarContractDetails.gas_limit || '0x0',
-                }}
-                waveData={miniWaveData}
-                onClose={() => setSelectedRadarContract(null)}
-                transactions={[]}
-              />
-            </div>
-          )}
-
-        </div>
-      </section>
     </div>
   );
 };
