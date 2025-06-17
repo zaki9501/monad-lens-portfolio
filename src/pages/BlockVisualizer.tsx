@@ -9,6 +9,7 @@ import Globe3D from "@/components/Globe3D";
 import StatsWaveChart from "@/components/pulse/StatsWaveChart";
 import { useToast } from "@/hooks/use-toast";
 import LiveContractDeployments from "@/components/pulse/LiveContractDeployments";
+import { useValidatorStream } from '@/hooks/useValidatorStream';
 
 const BLOCKVISION_API_KEY = import.meta.env.VITE_BLOCKVISION_API_KEY as string;
 
@@ -114,6 +115,7 @@ const BlockVisualizer = () => {
   // New state for live contract deployments
   const [liveDeployments, setLiveDeployments] = useState<any[]>([]);
   const [deploymentsLoading, setDeploymentsLoading] = useState(false);
+  const { validators, activeValidators, averageSuccessRate, isConnected, error } = useValidatorStream();
 
   useEffect(() => {
     const fetchData = async () => {
@@ -323,7 +325,7 @@ const BlockVisualizer = () => {
   }, [currentBlock]);
 
   return (
-    <div className="min-h-screen bg-black text-green-400 p-4 font-mono">
+    <div className="min-h-screen bg-black text-green-400 p-4 font-mono overflow-hidden">
       {/* Header */}
       <div className="border-b border-green-900/50 pb-4 mb-6">
         <div className="flex items-center justify-between">
@@ -524,10 +526,10 @@ const BlockVisualizer = () => {
       )}
 
       {/* The rest of the page */}
-      <div className="grid grid-cols-12 gap-4 h-[calc(100vh-120px)]">
+      <div className="grid grid-cols-12 gap-4 min-h-[calc(100vh-120px)] overflow-auto">
 
         {/* Left Panel */}
-        <div className="col-span-3 space-y-4">
+        <div className="col-span-3 space-y-4 h-full">
           {/* Network Stats */}
           <Card className="bg-gray-900/30 border-green-900/50">
             <CardHeader className="pb-2">
@@ -602,7 +604,7 @@ const BlockVisualizer = () => {
         </div>
 
         {/* Center - 3D Globe Visualization & Details */}
-        <div className="col-span-6 relative">
+        <div className="col-span-6 relative h-full">
           <Card className="bg-gray-900/30 border-green-900/50 h-full max-h-[500px] flex flex-col">
             <CardHeader className="pb-2">
               <CardTitle className="text-green-400 text-sm flex items-center gap-2">
@@ -622,14 +624,14 @@ const BlockVisualizer = () => {
               </div>
               {/* Overlay info */}
               <div className="absolute top-4 left-4 text-xs space-y-1">
-                <div className="text-green-400">Active Validators: <span className="text-cyan-400">99</span></div>
+                <div className="text-green-400">Active Validators: <span className="text-cyan-400">{activeValidators}</span></div>
                 <div className="text-green-400">Connections: <span className="text-cyan-400">12</span></div>
                 <div className="text-green-400">TPS: <span className="text-cyan-400">301</span></div>
               </div>
               
               <div className="absolute top-4 right-4 text-xs space-y-1">
                 <div className="text-green-400">Latency: <span className="text-cyan-400">12ms</span></div>
-                <div className="text-green-400">Health: <span className="text-green-400">98.7%</span></div>
+                <div className="text-green-400">Health: <span className="text-green-400">{averageSuccessRate.toFixed(1)}%</span></div>
                 <div className="text-green-400">Block Time: <span className="text-cyan-400">~2.5s</span></div>
               </div>
               
@@ -687,8 +689,51 @@ const BlockVisualizer = () => {
         </div>
 
         {/* Right Panel */}
-        <div className="col-span-3 space-y-4">
-          {/* Transaction Stream */}
+        <div className="col-span-3 space-y-4 h-full">
+          {/* Block Details Card */}
+          {selectedBlock && (
+            <Card className="bg-gray-900/30 border-green-900/50">
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-sm font-bold text-green-400">BLOCK DETAILS</h3>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setSelectedBlock(null)}
+                  className="text-green-600 hover:text-green-400 p-0 h-auto"
+                >
+                  <XCircle className="h-4 w-4" />
+                </Button>
+              </div>
+              <div className="text-xs space-y-1">
+                <div className="flex justify-between">
+                  <span className="text-green-600">Number:</span>
+                  <span className="text-green-400">{parseInt(selectedBlock.number, 16).toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-green-600">Hash:</span>
+                  <span className="text-green-400">{formatAddress(selectedBlock.hash)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-green-600">Time:</span>
+                  <span className="text-green-400">{new Date(parseInt(selectedBlock.timestamp, 16) * 1000).toLocaleTimeString()}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-green-600">TXs:</span>
+                  <span className="text-green-400">{selectedBlock.transactions?.length || 0}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-green-600">Gas Used:</span>
+                  <span className="text-green-400">{parseInt(selectedBlock.gasUsed, 16).toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-green-600">Miner:</span>
+                  <span className="text-green-400">{formatAddress(selectedBlock.miner)}</span>
+                </div>
+              </div>
+            </Card>
+          )}
+
+          {/* Transaction List Card */}
           <Card className="bg-gray-900/30 border-green-900/50">
             <CardHeader className="pb-2">
               <CardTitle className="text-green-400 text-sm">LIVE TRANSACTIONS</CardTitle>
@@ -729,12 +774,11 @@ const BlockVisualizer = () => {
             </CardContent>
           </Card>
 
-          {/* Live Contract Deployments */}
-          <Card className="bg-gray-900/30 border-green-900/50">
-            <CardContent>
-              <LiveContractDeployments deployments={liveDeployments} isLoading={deploymentsLoading} />
-            </CardContent>
-          </Card>
+          {/* Live Contract Deployments Card */}
+          <LiveContractDeployments
+            deployments={liveDeployments}
+            isLoading={deploymentsLoading}
+          />
 
           {/* Performance Card */}
           <Card className="bg-gray-900/30 border-green-900/50">
@@ -752,7 +796,7 @@ const BlockVisualizer = () => {
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-xs text-green-600">Active Validators</span>
-                <span className="text-sm text-green-400">142</span>
+                <span className="text-sm text-green-400">{activeValidators}</span>
               </div>
               
               <div className="border-t border-green-900/50 pt-3">
@@ -763,6 +807,56 @@ const BlockVisualizer = () => {
                   <div className="h-6 bg-cyan-400 rounded animate-pulse" style={{ animationDelay: '400ms' }}></div>
                 </div>
               </div>
+            </CardContent>
+          </Card>
+
+          {/* Validator Network Card */}
+          <Card className="bg-gray-900/30 border-green-900/50">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Users className="h-5 w-5 text-purple-400" />
+                Validator Network
+                {isConnected ? (
+                  <Badge variant="secondary" className="ml-2">Connected</Badge>
+                ) : (
+                  <Badge variant="destructive" className="ml-2">Disconnected</Badge>
+                )}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <p className="text-sm text-muted-foreground">Active Validators</p>
+                  <p className="text-2xl font-bold">{activeValidators}</p>
+                </div>
+                <div className="space-y-2">
+                  <p className="text-sm text-muted-foreground">Average Success Rate</p>
+                  <p className="text-2xl font-bold">{averageSuccessRate.toFixed(1)}%</p>
+                </div>
+                <div className="space-y-2">
+                  <p className="text-sm text-muted-foreground">Total Validators</p>
+                  <p className="text-2xl font-bold">{validators.length}</p>
+                </div>
+              </div>
+              {error && (
+                <p className="mt-4 text-sm text-red-500">{error}</p>
+              )}
+              <ScrollArea className="h-[200px] mt-4">
+                <div className="space-y-2">
+                  {validators.map((validator) => (
+                    <div key={validator.address} className="flex items-center justify-between p-2 rounded-lg bg-muted">
+                      <div className="flex items-center gap-2">
+                        <div className={`w-2 h-2 rounded-full ${validator.status === 'active' ? 'bg-green-500' : 'bg-red-500'}`} />
+                        <p className="text-sm font-mono">{validator.address.slice(0, 8)}...{validator.address.slice(-8)}</p>
+                      </div>
+                      <div className="flex items-center gap-4">
+                        <p className="text-sm">{validator.blocksProduced} blocks</p>
+                        <p className="text-sm">{validator.successRate.toFixed(1)}% success</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </ScrollArea>
             </CardContent>
           </Card>
         </div>
