@@ -1,3 +1,4 @@
+
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -21,11 +22,11 @@ const App = () => (
       <PrivyProvider appId="cmbi1huc7000rl10lp4av8plp">
         <BrowserRouter>
           <Routes>
-            <Route path="/" element={<Navigate to="/lending" replace />} />
             <Route path="/portfolio" element={<Index />} />
             <Route path="/lending" element={<Lending />} />
             <Route path="/tx-visualizer" element={<TxVisualizer />} />
             <Route path="/block-visualizer" element={<BlockVisualizer />} />
+            <Route path="/" element={<Navigate to="/lending" replace />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
