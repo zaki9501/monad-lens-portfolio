@@ -48,6 +48,7 @@ const CopyAddressButton = ({
       </Tooltip>
     </TooltipProvider>;
 };
+
 const Lending = () => {
   const {
     login,
@@ -61,16 +62,11 @@ const Lending = () => {
   } = useToast();
   const navigate = useNavigate();
 
-  // Redirect to portfolio when wallet is connected
-  useEffect(() => {
-    if (authenticated && user?.wallet?.address) {
-      navigate(`/?wallet=${user.wallet.address}`);
-    }
-  }, [authenticated, user?.wallet?.address, navigate]);
   const handleWalletSelect = (address: string) => {
     // Navigate to home page with the selected wallet address as a query parameter
     navigate(`/?wallet=${address}`);
   };
+
   return (
     <div className="min-h-screen relative">
       {/* Add the background animation */}
