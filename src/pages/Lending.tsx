@@ -1,10 +1,11 @@
+
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Wallet, TrendingUp, Shield, Zap, Users, DollarSign, Copy, Star, Check, X } from "lucide-react";
+import { Wallet, TrendingUp, Shield, Zap, Users, DollarSign, Copy, Star, Check, X, BarChart3, Box } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import SearchBar from "@/components/SearchBar";
 import { usePrivy } from "@privy-io/react-auth";
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
@@ -88,21 +89,38 @@ const Lending = () => {
                 </Badge>
               </div>
               
-              {authenticated && user?.wallet?.address ? <div className="flex items-center space-x-3">
-                  <div className="flex items-center space-x-2 bg-slate-800/50 rounded-lg px-3 py-2">
-                    <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                    <span className="text-sm text-gray-300">
-                      {user.wallet.address.slice(0, 6)}...{user.wallet.address.slice(-4)}
-                    </span>
-                    <CopyAddressButton address={user.wallet.address} />
-                  </div>
-                  <Button variant="outline" onClick={logout} className="border-red-500 text-red-400 hover:bg-red-500/10">
-                    Disconnect
+              <div className="flex items-center space-x-4">
+                <Link to="/tx-visualizer">
+                  <Button variant="outline" className="border-blue-500 text-blue-400 hover:bg-blue-500/10">
+                    <BarChart3 className="w-4 h-4 mr-2" />
+                    TX Visualizer
                   </Button>
-                </div> : <Button onClick={login} className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 animate-scale-in">
-                  <Wallet className="w-4 h-4 mr-2" />
-                  Connect Wallet
-                </Button>}
+                </Link>
+                <Link to="/block-visualizer">
+                  <Button variant="outline" className="border-green-500 text-green-400 hover:bg-green-500/10 relative">
+                    <Box className="w-4 h-4 mr-2" />
+                    Block Visualizer
+                    <Badge variant="outline" className="absolute -top-2 -right-2 text-[10px] px-1 py-0 border-green-500 text-green-400 bg-black/50">
+                      BETA
+                    </Badge>
+                  </Button>
+                </Link>
+                {authenticated && user?.wallet?.address ? <div className="flex items-center space-x-3">
+                    <div className="flex items-center space-x-2 bg-slate-800/50 rounded-lg px-3 py-2">
+                      <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                      <span className="text-sm text-gray-300">
+                        {user.wallet.address.slice(0, 6)}...{user.wallet.address.slice(-4)}
+                      </span>
+                      <CopyAddressButton address={user.wallet.address} />
+                    </div>
+                    <Button variant="outline" onClick={logout} className="border-red-500 text-red-400 hover:bg-red-500/10">
+                      Disconnect
+                    </Button>
+                  </div> : <Button onClick={login} className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 animate-scale-in">
+                    <Wallet className="w-4 h-4 mr-2" />
+                    Connect Wallet
+                  </Button>}
+              </div>
             </div>
           </div>
         </header>
