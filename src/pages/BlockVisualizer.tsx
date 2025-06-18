@@ -10,6 +10,7 @@ import StatsWaveChart from "@/components/pulse/StatsWaveChart";
 import { useToast } from "@/hooks/use-toast";
 import LiveContractDeployments from "@/components/pulse/LiveContractDeployments";
 import { useValidatorStream } from '@/hooks/useValidatorStream';
+import WorldMap from "@/components/WorldMap";
 
 const BLOCKVISION_API_KEY = import.meta.env.VITE_BLOCKVISION_API_KEY as string;
 
@@ -603,9 +604,10 @@ const BlockVisualizer = () => {
           </Card>
         </div>
 
-        {/* Center - 3D Globe Visualization & Details */}
-        <div className="col-span-6 relative h-full">
-          <Card className="bg-gray-900/30 border-green-900/50 h-full max-h-[500px] flex flex-col">
+        {/* Center - 3D Globe Visualization & World Map */}
+        <div className="col-span-6 space-y-4 h-full">
+          {/* 3D Globe Card */}
+          <Card className="bg-gray-900/30 border-green-900/50 h-[500px] flex flex-col">
             <CardHeader className="pb-2">
               <CardTitle className="text-green-400 text-sm flex items-center gap-2">
                 <Globe className="h-4 w-4" />
@@ -686,6 +688,9 @@ const BlockVisualizer = () => {
               )}
             </CardContent>
           </Card>
+
+          {/* World Map Card - positioned below the globe with proper spacing */}
+          <WorldMap />
         </div>
 
         {/* Right Panel */}
