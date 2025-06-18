@@ -1,11 +1,162 @@
-
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { validators } from '@/utils/validatorData';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
+
+// Fix for default marker icons in Leaflet with Next.js
+const DefaultIcon = L.icon({
+  iconUrl: '/images/marker-icon.png',
+  iconRetinaUrl: '/images/marker-icon-2x.png',
+  shadowUrl: '/images/marker-shadow.png',
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+  popupAnchor: [1, -34],
+  shadowSize: [41, 41]
+});
+
+L.Marker.prototype.options.icon = DefaultIcon;
+
+// Define the RayLayer type
+interface RayLayerOptions extends L.LayerOptions {
+  // Add any custom options here
+}
+
+// Custom ray layer for Leaflet
+class RayLayer extends L.Layer {
+  protected _rays: HTMLElement[];
+  protected _container: HTMLElement | null;
+
+  constructor(options?: RayLayerOptions) {
+    super(options);
+    this._rays = [];
+    this._container = null;
+  }
+
+  onAdd(map: L.Map): this {
+    this._map = map;
+    this._container = L.DomUtil.create('div', 'leaflet-ray-layer');
+    this._container.style.position = 'absolute';
+    this._container.style.pointerEvents = 'none';
+    this._container.style.zIndex = '1000';
+    map.getPanes().overlayPane.appendChild(this._container);
+    return this;
+  }
+
+  onRemove(map: L.Map): this {
+    if (this._container && map.getPanes().overlayPane) {
+      map.getPanes().overlayPane.removeChild(this._container);
+    }
+    this._container = null;
+    this._map = null;
+    return this;
+  }
+
+  createRay(latLng: L.LatLngExpression): void {
+    if (!this._map || !this._container) return;
+
+    const point = this._map.latLngToContainerPoint(latLng);
+    const ray = document.createElement('div');
+    ray.className = 'validator-ray';
+    ray.style.cssText = `
+      position: absolute;
+      left: ${point.x}px;
+      top: ${point.y}px;
+    `;
+    this._container.appendChild(ray);
+    this._rays.push(ray);
+
+    // Remove ray after animation
+    setTimeout(() => {
+      if (ray.parentNode) {
+        ray.parentNode.removeChild(ray);
+      }
+      this._rays = this._rays.filter(r => r !== ray);
+    }, 600);
+  }
+}
+
+// Add CSS for enhanced animations
+const style = document.createElement('style');
+style.textContent = `
+  @keyframes ray-animation {
+    0% {
+      transform: scaleY(0) translateY(0);
+      opacity: 0;
+    }
+    10% {
+      opacity: 1;
+    }
+    100% {
+      transform: scaleY(1) translateY(-400px);
+      opacity: 0;
+    }
+  }
+
+  @keyframes pulse-glow {
+    0% {
+      box-shadow: 0 0 5px rgba(34, 197, 94, 0.5);
+    }
+    50% {
+      box-shadow: 0 0 20px rgba(34, 197, 94, 0.8);
+    }
+    100% {
+      box-shadow: 0 0 5px rgba(34, 197, 94, 0.5);
+    }
+  }
+
+  .validator-ray {
+    position: absolute;
+    width: 4px;
+    height: 400px;
+    background: linear-gradient(to top, 
+      rgba(34, 197, 94, 0) 0%,
+      rgba(34, 197, 94, 0.2) 20%,
+      rgba(34, 197, 94, 0.8) 50%,
+      rgba(34, 197, 94, 0.2) 80%,
+      rgba(34, 197, 94, 0) 100%
+    );
+    transform-origin: bottom center;
+    filter: blur(1px);
+    box-shadow: 0 0 10px rgba(34, 197, 94, 0.5);
+    will-change: transform, opacity;
+    animation: ray-animation 0.6s cubic-bezier(0.4, 0, 0.2, 1) forwards, pulse-glow 0.6s ease-in-out;
+  }
+
+  .validator-marker {
+    transition: all 0.3s ease-out;
+  }
+
+  .validator-marker.active {
+    transform: scale(1.2);
+  }
+
+  .validator-count {
+    animation: count-pulse 0.6s ease-out;
+  }
+
+  @keyframes count-pulse {
+    0% {
+      transform: scale(1);
+    }
+    50% {
+      transform: scale(1.2);
+      color: rgb(34, 197, 94);
+    }
+    100% {
+      transform: scale(1);
+    }
+  }
+`;
+document.head.appendChild(style);
 
 const WorldMap = () => {
-  // Group validators by country for display
+  const mapRef = useRef<L.Map | null>(null);
+  const rayLayerRef = useRef<RayLayer | null>(null);
+  const markersRef = useRef<Record<string, L.Marker>>({});
+
+  // Group validators by country
   const validatorsByCountry = validators.reduce((acc, validator) => {
     if (!acc[validator.country]) {
       acc[validator.country] = [];
@@ -14,12 +165,152 @@ const WorldMap = () => {
     return acc;
   }, {} as Record<string, typeof validators>);
 
-  // Convert latitude/longitude to SVG coordinates
-  const latLngToSvg = (lat: number, lng: number) => {
-    const x = ((lng + 180) / 360) * 800;
-    const y = ((90 - lat) / 180) * 400;
-    return { x, y };
-  };
+  useEffect(() => {
+    // Initialize map
+    const map = L.map('map', {
+      center: [20, 0],
+      zoom: 2,
+      zoomControl: false,
+      attributionControl: false,
+    });
+    mapRef.current = map;
+
+    // Add dark theme tile layer
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+      maxZoom: 19,
+    }).addTo(map);
+
+    // Add custom zoom control
+    L.control.zoom({
+      position: 'bottomright'
+    }).addTo(map);
+
+    // Add custom attribution
+    L.control.attribution({
+      position: 'bottomleft',
+      prefix: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+    }).addTo(map);
+
+    // Initialize ray layer
+    const rayLayer = new RayLayer();
+    rayLayer.addTo(map);
+    rayLayerRef.current = rayLayer;
+
+    // Add custom style to the map container
+    const mapContainer = document.getElementById('map');
+    if (mapContainer) {
+      mapContainer.style.filter = 'brightness(0.8) contrast(1.2)';
+    }
+
+    // Add markers for each country
+    Object.entries(validatorsByCountry).forEach(([country, countryValidators]) => {
+      if (countryValidators.length > 0 && countryValidators[0].coordinates) {
+        const [lat, lng] = countryValidators[0].coordinates;
+        
+        // Create custom marker with pulsing effect
+        const markerHtml = `
+          <div class="relative">
+            <div class="absolute w-4 h-4 bg-green-400 rounded-full opacity-30 animate-ping"></div>
+            <div class="absolute w-2 h-2 bg-green-400 rounded-full border border-white"></div>
+            <div class="absolute -top-6 left-1/2 transform -translate-x-1/2 text-xs text-green-400 font-mono whitespace-nowrap">
+              ${countryValidators.length}
+            </div>
+          </div>
+        `;
+
+        const customIcon = L.divIcon({
+          html: markerHtml,
+          className: 'custom-marker',
+          iconSize: [20, 20],
+          iconAnchor: [10, 10]
+        });
+
+        const marker = L.marker([lat, lng], { icon: customIcon }).addTo(map);
+        markersRef.current[country] = marker;
+
+        // Add popup with validator details
+        const popupContent = `
+          <div class="p-2 bg-gray-900 text-green-400">
+            <h3 class="font-bold text-green-400">${country}</h3>
+            <p class="text-sm text-green-600">Validators: ${countryValidators.length}</p>
+            <div class="mt-2">
+              ${countryValidators.map(v => `
+                <div class="text-xs text-green-400">
+                  ${v.name}
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        `;
+
+        marker.bindPopup(popupContent);
+      }
+    });
+
+    // Simulate block production (replace with actual block production events)
+    const simulateBlockProduction = () => {
+      const countries = Object.keys(validatorsByCountry);
+      
+      // Shoot rays from 3-4 random validators simultaneously
+      const numValidators = Math.floor(Math.random() * 2) + 3; // Random number between 3 and 4
+      
+      for (let i = 0; i < numValidators; i++) {
+        const randomCountry = countries[Math.floor(Math.random() * countries.length)];
+        const validator = validatorsByCountry[randomCountry][0];
+        
+        if (validator && validator.coordinates) {
+          const [lat, lng] = validator.coordinates;
+          rayLayerRef.current?.createRay([lat, lng]);
+          
+          // Highlight the marker with enhanced effects
+          const marker = markersRef.current[randomCountry];
+          if (marker) {
+            marker.setIcon(L.divIcon({
+              html: `
+                <div class="relative validator-marker active">
+                  <div class="absolute w-10 h-10 bg-green-400 rounded-full opacity-50 animate-ping"></div>
+                  <div class="absolute w-8 h-8 bg-green-400 rounded-full border-2 border-white"></div>
+                  <div class="absolute -top-6 left-1/2 transform -translate-x-1/2 text-xs text-green-400 font-mono whitespace-nowrap validator-count">
+                    ${validatorsByCountry[randomCountry].length}
+                  </div>
+                </div>
+              `,
+              className: 'custom-marker',
+              iconSize: [20, 20],
+              iconAnchor: [10, 10]
+            }));
+
+            // Reset marker after animation
+            setTimeout(() => {
+              marker.setIcon(L.divIcon({
+                html: `
+                  <div class="relative validator-marker">
+                    <div class="absolute w-4 h-4 bg-green-400 rounded-full opacity-30 animate-ping"></div>
+                    <div class="absolute w-2 h-2 bg-green-400 rounded-full border border-white"></div>
+                    <div class="absolute -top-6 left-1/2 transform -translate-x-1/2 text-xs text-green-400 font-mono whitespace-nowrap">
+                      ${validatorsByCountry[randomCountry].length}
+                    </div>
+                  </div>
+                `,
+                className: 'custom-marker',
+                iconSize: [20, 20],
+                iconAnchor: [10, 10]
+              }));
+            }, 600);
+          }
+        }
+      }
+    };
+
+    // Simulate block production even more frequently
+    const interval = setInterval(simulateBlockProduction, 150); // Changed to 150ms (0.15 seconds)
+
+    // Cleanup on unmount
+    return () => {
+      clearInterval(interval);
+      map.remove();
+    };
+  }, []);
 
   return (
     <Card className="bg-gray-900/30 border-green-900/50">
@@ -27,128 +318,12 @@ const WorldMap = () => {
         <CardTitle className="text-green-400 text-sm">GLOBAL VALIDATOR NETWORK</CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="relative w-full h-96 bg-gradient-to-b from-blue-950/50 to-blue-900/30 rounded-lg overflow-hidden">
-          <svg
-            viewBox="0 0 800 400"
-            className="w-full h-full"
-          >
-            {/* World map paths - simplified continents with glowing green outline */}
-            <defs>
-              <filter id="glow">
-                <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
-                <feMerge> 
-                  <feMergeNode in="coloredBlur"/>
-                  <feMergeNode in="SourceGraphic"/>
-                </feMerge>
-              </filter>
-            </defs>
-            
-            {/* North America */}
-            <path
-              d="M 120 80 Q 140 70 180 80 Q 220 85 240 100 Q 250 120 245 140 Q 240 160 230 180 Q 220 200 200 210 Q 180 215 160 210 Q 140 200 130 180 Q 120 160 115 140 Q 110 120 115 100 Q 118 90 120 80 Z"
-              fill="none"
-              stroke="#00ff41"
-              strokeWidth="2"
-              filter="url(#glow)"
-              className="animate-pulse"
-            />
-            
-            {/* South America */}
-            <path
-              d="M 180 220 Q 200 215 210 235 Q 215 255 210 275 Q 205 295 195 315 Q 185 335 175 350 Q 165 340 160 320 Q 155 300 160 280 Q 165 260 170 240 Q 175 225 180 220 Z"
-              fill="none"
-              stroke="#00ff41"
-              strokeWidth="2"
-              filter="url(#glow)"
-              className="animate-pulse"
-            />
-            
-            {/* Europe */}
-            <path
-              d="M 380 80 Q 400 75 420 80 Q 440 85 450 100 Q 455 115 450 130 Q 445 145 435 155 Q 425 160 415 155 Q 405 150 395 145 Q 385 135 380 120 Q 375 105 375 90 Q 377 85 380 80 Z"
-              fill="none"
-              stroke="#00ff41"
-              strokeWidth="2"
-              filter="url(#glow)"
-              className="animate-pulse"
-            />
-            
-            {/* Africa */}
-            <path
-              d="M 370 160 Q 390 155 410 165 Q 425 175 430 195 Q 435 215 430 235 Q 425 255 415 270 Q 405 285 390 290 Q 375 285 365 270 Q 355 255 360 235 Q 365 215 370 195 Q 372 175 370 160 Z"
-              fill="none"
-              stroke="#00ff41"
-              strokeWidth="2"
-              filter="url(#glow)"
-              className="animate-pulse"
-            />
-            
-            {/* Asia */}
-            <path
-              d="M 460 70 Q 500 65 540 75 Q 580 85 610 100 Q 630 115 635 135 Q 640 155 630 170 Q 620 185 600 190 Q 580 185 560 180 Q 540 175 520 165 Q 500 155 485 140 Q 470 125 465 105 Q 462 85 460 70 Z"
-              fill="none"
-              stroke="#00ff41"
-              strokeWidth="2"
-              filter="url(#glow)"
-              className="animate-pulse"
-            />
-            
-            {/* Australia */}
-            <path
-              d="M 580 280 Q 610 275 635 285 Q 650 295 655 310 Q 650 325 635 330 Q 620 325 605 320 Q 590 315 585 300 Q 582 290 580 280 Z"
-              fill="none"
-              stroke="#00ff41"
-              strokeWidth="2"
-              filter="url(#glow)"
-              className="animate-pulse"
-            />
-
-            {/* Validator markers */}
-            {Object.entries(validatorsByCountry).map(([country, countryValidators]) => {
-              if (countryValidators.length > 0 && countryValidators[0].coordinates) {
-                const [lat, lng] = countryValidators[0].coordinates;
-                const { x, y } = latLngToSvg(lat, lng);
-                
-                return (
-                  <g key={country}>
-                    {/* Pulsing circle */}
-                    <circle
-                      cx={x}
-                      cy={y}
-                      r="8"
-                      fill="#00ff41"
-                      opacity="0.3"
-                      className="animate-ping"
-                    />
-                    {/* Main marker */}
-                    <circle
-                      cx={x}
-                      cy={y}
-                      r="4"
-                      fill="#00ff41"
-                      stroke="#ffffff"
-                      strokeWidth="1"
-                      filter="url(#glow)"
-                    />
-                    {/* Validator count */}
-                    <text
-                      x={x}
-                      y={y - 12}
-                      textAnchor="middle"
-                      className="text-xs fill-green-400 font-mono"
-                      filter="url(#glow)"
-                    >
-                      {countryValidators.length}
-                    </text>
-                  </g>
-                );
-              }
-              return null;
-            })}
-          </svg>
+        <div className="relative w-full h-[600px] bg-gradient-to-b from-blue-950/50 to-blue-900/30 rounded-lg overflow-hidden">
+          {/* Leaflet Map Container */}
+          <div id="map" className="w-full h-full" />
           
           {/* Legend */}
-          <div className="absolute bottom-4 left-4 text-xs space-y-1">
+          <div className="absolute bottom-4 left-4 text-xs space-y-1 z-[1000] bg-black/50 p-2 rounded">
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 bg-green-400 rounded-full animate-pulse"></div>
               <span className="text-green-400">Active Validators</span>
@@ -159,8 +334,8 @@ const WorldMap = () => {
           </div>
           
           {/* Stats */}
-          <div className="absolute top-4 right-4 space-y-1">
-            <Badge variant="outline" className="border-green-600 text-green-400">
+          <div className="absolute top-4 right-4 space-y-1 z-[1000]">
+            <Badge variant="outline" className="border-green-600 text-green-400 bg-black/50">
               Global Coverage: {Object.keys(validatorsByCountry).length} Countries
             </Badge>
           </div>
