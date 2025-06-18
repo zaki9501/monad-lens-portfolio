@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Search, Globe, Zap, Activity, TrendingUp, Users, Hash, ArrowRight, Fuel, XCircle } from "lucide-react";
+import { Search, Globe, Zap, Activity, Users, Hash, ArrowRight, Fuel, XCircle } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import Globe3D from "@/components/Globe3D";
 import StatsWaveChart from "@/components/pulse/StatsWaveChart";
@@ -11,6 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import LiveContractDeployments from "@/components/pulse/LiveContractDeployments";
 import { useValidatorStream } from '@/hooks/useValidatorStream';
 import WorldMap from "@/components/WorldMap";
+import NeuralNetworkPattern from "@/components/pulse/NeuralNetworkPattern";
 
 const BLOCKVISION_API_KEY = import.meta.env.VITE_BLOCKVISION_API_KEY as string;
 
@@ -602,6 +603,13 @@ const BlockVisualizer = () => {
               </div>
             </CardContent>
           </Card>
+
+          {/* Neural Network Pattern - NEW */}
+          <NeuralNetworkPattern 
+            validators={validators}
+            activeValidators={activeValidators}
+            averageSuccessRate={averageSuccessRate}
+          />
         </div>
 
         {/* Center - 3D Globe Visualization & World Map */}
