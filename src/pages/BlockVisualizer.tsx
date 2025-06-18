@@ -10,6 +10,7 @@ import StatsWaveChart from "@/components/pulse/StatsWaveChart";
 import { useToast } from "@/hooks/use-toast";
 import LiveContractDeployments from "@/components/pulse/LiveContractDeployments";
 import { useValidatorStream } from '@/hooks/useValidatorStream';
+import ValidatorWorldMap from "@/components/ValidatorWorldMap";
 
 const BLOCKVISION_API_KEY = import.meta.env.VITE_BLOCKVISION_API_KEY as string;
 
@@ -810,7 +811,7 @@ const BlockVisualizer = () => {
             </CardContent>
           </Card>
 
-          {/* Validator Network Card */}
+          {/* Validator Network Card with World Map */}
           <Card className="bg-gray-900/30 border-green-900/50">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -824,39 +825,59 @@ const BlockVisualizer = () => {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-3 gap-4">
-                <div className="space-y-2">
-                  <p className="text-sm text-muted-foreground">Active Validators</p>
-                  <p className="text-2xl font-bold">{activeValidators}</p>
+              <div className="grid grid-cols-1 gap-4">
+                {/* Stats Row */}
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="space-y-2">
+                    <p className="text-sm text-muted-foreground">Active Validators</p>
+                    <p className="text-2xl font-bold">{activeValidators}</p>
+                  </div>
+                  <div className="space-y-2">
+                    <p className="text-sm text-muted-foreground">Average Success Rate</p>
+                    <p className="text-2xl font-bold">{averageSuccessRate.toFixed(1)}%</p>
+                  </div>
+                  <div className="space-y-2">
+                    <p className="text-sm text-muted-foreground">Total Validators</p>
+                    <p className="text-2xl font-bold">{validators.length}</p>
+                  </div>
                 </div>
-                <div className="space-y-2">
-                  <p className="text-sm text-muted-foreground">Average Success Rate</p>
-                  <p className="text-2xl font-bold">{averageSuccessRate.toFixed(1)}%</p>
+
+                {/* World Map */}
+                <div className="h-48">
+                  <ValidatorWorldMap 
+                    activeValidators={activeValidators}
+                    className="h-full"
+                  />
                 </div>
-                <div className="space-y-2">
-                  <p className="text-sm text-muted-foreground">Total Validators</p>
-                  <p className="text-2xl font-bold">{validators.length}</p>
-                </div>
+
+                {/* Error Message */}
+                {error && (
+                  <p className="text-sm text-red-500">{error}</p>
+                )}
+
+                {/* Validator List */}
+                <ScrollArea className="h-[150px]">
+                  <div className="space-y-2">
+                    {validators.slice(0, 5).map((validator) => (
+                      <div key={validator.address} className="flex items-center justify-between p-2 rounded-lg bg-muted">
+                        <div className="flex items-center gap-2">
+                          <div className={`w-2 h-2 rounded-full ${validator.status === 'active' ? 'bg-green-500' : 'bg-red-500'}`} />
+                          <p className="text-sm font-mono">{validator.address.slice(0, 8)}...{validator.address.slice(-8)}</p>
+                        </div>
+                        <div className="flex items-center gap-4">
+                          <p className="text-sm">{validator.blocksProduced} blocks</p>
+                          <p className="text-sm">{validator.successRate.toFixed(1)}%</p>
+                        </div>
+                      </div>
+                    ))}
+                    {validators.length > 5 && (
+                      <div className="text-center text-sm text-muted-foreground py-2">
+                        ... and {validators.length - 5} more validators
+                      </div>
+                    )}
+                  </div>
+                </ScrollArea>
               </div>
-              {error && (
-                <p className="mt-4 text-sm text-red-500">{error}</p>
-              )}
-              <ScrollArea className="h-[200px] mt-4">
-                <div className="space-y-2">
-                  {validators.map((validator) => (
-                    <div key={validator.address} className="flex items-center justify-between p-2 rounded-lg bg-muted">
-                      <div className="flex items-center gap-2">
-                        <div className={`w-2 h-2 rounded-full ${validator.status === 'active' ? 'bg-green-500' : 'bg-red-500'}`} />
-                        <p className="text-sm font-mono">{validator.address.slice(0, 8)}...{validator.address.slice(-8)}</p>
-                      </div>
-                      <div className="flex items-center gap-4">
-                        <p className="text-sm">{validator.blocksProduced} blocks</p>
-                        <p className="text-sm">{validator.successRate.toFixed(1)}% success</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </ScrollArea>
             </CardContent>
           </Card>
         </div>
