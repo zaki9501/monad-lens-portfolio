@@ -818,8 +818,8 @@ const BlockVisualizer = () => {
           {/* Validator Network Card */}
           <Card className="bg-gray-900/30 border-green-900/50">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Users className="h-5 w-5 text-purple-400" />
+              <CardTitle className="flex items-center gap-2 text-purple-400">
+                <Users className="h-5 w-5 text-orange-400" />
                 Validator Network
                 {isConnected ? (
                   <Badge variant="secondary" className="ml-2">Connected</Badge>
@@ -830,15 +830,15 @@ const BlockVisualizer = () => {
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-3 gap-4">
-                <div className="space-y-2">
+                <div className="space-y-2 text-green-400">
                   <p className="text-sm text-muted-foreground">Active Validators</p>
                   <p className="text-2xl font-bold">{activeValidators}</p>
                 </div>
-                <div className="space-y-2">
+                <div className="space-y-2 text-green-400">
                   <p className="text-sm text-muted-foreground">Average Success Rate</p>
                   <p className="text-2xl font-bold">{averageSuccessRate.toFixed(1)}%</p>
                 </div>
-                <div className="space-y-2">
+                <div className="space-y-2 text-green-400">
                   <p className="text-sm text-muted-foreground">Total Validators</p>
                   <p className="text-2xl font-bold">{validators.length}</p>
                 </div>
