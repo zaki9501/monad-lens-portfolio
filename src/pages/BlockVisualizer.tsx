@@ -10,8 +10,6 @@ import StatsWaveChart from "@/components/pulse/StatsWaveChart";
 import { useToast } from "@/hooks/use-toast";
 import LiveContractDeployments from "@/components/pulse/LiveContractDeployments";
 import { useValidatorStream } from '@/hooks/useValidatorStream';
-import ValidatorWorldMap from "@/components/ValidatorWorldMap";
-import WorldValidatorMap from "@/components/WorldValidatorMap";
 
 const BLOCKVISION_API_KEY = import.meta.env.VITE_BLOCKVISION_API_KEY as string;
 
@@ -605,37 +603,87 @@ const BlockVisualizer = () => {
           </Card>
         </div>
 
-        {/* Center - 3D Globe and World Validator Map */}
-        <div className="col-span-6 relative h-full space-y-4">
-          {/* 3D Globe */}
-          <Card className="bg-gray-900/30 border-green-900/50 h-[400px]">
+        {/* Center - 3D Globe Visualization & Details */}
+        <div className="col-span-6 relative h-full">
+          <Card className="bg-gray-900/30 border-green-900/50 h-full max-h-[500px] flex flex-col">
             <CardHeader className="pb-2">
               <CardTitle className="text-green-400 text-sm flex items-center gap-2">
                 <Globe className="h-4 w-4" />
-                LIVE BLOCK VISUALIZATION
+                MONAD NETWORK PULSE
               </CardTitle>
             </CardHeader>
-            <CardContent className="p-4 h-[350px]">
-              <Globe3D 
-                blocks={recentBlocks}
-                onBlockClick={handleBlockClick}
-              />
-            </CardContent>
-          </Card>
+            <CardContent className="p-0 flex-1 relative">
+              {/* --- GLOBE VISUALIZATION --- */}
+              <div
+                className="flex items-center justify-center w-full relative"
+                style={{ height: 400, maxHeight: 400 }}
+              >
+                <div className="absolute inset-0 w-full h-full pointer-events-none opacity-60">
+                  <Globe3D blocks={recentBlocks} onBlockClick={handleBlockClick} />
+                </div>
+              </div>
+              {/* Overlay info */}
+              <div className="absolute top-4 left-4 text-xs space-y-1">
+                <div className="text-green-400">Active Validators: <span className="text-cyan-400">{activeValidators}</span></div>
+                <div className="text-green-400">Connections: <span className="text-cyan-400">12</span></div>
+                <div className="text-green-400">TPS: <span className="text-cyan-400">301</span></div>
+              </div>
+              
+              <div className="absolute top-4 right-4 text-xs space-y-1">
+                <div className="text-green-400">Latency: <span className="text-cyan-400">12ms</span></div>
+                <div className="text-green-400">Health: <span className="text-green-400">{averageSuccessRate.toFixed(1)}%</span></div>
+                <div className="text-green-400">Block Time: <span className="text-cyan-400">~2.5s</span></div>
+              </div>
+              
+              <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 text-center">
+                <div className="text-lg font-bold text-green-400">REAL-TIME MONITORING</div>
+                <div className="text-sm text-green-600">
+                  {transactions.length} active transactions
+                </div>
+              </div>
 
-          {/* World Validator Map */}
-          <Card className="bg-gray-900/30 border-green-900/50 h-[300px]">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-green-400 text-sm flex items-center gap-2">
-                <Globe className="h-4 w-4" />
-                GLOBAL VALIDATOR NETWORK
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-4 h-[250px]">
-              <WorldValidatorMap 
-                activeValidators={activeValidators}
-                className="h-full"
-              />
+              {/* Selected Block Details Overlay within Globe Card */}
+              {selectedBlock && (
+                <div className="absolute bottom-4 left-4 bg-gray-900/70 border border-green-900/50 rounded-lg p-4 w-64 animate-fade-in-up shadow-lg">
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className="text-sm font-bold text-green-400">BLOCK DETAILS</h3>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setSelectedBlock(null)}
+                      className="text-green-600 hover:text-green-400 p-0 h-auto"
+                    >
+                      <XCircle className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  <div className="text-xs space-y-1">
+                    <div className="flex justify-between">
+                      <span className="text-green-600">Number:</span>
+                      <span className="text-green-400">{parseInt(selectedBlock.number, 16).toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-green-600">Hash:</span>
+                      <span className="text-green-400">{formatAddress(selectedBlock.hash)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-green-600">Time:</span>
+                      <span className="text-green-400">{new Date(parseInt(selectedBlock.timestamp, 16) * 1000).toLocaleTimeString()}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-green-600">TXs:</span>
+                      <span className="text-green-400">{selectedBlock.transactions?.length || 0}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-green-600">Gas Used:</span>
+                      <span className="text-green-400">{parseInt(selectedBlock.gasUsed, 16).toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-green-600">Miner:</span>
+                      <span className="text-green-400">{formatAddress(selectedBlock.miner)}</span>
+                    </div>
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>
@@ -762,12 +810,12 @@ const BlockVisualizer = () => {
             </CardContent>
           </Card>
 
-          {/* Validator Network Stats Card */}
+          {/* Validator Network Card */}
           <Card className="bg-gray-900/30 border-green-900/50">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Users className="h-5 w-5 text-purple-400" />
-                Validator Stats
+                Validator Network
                 {isConnected ? (
                   <Badge variant="secondary" className="ml-2">Connected</Badge>
                 ) : (
@@ -776,51 +824,39 @@ const BlockVisualizer = () => {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 gap-4">
-                {/* Stats */}
-                <div className="grid grid-cols-1 gap-4">
-                  <div className="space-y-2">
-                    <p className="text-sm text-muted-foreground">Active Validators</p>
-                    <p className="text-2xl font-bold">{activeValidators}</p>
-                  </div>
-                  <div className="space-y-2">
-                    <p className="text-sm text-muted-foreground">Average Success Rate</p>
-                    <p className="text-2xl font-bold">{averageSuccessRate.toFixed(1)}%</p>
-                  </div>
-                  <div className="space-y-2">
-                    <p className="text-sm text-muted-foreground">Total Validators</p>
-                    <p className="text-2xl font-bold">{validators.length}</p>
-                  </div>
+              <div className="grid grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <p className="text-sm text-muted-foreground">Active Validators</p>
+                  <p className="text-2xl font-bold">{activeValidators}</p>
                 </div>
-
-                {/* Error Message */}
-                {error && (
-                  <p className="text-sm text-red-500">{error}</p>
-                )}
-
-                {/* Validator List */}
-                <ScrollArea className="h-[200px]">
-                  <div className="space-y-2">
-                    {validators.slice(0, 5).map((validator) => (
-                      <div key={validator.address} className="flex items-center justify-between p-2 rounded-lg bg-muted">
-                        <div className="flex items-center gap-2">
-                          <div className={`w-2 h-2 rounded-full ${validator.status === 'active' ? 'bg-green-500' : 'bg-red-500'}`} />
-                          <p className="text-xs font-mono">{validator.address.slice(0, 6)}...{validator.address.slice(-4)}</p>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <p className="text-xs">{validator.blocksProduced}</p>
-                          <p className="text-xs">{validator.successRate.toFixed(1)}%</p>
-                        </div>
-                      </div>
-                    ))}
-                    {validators.length > 5 && (
-                      <div className="text-center text-xs text-muted-foreground py-2">
-                        ... and {validators.length - 5} more validators
-                      </div>
-                    )}
-                  </div>
-                </ScrollArea>
+                <div className="space-y-2">
+                  <p className="text-sm text-muted-foreground">Average Success Rate</p>
+                  <p className="text-2xl font-bold">{averageSuccessRate.toFixed(1)}%</p>
+                </div>
+                <div className="space-y-2">
+                  <p className="text-sm text-muted-foreground">Total Validators</p>
+                  <p className="text-2xl font-bold">{validators.length}</p>
+                </div>
               </div>
+              {error && (
+                <p className="mt-4 text-sm text-red-500">{error}</p>
+              )}
+              <ScrollArea className="h-[200px] mt-4">
+                <div className="space-y-2">
+                  {validators.map((validator) => (
+                    <div key={validator.address} className="flex items-center justify-between p-2 rounded-lg bg-muted">
+                      <div className="flex items-center gap-2">
+                        <div className={`w-2 h-2 rounded-full ${validator.status === 'active' ? 'bg-green-500' : 'bg-red-500'}`} />
+                        <p className="text-sm font-mono">{validator.address.slice(0, 8)}...{validator.address.slice(-8)}</p>
+                      </div>
+                      <div className="flex items-center gap-4">
+                        <p className="text-sm">{validator.blocksProduced} blocks</p>
+                        <p className="text-sm">{validator.successRate.toFixed(1)}% success</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </ScrollArea>
             </CardContent>
           </Card>
         </div>
