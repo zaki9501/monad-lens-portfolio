@@ -12,6 +12,7 @@ import LiveContractDeployments from "@/components/pulse/LiveContractDeployments"
 import { useValidatorStream } from '@/hooks/useValidatorStream';
 import WorldMap from "@/components/WorldMap";
 import NeuralNetworkPattern from "@/components/pulse/NeuralNetworkPattern";
+import { useSSEStream } from '@/hooks/useSSEStream';
 
 const BLOCKVISION_API_KEY = import.meta.env.VITE_BLOCKVISION_API_KEY as string;
 
@@ -68,8 +69,8 @@ function formatDateTime(ts: string | number | null | undefined) {
   // Accept seconds or ms. Blockvision sends both sometimes
   const date =
     typeof ts === "number"
-      ? new Date(ts * (ts < 1e12 ? 1000 : 1))
-      : new Date(parseInt(ts) * (ts.length < 13 ? 1000 : 1));
+    ? new Date(ts * (ts < 1e12 ? 1000 : 1))
+    : new Date(parseInt(ts) * (ts.length < 13 ? 1000 : 1));
   if (isNaN(date.getTime())) return "N/A";
   return date.toLocaleString(undefined, {
     month: "short",
@@ -86,8 +87,8 @@ function timeAgo(ts: string | number | null | undefined) {
   const now = Date.now();
   const time =
     typeof ts === "number"
-      ? ts * (ts < 1e12 ? 1000 : 1)
-      : parseInt(ts) * (ts.length < 13 ? 1000 : 1);
+    ? ts * (ts < 1e12 ? 1000 : 1)
+    : parseInt(ts) * (ts.length < 13 ? 1000 : 1);
   const diff = now - time;
   if (diff < 0) return "N/A";
   const days = Math.floor(diff / 86400000);
@@ -118,12 +119,13 @@ const BlockVisualizer = () => {
   const [liveDeployments, setLiveDeployments] = useState<any[]>([]);
   const [deploymentsLoading, setDeploymentsLoading] = useState(false);
   const { validators, activeValidators, averageSuccessRate, isConnected, error } = useValidatorStream();
+  const { data: sseData, isConnected: isSSEConnected } = useSSEStream('https://early-elora-gmonad-41124f13.koyeb.app/sse');
 
   useEffect(() => {
     const fetchData = async () => {
       try {
         const block = await fetchLatestBlock();
-        setCurrentBlock(block);
+          setCurrentBlock(block);
 
         // Deduplicate and update recentBlocks based on hash (avoid repeated blocks)
         setRecentBlocks(prevBlocks => {
@@ -131,13 +133,13 @@ const BlockVisualizer = () => {
           const allBlocks = [block, ...prevBlocks.filter(b => b.hash !== block.hash)];
           // Keep only the N most recent unique blocks
           return allBlocks.slice(0, 8); // set to show 8 recent blocks (adjust as you wish)
-        });
+          });
 
-        if (block?.transactions) {
-          setTransactions(block.transactions);
+          if (block?.transactions) {
+            setTransactions(block.transactions);
           setLiveGlobeTransactions(prevTransactions => {
-            const newTransactions = block.transactions || [];
-            const uniqueNewTransactions = newTransactions.filter(
+              const newTransactions = block.transactions || [];
+              const uniqueNewTransactions = newTransactions.filter(
                 (ntx: any) => !prevTransactions.some((ptx: any) => ptx.hash === ntx.hash)
             );
             const combinedTransactions = [...prevTransactions, ...uniqueNewTransactions];
@@ -147,8 +149,8 @@ const BlockVisualizer = () => {
         }
         setIsLoading(false);
       } catch (error) {
-        console.error('Failed to fetch block data:', error);
-        setIsLoading(false);
+          console.error('Failed to fetch block data:', error);
+          setIsLoading(false);
       }
     };
 
@@ -604,12 +606,67 @@ const BlockVisualizer = () => {
             </CardContent>
           </Card>
 
-          {/* Neural Network Pattern - NEW */}
+          {/* Neural Network Pattern */}
           <NeuralNetworkPattern 
             validators={validators}
             activeValidators={activeValidators}
             averageSuccessRate={averageSuccessRate}
           />
+
+          {/* SSE Data Log */}
+          <Card className="bg-gray-900/30 border-green-900/50">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-green-400 text-sm flex items-center gap-2">
+                <Activity className="h-4 w-4" />
+                REAL-TIME VALIDATOR LOGS
+                <div className="flex items-center gap-1 text-xs font-normal text-gray-400">
+                  <Zap className="h-3 w-3" />
+                  <span>Live Data Stream</span>
+                  {isSSEConnected ? (
+                    <Badge variant="secondary" className="ml-2 bg-green-500/20 text-green-400 border-green-500/40">Connected</Badge>
+                  ) : (
+                    <Badge variant="destructive" className="ml-2">Disconnected</Badge>
+                  )}
+                </div>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-0">
+              <ScrollArea className="h-[200px]">
+                <div className="p-2 space-y-1 font-mono text-xs">
+                  {sseData.map((item, index) => {
+                    const data = item.data;
+                    return (
+                      <div 
+                        key={item.timestamp + index}
+                        className="p-2 bg-gray-800/30 rounded border border-green-900/30 animate-fade-in"
+                        style={{ animationDelay: `${index * 50}ms` }}
+                      >
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-2">
+                            <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                            <span className="text-green-400">{new Date(item.timestamp).toLocaleTimeString()}</span>
+                          </div>
+                          <span className="text-cyan-400 text-[10px] uppercase tracking-wider">{item.type}</span>
+                        </div>
+                        <div className="space-y-1 text-cyan-400">
+                          {Object.entries(data).map(([key, value]) => (
+                            <div key={key} className="flex items-start gap-2">
+                              <span className="text-green-400 min-w-[100px]">{key}:</span>
+                              <span className="break-all">
+                                {typeof value === 'object' 
+                                  ? JSON.stringify(value, null, 2)
+                                  : String(value)}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </ScrollArea>
+            </CardContent>
+          </Card>
         </div>
 
         {/* Center - 3D Globe Visualization & World Map */}
