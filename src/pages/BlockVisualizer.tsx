@@ -605,16 +605,33 @@ const BlockVisualizer = () => {
           </Card>
         </div>
 
-        {/* Center - World Validator Map */}
-        <div className="col-span-6 relative h-full">
-          <Card className="bg-gray-900/30 border-green-900/50 h-full">
+        {/* Center - 3D Globe and World Validator Map */}
+        <div className="col-span-6 relative h-full space-y-4">
+          {/* 3D Globe */}
+          <Card className="bg-gray-900/30 border-green-900/50 h-[400px]">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-green-400 text-sm flex items-center gap-2">
+                <Globe className="h-4 w-4" />
+                LIVE BLOCK VISUALIZATION
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-4 h-[350px]">
+              <Globe3D 
+                blocks={recentBlocks}
+                onBlockClick={handleBlockClick}
+              />
+            </CardContent>
+          </Card>
+
+          {/* World Validator Map */}
+          <Card className="bg-gray-900/30 border-green-900/50 h-[300px]">
             <CardHeader className="pb-2">
               <CardTitle className="text-green-400 text-sm flex items-center gap-2">
                 <Globe className="h-4 w-4" />
                 GLOBAL VALIDATOR NETWORK
               </CardTitle>
             </CardHeader>
-            <CardContent className="p-4 h-[500px]">
+            <CardContent className="p-4 h-[250px]">
               <WorldValidatorMap 
                 activeValidators={activeValidators}
                 className="h-full"
