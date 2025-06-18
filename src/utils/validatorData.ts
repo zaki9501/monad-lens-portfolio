@@ -136,6 +136,14 @@ export const validators: Validator[] = [
   coordinates: countryCoordinates[validator.country]
 }));
 
+const validatorsByCountry = validators.reduce((acc, validator) => {
+  if (!acc[validator.country]) {
+    acc[validator.country] = [];
+  }
+  acc[validator.country].push(validator);
+  return acc;
+}, {} as Record<string, Validator[]>);
+
 export const getValidatorCoordinates = (countryCode: string): [number, number] | undefined => {
   return countryCoordinates[countryCode];
 }; 

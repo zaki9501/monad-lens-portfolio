@@ -247,6 +247,59 @@ const WorldMap = () => {
       }
     });
 
+    // --- Purple pulse for author validator ---
+    const eventSource = new EventSource('https://early-elora-gmonad-41124f13.koyeb.app/sse');
+    eventSource.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        if (data.type === 'block_proposal' && data.payload?.Author) {
+          // Match validator if its name or address is a substring of Author
+          const validator = validators.find(
+            v => data.payload.Author.includes(v.name) || (v.address && data.payload.Author.includes(v.address))
+          );
+          console.log('SSE Author:', data.payload.Author, 'Matched Validator:', validator);
+          if (validator && validator.country && validator.coordinates) {
+            const marker = markersRef.current[validator.country];
+            if (marker) {
+              // Show purple pulse (same as green, but purple)
+              marker.setIcon(L.divIcon({
+                html: `
+                  <div class="relative validator-marker active">
+                    <div class="absolute w-10 h-10 bg-purple-500 rounded-full opacity-50 animate-ping"></div>
+                    <div class="absolute w-8 h-8 bg-purple-500 rounded-full border-2 border-white"></div>
+                    <div class="absolute -top-6 left-1/2 transform -translate-x-1/2 text-xs text-purple-400 font-mono whitespace-nowrap validator-count">
+                      ${validatorsByCountry[validator.country].length}
+                    </div>
+                  </div>
+                `,
+                className: 'custom-marker',
+                iconSize: [20, 20],
+                iconAnchor: [10, 10]
+              }));
+              // Reset marker after animation (back to green)
+              setTimeout(() => {
+                marker.setIcon(L.divIcon({
+                  html: `
+                    <div class="relative validator-marker">
+                      <div class="absolute w-4 h-4 bg-green-400 rounded-full opacity-30 animate-ping"></div>
+                      <div class="absolute w-2 h-2 bg-green-400 rounded-full border border-white"></div>
+                      <div class="absolute -top-6 left-1/2 transform -translate-x-1/2 text-xs text-green-400 font-mono whitespace-nowrap">
+                        ${validatorsByCountry[validator.country].length}
+                      </div>
+                    </div>
+                  `,
+                  className: 'custom-marker',
+                  iconSize: [20, 20],
+                  iconAnchor: [10, 10]
+                }));
+              }, 600);
+            }
+          }
+        }
+      } catch (e) {}
+    };
+    // --- End purple pulse logic ---
+
     // Simulate block production (replace with actual block production events)
     const simulateBlockProduction = () => {
       const countries = Object.keys(validatorsByCountry);
@@ -303,12 +356,13 @@ const WorldMap = () => {
     };
 
     // Simulate block production even more frequently
-    const interval = setInterval(simulateBlockProduction, 150); // Changed to 150ms (0.15 seconds)
+    const interval = setInterval(simulateBlockProduction, 150);
 
     // Cleanup on unmount
     return () => {
       clearInterval(interval);
       map.remove();
+      eventSource.close();
     };
   }, []);
 
@@ -327,6 +381,10 @@ const WorldMap = () => {
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 bg-green-400 rounded-full animate-pulse"></div>
               <span className="text-green-400">Active Validators</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 bg-purple-500 rounded-full animate-pulse"></div>
+              <span className="text-purple-400">Block Author</span>
             </div>
             <div className="text-green-600">
               Total: {validators.length} validators across {Object.keys(validatorsByCountry).length} regions
