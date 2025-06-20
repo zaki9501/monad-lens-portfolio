@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -63,6 +64,14 @@ const Lending = () => {
   } = useToast();
   const navigate = useNavigate();
   const [faucetOpen, setFaucetOpen] = useState(false);
+
+  // Add redirect effect after wallet connection
+  useEffect(() => {
+    if (authenticated && user?.wallet?.address) {
+      // Redirect to portfolio with wallet address after successful connection
+      navigate(`/portfolio?wallet=${user.wallet.address}`);
+    }
+  }, [authenticated, user, navigate]);
 
   const handleWalletSelect = (address: string) => {
     // Navigate directly to portfolio page with the selected wallet address as a query parameter
