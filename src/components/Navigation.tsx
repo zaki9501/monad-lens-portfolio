@@ -1,10 +1,13 @@
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Wallet, BarChart3, Eye, Box } from "lucide-react";
+import { Wallet, BarChart3, Eye, Box, Droplet } from "lucide-react";
 import { usePrivy } from "@privy-io/react-auth";
+import FaucetDialog from "./FaucetDialog";
+import React, { useState } from "react";
 
 const Navigation = () => {
   const { authenticated } = usePrivy();
+  const [faucetOpen, setFaucetOpen] = useState(false);
 
   if (!authenticated) return null;
 
@@ -51,6 +54,12 @@ const Navigation = () => {
                 Block Visualizer
               </Button>
             </Link>
+            
+            <Button variant="ghost" className="text-white hover:text-cyan-400" onClick={() => setFaucetOpen(true)}>
+              <Droplet className="w-4 h-4 mr-2" />
+              Faucet
+            </Button>
+            <FaucetDialog open={faucetOpen} onOpenChange={setFaucetOpen} />
           </div>
         </div>
       </div>

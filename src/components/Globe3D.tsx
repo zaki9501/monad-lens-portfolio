@@ -1,4 +1,4 @@
-import React, { useRef, useMemo, useState, useCallback } from 'react';
+import React, { useRef, useMemo, useState, useCallback, useEffect } from 'react';
 import { Canvas, useFrame, useLoader } from '@react-three/fiber';
 import { OrbitControls, Sphere } from '@react-three/drei';
 import * as THREE from 'three';
@@ -17,6 +17,7 @@ interface GlobeProps {
   onBlockClick: (block: any) => void;
   isRotating: boolean;
   onValidatorClick: (country: string) => void;
+  authorCountry?: string;
 }
 
 interface ValidatorMarkerProps {
@@ -24,9 +25,10 @@ interface ValidatorMarkerProps {
   successRate: number;
   country: string;
   onClick: (country: string) => void;
+  isAuthor?: boolean;
 }
 
-const Globe = ({ blocks, onBlockClick, isRotating, onValidatorClick }: GlobeProps) => {
+const Globe = ({ blocks, onBlockClick, isRotating, onValidatorClick, authorCountry }: GlobeProps) => {
   const globeRef = useRef<THREE.Mesh>(null);
   const raysRef = useRef<THREE.Group>(null);
   const validatorsGroupRef = useRef<THREE.Group>(null);
@@ -205,6 +207,7 @@ const Globe = ({ blocks, onBlockClick, isRotating, onValidatorClick }: GlobeProp
           if (!validator.coordinates) return null;
           const [lat, long] = validator.coordinates;
           const position = latLongToVector3(lat, long);
+          const isAuthor = validator.country === authorCountry;
           return (
             <ValidatorMarker
               key={validator.name}
@@ -212,6 +215,7 @@ const Globe = ({ blocks, onBlockClick, isRotating, onValidatorClick }: GlobeProp
               successRate={validator.successRate}
               country={validator.country}
               onClick={handleValidatorClick}
+              isAuthor={isAuthor}
             />
           );
         })}
@@ -460,6 +464,27 @@ const Globe3D = ({ blocks, onBlockClick }: Globe3DProps) => {
   const [isRotating] = useState(false);
   const [selectedCountry, setSelectedCountry] = useState<string | null>(null);
   const [showValidators, setShowValidators] = useState(false);
+  const [authorCountry, setAuthorCountry] = useState<string | null>(null);
+
+  // Listen for SSE and set authorCountry
+  useEffect(() => {
+    const eventSource = new EventSource('https://early-elora-gmonad-41124f13.koyeb.app/sse');
+    eventSource.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        if (data.type === 'block_proposal' && data.payload?.Author) {
+          // Match validator if its name or address is a substring of Author
+          const validator = validators.find(
+            v => data.payload.Author.includes(v.name) || (v.address && data.payload.Author.includes(v.address))
+          );
+          if (validator && validator.country) {
+            setAuthorCountry(validator.country);
+          }
+        }
+      } catch (e) {}
+    };
+    return () => eventSource.close();
+  }, []);
 
   const handleValidatorClick = (country: string) => {
     setSelectedCountry(country);
@@ -470,6 +495,7 @@ const Globe3D = ({ blocks, onBlockClick }: Globe3DProps) => {
     <div className="flex flex-col w-full h-full">
       <div className="relative flex-1">
         <Canvas>
+          <StarField count={400} />
           <ambientLight intensity={0.5} />
           <pointLight position={[10, 10, 10]} intensity={1} />
           <Globe 
@@ -477,6 +503,7 @@ const Globe3D = ({ blocks, onBlockClick }: Globe3DProps) => {
             onBlockClick={onBlockClick} 
             isRotating={isRotating}
             onValidatorClick={handleValidatorClick}
+            authorCountry={authorCountry}
           />
           <OrbitControls 
             enableZoom={true} 
@@ -535,7 +562,6 @@ const Globe3D = ({ blocks, onBlockClick }: Globe3DProps) => {
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
-                    <span>{validator.stake} MONAD</span>
                   </div>
                 </div>
               ))}
@@ -546,25 +572,27 @@ const Globe3D = ({ blocks, onBlockClick }: Globe3DProps) => {
   );
 };
 
-// Update ValidatorMarker to be more visible
-const ValidatorMarker = ({ position, successRate, country, onClick }: ValidatorMarkerProps) => {
+// Update ValidatorMarker to accept isAuthor and render purple if true
+const ValidatorMarker = ({ position, successRate, country, onClick, isAuthor }: ValidatorMarkerProps) => {
   const handleClick = (e: any) => {
     e.stopPropagation();
     onClick(country);
   };
+
+  const color = isAuthor ? "#9333EA" : "#22C55E"; // purple for author, green for others
 
   return (
     <group position={position} onClick={handleClick}>
       {/* Main marker */}
       <mesh>
         <sphereGeometry args={[0.02, 16, 16]} />
-        <meshBasicMaterial color="#9333EA" /> {/* Purple color */}
+        <meshBasicMaterial color={color} />
       </mesh>
       {/* Glow effect */}
       <mesh>
         <sphereGeometry args={[0.04, 16, 16]} />
         <meshBasicMaterial
-          color="#9333EA"
+          color={color}
           transparent
           opacity={0.3}
         />

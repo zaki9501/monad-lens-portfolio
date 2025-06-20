@@ -2,13 +2,14 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Wallet, TrendingUp, Shield, Zap, Users, DollarSign, Copy, Star, Check, X, BarChart3, Box } from "lucide-react";
+import { Wallet, TrendingUp, Shield, Zap, Users, DollarSign, Copy, Star, Check, X, BarChart3, Box, Droplet } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate, Link } from "react-router-dom";
 import SearchBar from "@/components/SearchBar";
 import { usePrivy } from "@privy-io/react-auth";
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
 import BackgroundAnimation from "@/components/BackgroundAnimation";
+import FaucetDialog from "@/components/FaucetDialog";
 
 const CopyAddressButton = ({
   address
@@ -61,6 +62,7 @@ const Lending = () => {
     toast
   } = useToast();
   const navigate = useNavigate();
+  const [faucetOpen, setFaucetOpen] = useState(false);
 
   const handleWalletSelect = (address: string) => {
     // Navigate directly to portfolio page with the selected wallet address as a query parameter
@@ -106,6 +108,11 @@ const Lending = () => {
                     </Badge>
                   </Button>
                 </Link>
+                <Button variant="outline" className="border-cyan-500 text-cyan-400 hover:bg-cyan-500/10" onClick={() => setFaucetOpen(true)}>
+                  <Droplet className="w-4 h-4 mr-2" />
+                  Faucet
+                </Button>
+                <FaucetDialog open={faucetOpen} onOpenChange={setFaucetOpen} />
                 {authenticated && user?.wallet?.address ? <div className="flex items-center space-x-3">
                     <div className="flex items-center space-x-2 bg-slate-800/50 rounded-lg px-3 py-2">
                       <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>

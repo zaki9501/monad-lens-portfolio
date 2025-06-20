@@ -13,6 +13,7 @@ import { useValidatorStream } from '@/hooks/useValidatorStream';
 import WorldMap from "@/components/WorldMap";
 import NeuralNetworkPattern from "@/components/pulse/NeuralNetworkPattern";
 import { useSSEStream } from '@/hooks/useSSEStream';
+import { Skeleton } from "@/components/ui/skeleton";
 
 const BLOCKVISION_API_KEY = import.meta.env.VITE_BLOCKVISION_API_KEY as string;
 
@@ -330,6 +331,15 @@ const BlockVisualizer = () => {
 
   return (
     <div className="min-h-screen bg-black text-green-400 p-4 font-mono overflow-hidden">
+      {/* Loading Overlay */}
+      {isLoading && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80">
+          <div className="flex flex-col items-center gap-6">
+            <Skeleton className="w-24 h-24 rounded-full bg-green-900/40 animate-pulse" />
+            <div className="text-green-400 text-xl font-bold animate-pulse">Loading Block Visualizer...</div>
+          </div>
+        </div>
+      )}
       {/* Header */}
       <div className="border-b border-green-900/50 pb-4 mb-6">
         <div className="flex items-center justify-between">
@@ -912,14 +922,14 @@ const BlockVisualizer = () => {
                 <p className="mt-4 text-sm text-red-500">{error}</p>
               )}
               <ScrollArea className="h-[200px] mt-4">
-                <div className="space-y-2">
+                <div className="space-y-2 text-blue-400">
                   {validators.map((validator) => (
-                    <div key={validator.address} className="flex items-center justify-between p-2 rounded-lg bg-muted">
-                      <div className="flex items-center gap-2">
+                    <div key={validator.address} className="flex items-center justify-between p-2 rounded-lg bg-gray-800">
+                      <div className="flex items-center gap-2 text-blue-400">
                         <div className={`w-2 h-2 rounded-full ${validator.status === 'active' ? 'bg-green-500' : 'bg-red-500'}`} />
                         <p className="text-sm font-mono">{validator.address.slice(0, 8)}...{validator.address.slice(-8)}</p>
                       </div>
-                      <div className="flex items-center gap-4">
+                      <div className="flex items-center gap-4 ">
                         <p className="text-sm">{validator.blocksProduced} blocks</p>
                         <p className="text-sm">{validator.successRate.toFixed(1)}% success</p>
                       </div>

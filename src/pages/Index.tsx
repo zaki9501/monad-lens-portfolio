@@ -16,7 +16,7 @@ import StakeInfo from "@/components/StakeInfo";
 import SearchBar from "@/components/SearchBar";
 import { usePrivy } from "@privy-io/react-auth";
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useSearchParams, useNavigate } from "react-router-dom";
 import { getAccountTokens } from "@/lib/blockvision";
 import { ethers } from "ethers";
 import LiquidStakingDerivatives from "@/components/LiquidStakingDerivatives";
@@ -105,6 +105,7 @@ const Index = () => {
     toast
   } = useToast();
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
 
   // For viewing other wallets, keep this state
   const [viewingAddress, setViewingAddress] = useState<string>("");
@@ -124,6 +125,16 @@ const Index = () => {
       setViewingAddress(user.wallet.address);
     }
   }, [authenticated, user, searchParams]);
+
+  // Add this effect for redirecting after wallet connect
+  useEffect(() => {
+    if (authenticated && user?.wallet?.address) {
+      // Only redirect if not already on /portfolio
+      if (!window.location.pathname.startsWith('/portfolio')) {
+        navigate('/portfolio?wallet=' + user.wallet.address);
+      }
+    }
+  }, [authenticated, user, navigate]);
 
   useEffect(() => {
     if (!viewingAddress) return;
